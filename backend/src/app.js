@@ -8,6 +8,10 @@ const authRoutes = require('./routes/authRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const subscriberRoutes = require('./routes/subscriberRoutes');
+const actionRoutes = require('./routes/actionRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const workingGroupRoutes = require('./routes/workingGroupRoutes');
+
 
 dotenv.config();
 
@@ -24,6 +28,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/subscribers', subscriberRoutes);
+app.use('/api/actions', actionRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/working-groups', workingGroupRoutes);
 
 // Ruta de prueba
 app.get('/api', (req, res) => {
