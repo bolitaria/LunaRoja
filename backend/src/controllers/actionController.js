@@ -5,7 +5,6 @@ exports.getAllActions = async (req, res) => {
     const { campaignId } = req.query;
     const where = {};
     if (campaignId) where.campaignId = campaignId;
-
     const actions = await Action.findAll({ where, order: [['datetime', 'DESC']] });
     res.json(actions);
   } catch (error) {

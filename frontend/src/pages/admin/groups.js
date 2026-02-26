@@ -4,9 +4,11 @@ import { withAuth } from '../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Link from 'next/link';
 
 function AdminGroups() {
   const [groups, setGroups] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     name: '',
@@ -14,6 +16,7 @@ function AdminGroups() {
     platform: 'telegram',
     link: '',
     region: '',
+    campaignId: '',
     isActive: true
   });
   const [editingId, setEditingId] = useState(null);
@@ -29,13 +32,22 @@ function AdminGroups() {
       setGroups(res.data);
     } catch (error) {
       toast.error('Error al cargar grupos');
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchCampaigns = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCampaigns(res.data);
+    } catch (error) {
+      toast.error('Error al cargar campañas');
     }
   };
 
   useEffect(() => {
-    fetchGroups();
+    Promise.all([fetchGroups(), fetchCampaigns()]).then(() => setLoading(false));
   }, []);
 
   const handleChange = (e) => {
@@ -57,7 +69,7 @@ function AdminGroups() {
         });
         toast.success('Grupo creado');
       }
-      setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', isActive: true });
+      setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', isActive: true });
       setEditingId(null);
       setShowForm(false);
       fetchGroups();
@@ -73,6 +85,7 @@ function AdminGroups() {
       platform: group.platform,
       link: group.link,
       region: group.region || '',
+      campaignId: group.campaignId || '',
       isActive: group.isActive
     });
     setEditingId(group.id);
@@ -92,11 +105,14 @@ function AdminGroups() {
     }
   };
 
+  // Mapa de campañas para mostrar el nombre
+  const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
+
   return (
     <AdminLayout title="Administrar Grupos de Trabajo">
       <ToastContainer />
       <button
-        onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', isActive: true }); }}
+        onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', isActive: true }); }}
         className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
         {showForm ? 'Cancelar' : 'Nuevo grupo'}
@@ -161,6 +177,20 @@ function AdminGroups() {
             />
           </div>
           <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Campaña asociada (opcional)</label>
+            <select
+              name="campaignId"
+              value={form.campaignId}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            >
+              <option value="">-- Ninguna --</option>
+              {campaigns.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-4">
             <label className="flex items-center">
               <input
                 type="checkbox"
@@ -188,35 +218,38 @@ function AdminGroups() {
                 <th className="px-6 py-3 text-left">Nombre</th>
                 <th className="px-6 py-3 text-left">Plataforma</th>
                 <th className="px-6 py-3 text-left">Región</th>
-                <th className="px-6 py-3 text-left">Enlace</th>
+                <th className="px-6 py-3 text-left">Campaña</th>
                 <th className="px-6 py-3 text-left">Estado</th>
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {groups.map(group => (
-                <tr key={group.id} className="border-t">
-                  <td className="px-6 py-4">{group.name}</td>
-                  <td className="px-6 py-4">
-                    {group.platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
-                  </td>
-                  <td className="px-6 py-4">{group.region || '-'}</td>
-                  <td className="px-6 py-4">
-                    <a href={group.link} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate block max-w-xs">
-                      {group.link}
-                    </a>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded text-xs ${group.isActive ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
-                      {group.isActive ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 space-x-2">
-                    <button onClick={() => handleEdit(group)} className="text-blue-600 hover:underline">Editar</button>
-                    <button onClick={() => handleDelete(group.id)} className="text-red-600 hover:underline">Eliminar</button>
-                  </td>
-                </tr>
-              ))}
+              {groups.map(group => {
+                const campaign = campaignMap[group.campaignId];
+                return (
+                  <tr key={group.id} className="border-t">
+                    <td className="px-6 py-4">{group.name}</td>
+                    <td className="px-6 py-4">
+                      {group.platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
+                    </td>
+                    <td className="px-6 py-4">{group.region || '-'}</td>
+                    <td className="px-6 py-4">
+                      {campaign ? (
+                        <span style={{ color: campaign.color }}>{campaign.name}</span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs ${group.isActive ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
+                        {group.isActive ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 space-x-2">
+                      <button onClick={() => handleEdit(group)} className="text-blue-600 hover:underline">Editar</button>
+                      <button onClick={() => handleDelete(group.id)} className="text-red-600 hover:underline">Eliminar</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

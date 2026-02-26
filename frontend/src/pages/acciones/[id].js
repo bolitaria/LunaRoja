@@ -54,7 +54,7 @@ export default function AccionDetalle() {
         {campaign && (
           <p className="mb-4">
             Campaña:{' '}
-            <Link href={`/campanas/${campaign.id}`} className="text-blue-600 hover:underline" style={{ color: campaign.color }}>
+            <Link href={`/campanas/${campaign.id}`} className="text-blue-600 hover:underline">
               {campaign.name}
             </Link>
           </p>
@@ -62,14 +62,18 @@ export default function AccionDetalle() {
         <p className="text-lg mb-6">{action.description}</p>
 
         {action.locationType === 'online' ? (
-          <a
-            href={action.onlineLink}
-            target="_blank"
-            rel="noopener"
-            className="bg-blue-600 text-white px-4 py-2 rounded inline-block hover:bg-blue-700"
-          >
-            Acceder al evento online
-          </a>
+          action.onlineLink ? (
+            <a
+              href={action.onlineLink}
+              target="_blank"
+              rel="noopener"
+              className="bg-blue-600 text-white px-4 py-2 rounded inline-block hover:bg-blue-700"
+            >
+              Acceder al evento online
+            </a>
+          ) : (
+            <p className="text-gray-500">No hay enlace disponible para este evento online.</p>
+          )
         ) : (
           <div className="bg-gray-100 p-4 rounded">
             <p><strong>Lugar:</strong> {action.placeName}</p>

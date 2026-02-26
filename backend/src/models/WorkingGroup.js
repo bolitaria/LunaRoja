@@ -31,6 +31,22 @@ const WorkingGroup = sequelize.define('WorkingGroup', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  campaignId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Campaigns',
+      key: 'id',
+    },
+  },
+  actionId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Actions',
+      key: 'id',
+    },
+  },
 }, {
   timestamps: true,
 });

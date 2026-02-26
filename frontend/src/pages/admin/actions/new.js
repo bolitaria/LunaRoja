@@ -17,8 +17,6 @@ function NewAction() {
     onlineLink: '',
     placeName: '',
     address: '',
-    latitude: '',
-    longitude: '',
     registrationLink: '',
     recordingUrl: '',
     isLive: true,
@@ -48,6 +46,11 @@ function NewAction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validar que si es presencial, la dirección sea obligatoria
+    if (form.locationType === 'presencial' && !form.address.trim()) {
+      toast.error('La dirección es obligatoria para acciones presenciales');
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -157,7 +160,7 @@ function NewAction() {
         {form.locationType === 'presencial' && (
           <>
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Nombre del lugar</label>
+              <label className="block text-gray-700 mb-2">Nombre del lugar (opcional)</label>
               <input
                 type="text"
                 name="placeName"
@@ -167,43 +170,20 @@ function NewAction() {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Dirección</label>
+              <label className="block text-gray-700 mb-2">Dirección *</label>
               <input
                 type="text"
                 name="address"
                 value={form.address}
                 onChange={handleChange}
+                required={form.locationType === 'presencial'}
                 className="w-full px-3 py-2 border rounded"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Latitud</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="latitude"
-                  value={form.latitude}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Longitud</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="longitude"
-                  value={form.longitude}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
             </div>
           </>
         )}
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Enlace de registro</label>
+          <label className="block text-gray-700 mb-2">Enlace de registro (opcional)</label>
           <input
             type="url"
             name="registrationLink"
@@ -213,7 +193,7 @@ function NewAction() {
           />
         </div>
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">URL de grabación</label>
+          <label className="block text-gray-700 mb-2">URL de grabación (opcional)</label>
           <input
             type="url"
             name="recordingUrl"
