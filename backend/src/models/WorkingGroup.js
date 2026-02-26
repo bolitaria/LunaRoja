@@ -39,14 +39,6 @@ const WorkingGroup = sequelize.define('WorkingGroup', {
       key: 'id',
     },
   },
-  actionId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'Actions',
-      key: 'id',
-    },
-  },
 }, {
   timestamps: true,
 });
