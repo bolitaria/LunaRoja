@@ -14,18 +14,59 @@ const Action = sequelize.define('Action', {
   description: {
     type: DataTypes.TEXT,
   },
-  status: {
-    type: DataTypes.ENUM('completed', 'in_progress', 'planned'),
-    defaultValue: 'planned',
+  category: {
+    type: DataTypes.ENUM(
+      'webinar',
+      'talk',
+      'protest',
+      'bds',
+      'strike',
+      'march',
+      'solidarity_action',
+      'workshop'
+    ),
+    defaultValue: 'protest',
   },
-  date: {
-    type: DataTypes.DATEONLY, // formato YYYY-MM-DD
+  datetime: {
+    type: DataTypes.DATE,
+    allowNull: false,
   },
-  imageUrl: {
-    type: DataTypes.STRING, // URL de imagen (opcional)
+  locationType: {
+    type: DataTypes.ENUM('online', 'presencial'),
+    defaultValue: 'online',
   },
-  link: {
-    type: DataTypes.STRING, // enlace externo para más info
+  onlineLink: {
+    type: DataTypes.STRING,
+  },
+  placeName: {
+    type: DataTypes.STRING,
+  },
+  address: {
+    type: DataTypes.STRING,
+  },
+  latitude: {
+    type: DataTypes.FLOAT,
+  },
+  longitude: {
+    type: DataTypes.FLOAT,
+  },
+  registrationLink: {
+    type: DataTypes.STRING,
+  },
+  recordingUrl: {
+    type: DataTypes.STRING,
+  },
+  isLive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+  campaignId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Campaigns',
+      key: 'id',
+    },
   },
 }, {
   timestamps: true,

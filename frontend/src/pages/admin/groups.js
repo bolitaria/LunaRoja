@@ -11,7 +11,9 @@ function AdminGroups() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    telegramLink: '',
+    platform: 'telegram',
+    link: '',
+    region: '',
     isActive: true
   });
   const [editingId, setEditingId] = useState(null);
@@ -55,7 +57,7 @@ function AdminGroups() {
         });
         toast.success('Grupo creado');
       }
-      setForm({ name: '', description: '', telegramLink: '', isActive: true });
+      setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', isActive: true });
       setEditingId(null);
       setShowForm(false);
       fetchGroups();
@@ -68,7 +70,9 @@ function AdminGroups() {
     setForm({
       name: group.name,
       description: group.description || '',
-      telegramLink: group.telegramLink,
+      platform: group.platform,
+      link: group.link,
+      region: group.region || '',
       isActive: group.isActive
     });
     setEditingId(group.id);
@@ -92,7 +96,7 @@ function AdminGroups() {
     <AdminLayout title="Administrar Grupos de Trabajo">
       <ToastContainer />
       <button
-        onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', telegramLink: '', isActive: true }); }}
+        onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', isActive: true }); }}
         className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
         {showForm ? 'Cancelar' : 'Nuevo grupo'}
@@ -122,14 +126,37 @@ function AdminGroups() {
             />
           </div>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Enlace de Telegram *</label>
+            <label className="block text-gray-700 mb-2">Plataforma *</label>
+            <select
+              name="platform"
+              value={form.platform}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            >
+              <option value="telegram">Telegram</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Enlace *</label>
             <input
               type="url"
-              name="telegramLink"
-              value={form.telegramLink}
+              name="link"
+              value={form.link}
               onChange={handleChange}
               required
-              placeholder="https://t.me/tu_grupo"
+              placeholder="https://t.me/... o https://chat.whatsapp.com/..."
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Área geográfica (opcional)</label>
+            <input
+              type="text"
+              name="region"
+              value={form.region}
+              onChange={handleChange}
+              placeholder="Ej: Nacional, Europa, América Latina"
               className="w-full px-3 py-2 border rounded"
             />
           </div>
@@ -159,7 +186,9 @@ function AdminGroups() {
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-6 py-3 text-left">Nombre</th>
-                <th className="px-6 py-3 text-left">Enlace Telegram</th>
+                <th className="px-6 py-3 text-left">Plataforma</th>
+                <th className="px-6 py-3 text-left">Región</th>
+                <th className="px-6 py-3 text-left">Enlace</th>
                 <th className="px-6 py-3 text-left">Estado</th>
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
@@ -169,8 +198,12 @@ function AdminGroups() {
                 <tr key={group.id} className="border-t">
                   <td className="px-6 py-4">{group.name}</td>
                   <td className="px-6 py-4">
-                    <a href={group.telegramLink} target="_blank" rel="noopener" className="text-blue-600 hover:underline">
-                      {group.telegramLink}
+                    {group.platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
+                  </td>
+                  <td className="px-6 py-4">{group.region || '-'}</td>
+                  <td className="px-6 py-4">
+                    <a href={group.link} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate block max-w-xs">
+                      {group.link}
                     </a>
                   </td>
                   <td className="px-6 py-4">

@@ -5,15 +5,17 @@ import { useRouter } from 'next/router';
 export default function AdminLayout({ children, title = 'Panel Admin' }) {
   const { user, logout } = useAuth();
   const router = useRouter();
+
   const menu = [
     { name: 'Dashboard', path: '/admin' },
     { name: 'Videos', path: '/admin/videos' },
     { name: 'Reportes', path: '/admin/reports' },
-    { name: 'Acciones', path: '/admin/actions' },        // nuevo
-    { name: 'Eventos', path: '/admin/events' },          // nuevo
-    { name: 'Grupos', path: '/admin/groups' },           // nuevo
+    { name: 'Campañas', path: '/admin/campaigns' },
+    { name: 'Acciones', path: '/admin/actions' },
+    { name: 'Grupos', path: '/admin/groups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
-    ];
+  ];
+
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-red-700 text-white shadow-lg">

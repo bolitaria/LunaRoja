@@ -10,8 +10,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./database/postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data      # Volumen con nombre para persistencia
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - lunaroja_net
 
   pgadmin:
     image: dpage/pgadmin4
@@ -24,6 +26,8 @@ services:
       - "5050:80"
     depends_on:
       - postgres
+    networks:
+      - lunaroja_net
 
   backend:
     build: ./backend
@@ -42,6 +46,9 @@ services:
       JWT_SECRET: supersecretkey
     depends_on:
       - postgres
+    networks:
+      - lunaroja_net
+
   frontend:
     build: ./frontend
     container_name: lunaroja_frontend
@@ -52,3 +59,15 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:5000/api
     depends_on:
       - backend
+    networks:
+      - lunaroja_net
+
+# Definición de volúmenes
+volumes:
+  postgres_data:
+    name: lunaroja_postgres_data   # Nombre explícito (opcional)
+
+# Red para comunicación entre contenedores
+networks:
+  lunaroja_net:
+    driver: bridge

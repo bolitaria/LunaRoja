@@ -15,8 +15,8 @@ export default function Layout({ children, title = 'LunaRoja' }) {
           <div className="space-x-6">
             <Link href="/videos" className="hover:text-red-700">Videos</Link>
             <Link href="/reports" className="hover:text-red-700">Reportes</Link>
+            <Link href="/campanas" className="hover:text-red-700">Campañas</Link>
             <Link href="/acciones" className="hover:text-red-700">Acciones</Link>
-            <Link href="/webinars" className="hover:text-red-700">Webinars</Link>
             <Link href="/grupos" className="hover:text-red-700">Grupos</Link>
             <Link href="/about" className="hover:text-red-700">Acerca de</Link>
             <Link href="/contact" className="hover:text-red-700">Contacto</Link>

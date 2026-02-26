@@ -9,11 +9,8 @@ const {
 const authMiddleware = require('../middlewares/auth');
 const router = express.Router();
 
-// Rutas públicas
 router.get('/', getAllActions);
 router.get('/:id', getActionById);
-
-// Rutas protegidas (admin)
 router.post('/', authMiddleware, createAction);
 router.put('/:id', authMiddleware, updateAction);
 router.delete('/:id', authMiddleware, deleteAction);

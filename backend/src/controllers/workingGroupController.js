@@ -1,9 +1,12 @@
 const WorkingGroup = require('../models/WorkingGroup');
+const classifyRegion = require('../utils/regionClassifier');
 
-// GET /api/working-groups (público) - solo activos
 exports.getAllGroups = async (req, res) => {
   try {
-    const groups = await WorkingGroup.findAll({ where: { isActive: true } });
+    const groups = await WorkingGroup.findAll({ 
+      where: { isActive: true },
+      order: [['regionCategory', 'ASC'], ['name', 'ASC']]
+    });
     res.json(groups);
   } catch (error) {
     console.error(error);
@@ -11,7 +14,6 @@ exports.getAllGroups = async (req, res) => {
   }
 };
 
-// GET /api/working-groups/:id
 exports.getGroupById = async (req, res) => {
   try {
     const group = await WorkingGroup.findByPk(req.params.id);
@@ -23,14 +25,26 @@ exports.getGroupById = async (req, res) => {
   }
 };
 
-// POST /api/working-groups (admin)
 exports.createGroup = async (req, res) => {
   try {
-    const { name, description, telegramLink } = req.body;
-    if (!name || !telegramLink) {
-      return res.status(400).json({ message: 'Nombre y enlace de Telegram son requeridos' });
+    let { name, description, platform, link, region } = req.body;
+    if (!name || !link) {
+      return res.status(400).json({ message: 'Nombre y enlace son requeridos' });
     }
-    const group = await WorkingGroup.create({ name, description, telegramLink });
+    if (description === '') description = null;
+    if (region === '') region = null;
+
+    const regionCategory = classifyRegion(region);
+
+    const group = await WorkingGroup.create({ 
+      name, 
+      description, 
+      platform: platform || 'telegram', 
+      link, 
+      region,
+      regionCategory,
+      isActive: true
+    });
     res.status(201).json(group);
   } catch (error) {
     console.error(error);
@@ -43,8 +57,21 @@ exports.updateGroup = async (req, res) => {
     const group = await WorkingGroup.findByPk(req.params.id);
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
-    const { name, description, telegramLink, isActive } = req.body;
-    await group.update({ name, description, telegramLink, isActive });
+    let { name, description, platform, link, region, isActive } = req.body;
+    if (description === '') description = null;
+    if (region === '') region = null;
+
+    const regionCategory = classifyRegion(region);
+
+    await group.update({ 
+      name, 
+      description, 
+      platform, 
+      link, 
+      region, 
+      regionCategory,
+      isActive 
+    });
     res.json(group);
   } catch (error) {
     console.error(error);

@@ -14,9 +14,18 @@ const WorkingGroup = sequelize.define('WorkingGroup', {
   description: {
     type: DataTypes.TEXT,
   },
-  telegramLink: {
-    type: DataTypes.STRING, // enlace de invitación al grupo
+  platform: {
+    type: DataTypes.ENUM('telegram', 'whatsapp'),
+    defaultValue: 'telegram',
     allowNull: false,
+  },
+  link: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  region: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
   isActive: {
     type: DataTypes.BOOLEAN,
