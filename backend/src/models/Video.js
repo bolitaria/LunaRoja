@@ -22,11 +22,31 @@ const Video = sequelize.define('Video', {
     },
   },
   thumbnail: {
-    type: DataTypes.STRING, // URL opcional
+    type: DataTypes.STRING,
   },
   publishedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
+  },
+  isNews: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  campaignId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Campaigns',
+      key: 'id',
+    },
+  },
+  actionId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Actions',
+      key: 'id',
+    },
   },
 }, {
   timestamps: true,

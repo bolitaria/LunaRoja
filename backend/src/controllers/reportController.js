@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Obtener todos los reportes (público)
-const getAllReports = async (req, res) => {
+exports.getAllReports = async (req, res) => {
   try {
     const reports = await Report.findAll({ order: [['publishedAt', 'DESC']] });
     res.json(reports);
@@ -14,7 +14,7 @@ const getAllReports = async (req, res) => {
 };
 
 // Obtener un reporte por ID (público)
-const getReportById = async (req, res) => {
+exports.getReportById = async (req, res) => {
   try {
     const report = await Report.findByPk(req.params.id);
     if (!report) {
@@ -28,7 +28,7 @@ const getReportById = async (req, res) => {
 };
 
 // Crear un nuevo reporte (admin) con subida de archivo
-const createReport = async (req, res) => {
+exports.createReport = async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title) {
@@ -49,7 +49,7 @@ const createReport = async (req, res) => {
 };
 
 // Actualizar un reporte (admin)
-const updateReport = async (req, res) => {
+exports.updateReport = async (req, res) => {
   try {
     const report = await Report.findByPk(req.params.id);
     if (!report) {
@@ -61,6 +61,7 @@ const updateReport = async (req, res) => {
 
     // Si se sube un nuevo archivo, eliminar el anterior y actualizar URL
     if (req.file) {
+      // Eliminar archivo anterior si existe
       if (report.fileUrl) {
         const oldPath = path.join(__dirname, '../../uploads/reports', path.basename(report.fileUrl));
         fs.unlink(oldPath, (err) => {
@@ -79,7 +80,7 @@ const updateReport = async (req, res) => {
 };
 
 // Eliminar un reporte (admin)
-const deleteReport = async (req, res) => {
+exports.deleteReport = async (req, res) => {
   try {
     const report = await Report.findByPk(req.params.id);
     if (!report) {
@@ -100,12 +101,4 @@ const deleteReport = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Error al eliminar reporte' });
   }
-};
-
-module.exports = {
-  getAllReports,
-  getReportById,
-  createReport,
-  updateReport,
-  deleteReport,
 };

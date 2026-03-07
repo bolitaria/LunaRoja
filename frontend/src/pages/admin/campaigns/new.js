@@ -10,7 +10,7 @@ function NewCampaign() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    color: '#ff0000' // color por defecto
+    color: '#ff0000'
   });
   const [loading, setLoading] = useState(false);
 

@@ -16,14 +16,8 @@ const Action = sequelize.define('Action', {
   },
   category: {
     type: DataTypes.ENUM(
-      'webinar',
-      'talk',
-      'protest',
-      'bds',
-      'strike',
-      'march',
-      'solidarity_action',
-      'workshop'
+      'webinar', 'talk', 'protest', 'bds', 'strike', 'march',
+      'solidarity_action', 'workshop'
     ),
     defaultValue: 'protest',
   },

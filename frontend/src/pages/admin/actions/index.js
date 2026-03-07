@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import AdminLayout from '../../components/AdminLayout';
-import { withAuth } from '../../lib/auth';
+import AdminLayout from '../../../components/AdminLayout';
+import { withAuth } from '../../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
 
 function AdminActions() {
@@ -53,17 +52,11 @@ function AdminActions() {
   };
 
   const categoryLabels = {
-    webinar: 'Webinar',
-    talk: 'Charla',
-    protest: 'Manifestación',
-    bds: 'Acción BDS',
-    strike: 'Huelga',
-    march: 'Marcha',
-    solidarity_action: 'Acción Solidaria',
-    workshop: 'Taller'
+    webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
+    bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha',
+    solidarity_action: 'Acción Solidaria', workshop: 'Taller'
   };
 
-  // Mapa de campañas por id
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
 
   return (
@@ -84,6 +77,7 @@ function AdminActions() {
           <table className="min-w-full">
             <thead className="bg-gray-100">
               <tr>
+                <th className="px-6 py-3 text-left">Imagen</th>
                 <th className="px-6 py-3 text-left">Título</th>
                 <th className="px-6 py-3 text-left">Categoría</th>
                 <th className="px-6 py-3 text-left">Fecha/Hora</th>
@@ -101,6 +95,16 @@ function AdminActions() {
                 const campaign = campaignMap[action.campaignId];
                 return (
                   <tr key={action.id} className="border-t">
+                    <td className="px-6 py-4">
+                      {action.images && action.images.length > 0 ? (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`}
+                          alt={action.title}
+                          className="h-10 w-10 object-cover rounded"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : '-'}
+                    </td>
                     <td className="px-6 py-4">{action.title}</td>
                     <td className="px-6 py-4">{categoryLabels[action.category]}</td>
                     <td className="px-6 py-4">{actionDate.toLocaleString()}</td>

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 
-// Función auxiliar para obtener fecha local en formato YYYY-MM-DD
 const getLocalDateStr = (date) => {
   const d = new Date(date);
   const year = d.getFullYear();
@@ -38,12 +37,10 @@ export default function Campanas() {
     fetchData();
   }, []);
 
-  // Mapa de campañas por id
   const campaignMap = useMemo(() => {
     return campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
   }, [campaigns]);
 
-  // Agrupar acciones por fecha local
   const actionsByDate = useMemo(() => {
     const map = new Map();
     actions.forEach(action => {
@@ -54,7 +51,6 @@ export default function Campanas() {
     return map;
   }, [actions]);
 
-  // Obtener todas las acciones del día futuro más cercano (usando fecha local)
   const nextActions = useMemo(() => {
     const now = new Date();
     const futureActions = actions.filter(a => new Date(a.datetime) > now);
@@ -64,7 +60,6 @@ export default function Campanas() {
     return sorted.filter(a => getLocalDateStr(a.datetime) === nextDateStr);
   }, [actions]);
 
-  // Contenido del calendario: círculos de colores de campañas
   const tileContent = ({ date, view }) => {
     if (view !== 'month') return null;
     const dateStr = getLocalDateStr(date);
@@ -105,7 +100,6 @@ export default function Campanas() {
         <h1 className="text-4xl font-bold mb-8 text-center">Campañas</h1>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Columna izquierda: Calendario y próximas acciones */}
           <div className="lg:w-1/3">
             <div className="bg-white rounded-xl shadow-lg p-6 sticky top-4">
               <h2 className="text-2xl font-semibold mb-4">Calendario</h2>
@@ -153,7 +147,6 @@ export default function Campanas() {
             </div>
           </div>
 
-          {/* Columna derecha: Listado de campañas */}
           <div className="lg:w-2/3">
             <h2 className="text-2xl font-semibold mb-4">Todas las campañas</h2>
             {loading ? (

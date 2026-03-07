@@ -13,6 +13,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Grupos', path: '/admin/groups' },
+    { name: 'Imágenes', path: '/admin/images' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
   ];
 

@@ -42,7 +42,7 @@ export default function ActionCard({ action, type }) {
         {action.locationType === 'online' ? (
           <p className="text-sm text-blue-600"> 💻 Online</p>
         ) : (
-          <p className="text-sm text-gray-600"> 💻 {action.placeName || 'Presencial'}</p>
+          <p className="text-sm text-gray-600"> 📍 {action.placeName || 'Presencial'}</p>
         )}
         {type === 'past' && action.recordingUrl && (
           <span className="inline-block mt-2 text-gray-500 text-sm">Grabación disponible</span>

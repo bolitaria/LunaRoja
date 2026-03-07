@@ -1,9 +1,19 @@
 const Video = require('../models/Video');
+const { Op } = require('sequelize');
 
-// Obtener todos los videos (público)
-const getAllVideos = async (req, res) => {
+exports.getAllVideos = async (req, res) => {
   try {
-    const videos = await Video.findAll({ order: [['publishedAt', 'DESC']] });
+    const { campaignId, actionId, isNews } = req.query;
+    const where = {};
+
+    if (campaignId) where.campaignId = campaignId;
+    if (actionId) where.actionId = actionId;
+    if (isNews !== undefined) where.isNews = isNews === 'true';
+
+    const videos = await Video.findAll({
+      where,
+      order: [['publishedAt', 'DESC']]
+    });
     res.json(videos);
   } catch (error) {
     console.error(error);
@@ -11,13 +21,10 @@ const getAllVideos = async (req, res) => {
   }
 };
 
-// Obtener un video por ID (público)
-const getVideoById = async (req, res) => {
+exports.getVideoById = async (req, res) => {
   try {
     const video = await Video.findByPk(req.params.id);
-    if (!video) {
-      return res.status(404).json({ message: 'Video no encontrado' });
-    }
+    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
     res.json(video);
   } catch (error) {
     console.error(error);
@@ -25,15 +32,22 @@ const getVideoById = async (req, res) => {
   }
 };
 
-// Crear un nuevo video (admin)
-const createVideo = async (req, res) => {
+exports.createVideo = async (req, res) => {
   try {
-    const { title, description, youtubeUrl, thumbnail } = req.body;
+    const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
     if (!title || !youtubeUrl) {
       return res.status(400).json({ message: 'Título y URL de YouTube son requeridos' });
     }
 
-    const video = await Video.create({ title, description, youtubeUrl, thumbnail });
+    const video = await Video.create({
+      title,
+      description,
+      youtubeUrl,
+      thumbnail,
+      isNews: isNews || false,
+      campaignId: campaignId || null,
+      actionId: actionId || null
+    });
     res.status(201).json(video);
   } catch (error) {
     console.error(error);
@@ -41,16 +55,21 @@ const createVideo = async (req, res) => {
   }
 };
 
-// Actualizar un video (admin)
-const updateVideo = async (req, res) => {
+exports.updateVideo = async (req, res) => {
   try {
     const video = await Video.findByPk(req.params.id);
-    if (!video) {
-      return res.status(404).json({ message: 'Video no encontrado' });
-    }
+    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
 
-    const { title, description, youtubeUrl, thumbnail } = req.body;
-    await video.update({ title, description, youtubeUrl, thumbnail });
+    const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
+    await video.update({
+      title,
+      description,
+      youtubeUrl,
+      thumbnail,
+      isNews,
+      campaignId: campaignId || null,
+      actionId: actionId || null
+    });
     res.json(video);
   } catch (error) {
     console.error(error);
@@ -58,26 +77,14 @@ const updateVideo = async (req, res) => {
   }
 };
 
-// Eliminar un video (admin)
-const deleteVideo = async (req, res) => {
+exports.deleteVideo = async (req, res) => {
   try {
     const video = await Video.findByPk(req.params.id);
-    if (!video) {
-      return res.status(404).json({ message: 'Video no encontrado' });
-    }
-
+    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
     await video.destroy();
     res.json({ message: 'Video eliminado correctamente' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al eliminar video' });
   }
-};
-
-module.exports = {
-  getAllVideos,
-  getVideoById,
-  createVideo,
-  updateVideo,
-  deleteVideo,
 };

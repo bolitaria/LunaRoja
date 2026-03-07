@@ -52,7 +52,6 @@ exports.deleteCampaign = async (req, res) => {
     const campaign = await Campaign.findByPk(req.params.id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
 
-    // Opcional: desvincular acciones antes de eliminar
     await campaign.destroy();
     res.json({ message: 'Campaña eliminada' });
   } catch (error) {

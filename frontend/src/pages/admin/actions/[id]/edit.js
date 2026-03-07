@@ -18,13 +18,14 @@ function EditAction() {
     onlineLink: '',
     placeName: '',
     address: '',
-    latitude: '',
-    longitude: '',
     registrationLink: '',
     recordingUrl: '',
     isLive: true,
     campaignId: ''
   });
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImageFiles, setNewImageFiles] = useState([]);
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -50,13 +51,12 @@ function EditAction() {
             onlineLink: action.onlineLink || '',
             placeName: action.placeName || '',
             address: action.address || '',
-            latitude: action.latitude || '',
-            longitude: action.longitude || '',
             registrationLink: action.registrationLink || '',
             recordingUrl: action.recordingUrl || '',
             isLive: action.isLive,
             campaignId: action.campaignId || ''
           });
+          setExistingImages(action.images || []);
           setCampaigns(campaignsRes.data);
         } catch (error) {
           toast.error('Error al cargar datos');
@@ -71,13 +71,59 @@ function EditAction() {
     setForm({ ...form, [e.target.name]: value });
   };
 
+  const handleNewImages = (e) => {
+    const files = Array.from(e.target.files);
+    const total = newImageFiles.length + files.length;
+    if (total > 20) {
+      toast.warning(`Máximo 20 imágenes en total. Ya tienes ${newImageFiles.length} nuevas seleccionadas.`);
+      return;
+    }
+    setNewImageFiles(prev => [...prev, ...files]);
+    const previews = files.map(file => URL.createObjectURL(file));
+    setNewImagePreviews(prev => [...prev, ...previews]);
+  };
+
+  const removeNewImage = (index) => {
+    setNewImageFiles(prev => prev.filter((_, i) => i !== index));
+    setNewImagePreviews(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleDeleteImage = async (imageId) => {
+    if (!confirm('¿Eliminar esta imagen?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/actions/images/${imageId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Imagen eliminada');
+      setExistingImages(prev => prev.filter(img => img.id !== imageId));
+    } catch (error) {
+      toast.error('Error al eliminar imagen');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/actions/${id}`, form, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      Object.keys(form).forEach(key => {
+        if (form[key] !== null && form[key] !== undefined && form[key] !== '') {
+          formData.append(key, form[key]);
+        }
+      });
+      newImageFiles.forEach(file => {
+        formData.append('images', file);
+      });
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/actions/${id}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
       toast.success('Acción actualizada');
       router.push('/admin/actions');
@@ -91,7 +137,7 @@ function EditAction() {
   return (
     <AdminLayout title="Editar Acción">
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md max-w-2xl">
-        {/* mismos campos que en new.js */}
+        {/* Campos del formulario (igual que en la respuesta anterior) */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Título *</label>
           <input
@@ -199,32 +245,9 @@ function EditAction() {
                 name="address"
                 value={form.address}
                 onChange={handleChange}
+                required={form.locationType === 'presencial'}
                 className="w-full px-3 py-2 border rounded"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Latitud</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="latitude"
-                  value={form.latitude}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Longitud</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="longitude"
-                  value={form.longitude}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
             </div>
           </>
         )}
@@ -260,6 +283,61 @@ function EditAction() {
             <span>En vivo (mostrar como próximo)</span>
           </label>
         </div>
+
+        {/* Imágenes existentes */}
+        {existingImages.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Imágenes actuales</label>
+            <div className="grid grid-cols-4 gap-4">
+              {existingImages.map(img => (
+                <div key={img.id} className="relative">
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
+                    alt="Existente"
+                    className="h-20 w-20 object-cover rounded"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteImage(img.id)}
+                    className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nuevas imágenes */}
+        <div className="mb-4">
+          <label className="block text-gray-700 mb-2">Añadir más imágenes (máx. 20 en total)</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleNewImages}
+            className="w-full px-3 py-2 border rounded"
+          />
+          {newImagePreviews.length > 0 && (
+            <div className="mt-4 grid grid-cols-4 gap-4">
+              {newImagePreviews.map((src, idx) => (
+                <div key={idx} className="relative">
+                  <img src={src} alt={`Preview ${idx}`} className="h-20 w-20 object-cover rounded" />
+                  <button
+                    type="button"
+                    onClick={() => removeNewImage(idx)}
+                    className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button
           type="submit"
           disabled={loading}

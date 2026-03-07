@@ -2,8 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
-
-// Importar modelos (asegurar que estos archivos existen)
+const imageRoutes = require('./routes/imageRoutes');
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
 const User = require('./models/User');
@@ -11,10 +10,16 @@ const Video = require('./models/Video');
 const Report = require('./models/Report');
 const Subscriber = require('./models/Subscriber');
 const WorkingGroup = require('./models/WorkingGroup');
+const ActionImage = require('./models/ActionImage');
+
+
+
 
 // Definir asociaciones
-Campaign.hasMany(Action, { foreignKey: 'campaignId' });
+Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId' });
+Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
+ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -32,7 +37,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads'));
+
 
 // Rutas
 app.use('/api/auth', authRoutes);
@@ -42,7 +47,8 @@ app.use('/api/subscribers', subscriberRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/working-groups', workingGroupRoutes);
-
+app.use('/uploads', express.static('uploads'));
+app.use('/api/images', imageRoutes);
 app.get('/api', (req, res) => {
   res.json({ message: 'Bienvenido a la API de LunaRoja' });
 });

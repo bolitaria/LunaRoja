@@ -130,7 +130,7 @@ function AdminReports() {
               name="file"
               accept=".pdf"
               onChange={handleChange}
-              required={!editingId} // Solo requerido si es nuevo
+              required={!editingId}
               className="w-full"
             />
             {editingId && <p className="text-sm text-gray-500">Dejar vacío para mantener el actual</p>}
@@ -160,7 +160,7 @@ function AdminReports() {
                   <td className="px-6 py-4">{report.title}</td>
                   <td className="px-6 py-4">{new Date(report.publishedAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4">
-                    <a href={`${process.env.NEXT_PUBLIC_API_URL}${report.fileUrl}`} target="_blank" rel="noopener" className="text-blue-600 hover:underline">
+                    <a href={`${process.env.NEXT_PUBLIC_BASE_URL}${report.fileUrl}`} target="_blank" rel="noopener" className="text-blue-600 hover:underline">
                       Ver PDF
                     </a>
                   </td>

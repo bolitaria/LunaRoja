@@ -44,6 +44,22 @@ export default function AccionDetalle() {
   return (
     <Layout title={action.title}>
       <div className="container mx-auto px-4 py-12 max-w-3xl">
+        {action.images && action.images.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">Galería</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {action.images.map(img => (
+                <img
+                  key={img.id}
+                  src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
+                  alt="Acción"
+                  className="w-full h-32 object-cover rounded"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         <h1 className="text-4xl font-bold mb-4">{action.title}</h1>
         <p className="text-gray-500 mb-2">
           {actionDate.toLocaleDateString()} - {actionDate.toLocaleTimeString()}
