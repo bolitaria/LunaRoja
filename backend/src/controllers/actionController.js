@@ -108,7 +108,7 @@ exports.updateAction = async (req, res) => {
       registrationLink, recordingUrl, isLive, campaignId
     });
 
-    // Añadir nuevas imágenes (sin eliminar las existentes)
+    // Añadir nuevas imágenes si se subieron (sin eliminar las existentes)
     if (req.files && req.files.length > 0) {
       const currentImageCount = action.images ? action.images.length : 0;
       const imagePromises = req.files.map((file, index) => {
@@ -122,6 +122,7 @@ exports.updateAction = async (req, res) => {
       await Promise.all(imagePromises);
     }
 
+    // Devolver acción actualizada
     const updatedAction = await Action.findByPk(action.id, {
       include: [{ model: ActionImage, as: 'images' }]
     });
@@ -157,7 +158,7 @@ exports.deleteAction = async (req, res) => {
   }
 };
 
-// Eliminar una imagen específica
+// Eliminar una imagen específica de una acción
 exports.deleteActionImage = async (req, res) => {
   try {
     const { imageId } = req.params;
@@ -166,6 +167,7 @@ exports.deleteActionImage = async (req, res) => {
       return res.status(404).json({ message: 'Imagen no encontrada' });
     }
 
+    // Eliminar archivo físico
     const filePath = path.join(__dirname, '../../uploads/actions', path.basename(image.url));
     fs.unlink(filePath, (err) => {
       if (err) console.error('Error al eliminar archivo:', err);

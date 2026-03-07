@@ -5,7 +5,7 @@ const {
   createAction,
   updateAction,
   deleteAction,
-  deleteActionImage,
+  deleteActionImage
 } = require('../controllers/actionController');
 const authMiddleware = require('../middlewares/auth');
 const upload = require('../middlewares/uploadActions');

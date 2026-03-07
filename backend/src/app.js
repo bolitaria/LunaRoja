@@ -2,24 +2,23 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
-const imageRoutes = require('./routes/imageRoutes');
+
+// Importar modelos
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
+const ActionImage = require('./models/ActionImage');
 const User = require('./models/User');
 const Video = require('./models/Video');
 const Report = require('./models/Report');
 const Subscriber = require('./models/Subscriber');
 const WorkingGroup = require('./models/WorkingGroup');
-const ActionImage = require('./models/ActionImage');
-
-
-
 
 // Definir asociaciones
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId' });
+
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
-ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+ActionImage.belongsTo(Action, { foreignKey: 'actionId' });
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -29,6 +28,7 @@ const subscriberRoutes = require('./routes/subscriberRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const actionRoutes = require('./routes/actionRoutes');
 const workingGroupRoutes = require('./routes/workingGroupRoutes');
+const imageRoutes = require('./routes/imageRoutes'); // Nueva ruta para imágenes
 
 dotenv.config();
 
@@ -37,7 +37,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.use('/uploads', express.static('uploads')); // Servir archivos estáticos
 
 // Rutas
 app.use('/api/auth', authRoutes);
@@ -47,15 +47,15 @@ app.use('/api/subscribers', subscriberRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/working-groups', workingGroupRoutes);
-app.use('/uploads', express.static('uploads'));
 app.use('/api/images', imageRoutes);
+
 app.get('/api', (req, res) => {
   res.json({ message: 'Bienvenido a la API de LunaRoja' });
 });
 
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: false })
+sequelize.sync({ alter: true })
   .then(() => {
     console.log('Base de datos sincronizada');
     app.listen(PORT, () => {

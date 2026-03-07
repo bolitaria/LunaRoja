@@ -61,7 +61,6 @@ exports.updateReport = async (req, res) => {
 
     // Si se sube un nuevo archivo, eliminar el anterior y actualizar URL
     if (req.file) {
-      // Eliminar archivo anterior si existe
       if (report.fileUrl) {
         const oldPath = path.join(__dirname, '../../uploads/reports', path.basename(report.fileUrl));
         fs.unlink(oldPath, (err) => {
