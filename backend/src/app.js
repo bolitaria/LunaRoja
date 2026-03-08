@@ -12,13 +12,18 @@ const Video = require('./models/Video');
 const Report = require('./models/Report');
 const Subscriber = require('./models/Subscriber');
 const WorkingGroup = require('./models/WorkingGroup');
+const InstagramAccount = require('./models/InstagramAccount');
+const InstagramPost = require('./models/InstagramPost');
 
 // Definir asociaciones
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId' });
-
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
 ActionImage.belongsTo(Action, { foreignKey: 'actionId' });
+InstagramAccount.hasMany(InstagramPost, { foreignKey: 'accountId', onDelete: 'CASCADE' });
+InstagramPost.belongsTo(InstagramAccount, { foreignKey: 'accountId', as: 'account' });
+InstagramAccount.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Campaign.hasMany(InstagramAccount, { foreignKey: 'campaignId' });
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -28,7 +33,8 @@ const subscriberRoutes = require('./routes/subscriberRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const actionRoutes = require('./routes/actionRoutes');
 const workingGroupRoutes = require('./routes/workingGroupRoutes');
-const imageRoutes = require('./routes/imageRoutes'); // Nueva ruta para imágenes
+const imageRoutes = require('./routes/imageRoutes');
+const instagramRoutes = require('./routes/instagramRoutes');
 
 dotenv.config();
 
@@ -48,6 +54,8 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/working-groups', workingGroupRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/instagram', instagramRoutes);
+
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Bienvenido a la API de LunaRoja' });
@@ -65,3 +73,10 @@ sequelize.sync({ alter: true })
   .catch(err => {
     console.error('Error al conectar a la base de datos:', err);
   });
+
+if (process.env.NODE_ENV === 'production') {
+  require('./workers/instagramWorker');
+} else {
+  // En desarrollo, puede ejecutarse manualmente o no
+  console.log('Worker de Instagram desactivado en desarrollo. Ejecuta manualmente si lo necesitas.');
+}
