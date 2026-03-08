@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
 
+const { startProxyUpdater } = require('./services/proxyManager');
+
 // Importar modelos
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
@@ -14,6 +16,7 @@ const Subscriber = require('./models/Subscriber');
 const WorkingGroup = require('./models/WorkingGroup');
 const InstagramAccount = require('./models/InstagramAccount');
 const InstagramPost = require('./models/InstagramPost');
+
 
 // Definir asociaciones
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
@@ -63,12 +66,13 @@ app.get('/api', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: true })
+sequelize.sync({ alter: false })
   .then(() => {
     console.log('Base de datos sincronizada');
     app.listen(PORT, () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);
     });
+    startProxyUpdater();
   })
   .catch(err => {
     console.error('Error al conectar a la base de datos:', err);
