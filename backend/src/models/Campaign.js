@@ -18,6 +18,10 @@ const Campaign = sequelize.define('Campaign', {
     type: DataTypes.STRING,
     defaultValue: '#ff0000',
   },
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

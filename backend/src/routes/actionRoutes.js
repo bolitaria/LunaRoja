@@ -8,13 +8,13 @@ const {
   deleteActionImage
 } = require('../controllers/actionController');
 const authMiddleware = require('../middlewares/auth');
-const upload = require('../middlewares/uploadActions');
+const uploadFields = require('../middlewares/uploadActions');
 const router = express.Router();
 
 router.get('/', getAllActions);
 router.get('/:id', getActionById);
-router.post('/', authMiddleware, upload, createAction);
-router.put('/:id', authMiddleware, upload, updateAction);
+router.post('/', authMiddleware, uploadFields, createAction);
+router.put('/:id', authMiddleware, uploadFields, updateAction);
 router.delete('/:id', authMiddleware, deleteAction);
 router.delete('/images/:imageId', authMiddleware, deleteActionImage);
 

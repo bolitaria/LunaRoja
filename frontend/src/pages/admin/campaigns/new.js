@@ -12,10 +12,24 @@ function NewCampaign() {
     description: '',
     color: '#ff0000'
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -23,8 +37,18 @@ function NewCampaign() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, form, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      formData.append('name', form.name);
+      formData.append('description', form.description);
+      formData.append('color', form.color);
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
       toast.success('Campaña creada');
       router.push('/admin/campaigns');
@@ -68,6 +92,18 @@ function NewCampaign() {
             onChange={handleChange}
             className="w-full h-10 p-1 border rounded"
           />
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 mb-2">Imagen de la campaña (opcional)</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="w-full px-3 py-2 border rounded"
+          />
+          {imagePreview && (
+            <img src={imagePreview} alt="Preview" className="mt-2 max-h-40 max-w-full rounded" />
+          )}
         </div>
         <button
           type="submit"

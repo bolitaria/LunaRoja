@@ -58,24 +58,30 @@ function AdminCampaigns() {
           <table className="min-w-full">
             <thead className="bg-gray-100">
               <tr>
+                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-left">Imagen</th>
                 <th className="px-6 py-3 text-left">Nombre</th>
                 <th className="px-6 py-3 text-left">Color</th>
                 <th className="px-6 py-3 text-left">Descripción</th>
-                <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {campaigns.map(c => (
                 <tr key={c.id} className="border-t">
-                  <td className="px-6 py-4">{c.name}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-block w-6 h-6 rounded-full" style={{ backgroundColor: c.color }}></span>
-                  </td>
-                  <td className="px-6 py-4">{c.description}</td>
                   <td className="px-6 py-4 space-x-2">
                     <Link href={`/admin/campaigns/${c.id}/edit`} className="text-blue-600 hover:underline">Editar</Link>
                     <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:underline">Eliminar</button>
                   </td>
+                  <td className="px-6 py-4">
+                    {c.imageUrl ? (
+                      <img src={`${process.env.NEXT_PUBLIC_BASE_URL}${c.imageUrl}`} alt={c.name} className="h-10 w-10 object-cover rounded" />
+                    ) : '-'}
+                  </td>
+                  <td className="px-6 py-4">{c.name}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-block w-6 h-6 rounded-full" style={{ backgroundColor: c.color }}></span>
+                  </td>
+<td className="px-6 py-4">{c.description}</td>
                 </tr>
               ))}
             </tbody>

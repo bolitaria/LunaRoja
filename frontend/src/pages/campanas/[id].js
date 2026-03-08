@@ -29,10 +29,8 @@ export default function CampanaDetalle() {
         try {
           const campaignRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${id}`);
           setCampaign(campaignRes.data);
-
           const actionsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions?campaignId=${id}`);
           setActions(actionsRes.data);
-
           const groupsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups?campaignId=${id}`);
           setCampaignGroups(groupsRes.data);
         } catch (error) {
@@ -64,9 +62,7 @@ export default function CampanaDetalle() {
   }, [actions]);
 
   useEffect(() => {
-    if (nearestActionDate) {
-      setSelectedDate(nearestActionDate);
-    }
+    if (nearestActionDate) setSelectedDate(nearestActionDate);
   }, [nearestActionDate]);
 
   const tileContent = ({ date, view }) => {
@@ -74,11 +70,9 @@ export default function CampanaDetalle() {
     const dateStr = getLocalDateStr(date);
     const actionsOnDate = actionsByDate.get(dateStr) || [];
     if (actionsOnDate.length === 0) return null;
-
     const now = new Date();
     const hasFuture = actionsOnDate.some(a => new Date(a.datetime) > now);
     const color = hasFuture ? 'bg-green-500' : 'bg-red-500';
-
     return (
       <span className={`${color} text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mx-auto`}>
         {actionsOnDate.length}
@@ -99,6 +93,11 @@ export default function CampanaDetalle() {
           <span className="w-4 h-4 rounded-full" style={{ backgroundColor: campaign.color }}></span>
           <h1 className="text-4xl font-bold text-black">{campaign.name}</h1>
         </div>
+        {campaign.imageUrl && (
+          <div className="mb-4">
+            <img src={`${process.env.NEXT_PUBLIC_BASE_URL}${campaign.imageUrl}`} alt={campaign.name} className="max-h-64 rounded-lg shadow" />
+          </div>
+        )}
         <p className="text-gray-600 mb-8">{campaign.description}</p>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -116,9 +115,7 @@ export default function CampanaDetalle() {
               {actionsOnSelected.length > 0 && (
                 <div className="mt-4">
                   <h3 className="text-sm font-semibold mb-2">
-                    {selectedDate.toLocaleDateString() === new Date().toLocaleDateString()
-                      ? 'Hoy'
-                      : selectedDate.toLocaleDateString()}
+                    {selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? 'Hoy' : selectedDate.toLocaleDateString()}
                   </h3>
                   <ul className="space-y-1 text-sm">
                     {actionsOnSelected.map(action => (
@@ -133,7 +130,6 @@ export default function CampanaDetalle() {
               )}
             </div>
           </div>
-
           <div className="lg:w-2/3">
             <h2 className="text-2xl font-semibold mb-4">Acciones de esta campaña</h2>
             {actions.length === 0 ? (
@@ -148,8 +144,7 @@ export default function CampanaDetalle() {
                         <span className="font-medium text-lg">{action.title}</span>
                       </Link>
                       <p className="text-sm text-gray-600">
-                        {new Date(action.datetime).toLocaleDateString()} -{' '}
-                        {new Date(action.datetime).toLocaleTimeString()}
+                        {new Date(action.datetime).toLocaleDateString()} - {new Date(action.datetime).toLocaleTimeString()}
                         {isPast && <span className="ml-2 text-xs text-gray-400">(Pasada)</span>}
                       </p>
                     </li>
@@ -165,13 +160,7 @@ export default function CampanaDetalle() {
             <h2 className="text-2xl font-semibold mb-4">Grupos de esta campaña</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {campaignGroups.map(group => (
-                <a
-                  key={group.id}
-                  href={group.link}
-                  target="_blank"
-                  rel="noopener"
-                  className="block border rounded p-4 hover:shadow transition"
-                >
+                <a key={group.id} href={group.link} target="_blank" rel="noopener" className="block border rounded p-4 hover:shadow transition">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl">{group.platform === 'telegram' ? '✈️' : '📱'}</span>
                     <div>

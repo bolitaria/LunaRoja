@@ -23,6 +23,9 @@ function EditAction() {
     isLive: true,
     campaignId: ''
   });
+  const [featuredImageFile, setFeaturedImageFile] = useState(null);
+  const [featuredImagePreview, setFeaturedImagePreview] = useState(null);
+  const [currentFeaturedImage, setCurrentFeaturedImage] = useState(null);
   const [existingImages, setExistingImages] = useState([]);
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [newImagePreviews, setNewImagePreviews] = useState([]);
@@ -56,6 +59,10 @@ function EditAction() {
             isLive: action.isLive,
             campaignId: action.campaignId || ''
           });
+          setCurrentFeaturedImage(action.featuredImage);
+          if (action.featuredImage) {
+            setFeaturedImagePreview(`${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`);
+          }
           setExistingImages(action.images || []);
           setCampaigns(campaignsRes.data);
         } catch (error) {
@@ -69,6 +76,18 @@ function EditAction() {
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setForm({ ...form, [e.target.name]: value });
+  };
+
+  const handleFeaturedImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFeaturedImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFeaturedImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleNewImages = (e) => {
@@ -107,6 +126,13 @@ function EditAction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validar que si es online, registrationLink sea obligatorio
+    if (form.locationType === 'online' && !form.registrationLink.trim()) {
+      toast.error('El enlace de registro es obligatorio para eventos online');
+      return;
+    }
+
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -116,6 +142,9 @@ function EditAction() {
           formData.append(key, form[key]);
         }
       });
+      if (featuredImageFile) {
+        formData.append('featuredImage', featuredImageFile);
+      }
       newImageFiles.forEach(file => {
         formData.append('images', file);
       });
@@ -137,7 +166,7 @@ function EditAction() {
   return (
     <AdminLayout title="Editar Acción">
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md max-w-2xl">
-        {/* Campos del formulario (igual que en la respuesta anterior) */}
+        {/* Título */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Título *</label>
           <input
@@ -149,6 +178,8 @@ function EditAction() {
             className="w-full px-3 py-2 border rounded"
           />
         </div>
+
+        {/* Descripción */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Descripción</label>
           <textarea
@@ -159,6 +190,8 @@ function EditAction() {
             className="w-full px-3 py-2 border rounded"
           />
         </div>
+
+        {/* Categoría */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Categoría *</label>
           <select
@@ -177,6 +210,8 @@ function EditAction() {
             <option value="workshop">Taller</option>
           </select>
         </div>
+
+        {/* Campaña relacionada */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Campaña relacionada</label>
           <select
@@ -191,6 +226,8 @@ function EditAction() {
             ))}
           </select>
         </div>
+
+        {/* Fecha y hora */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Fecha y hora *</label>
           <input
@@ -202,6 +239,8 @@ function EditAction() {
             className="w-full px-3 py-2 border rounded"
           />
         </div>
+
+        {/* Tipo de ubicación */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Tipo de ubicación</label>
           <select
@@ -214,18 +253,38 @@ function EditAction() {
             <option value="presencial">Presencial</option>
           </select>
         </div>
+
+        {/* Campos según ubicación */}
         {form.locationType === 'online' && (
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Enlace online</label>
-            <input
-              type="url"
-              name="onlineLink"
-              value={form.onlineLink}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
+          <>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">
+                Enlace de registro <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="url"
+                name="registrationLink"
+                value={form.registrationLink}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              <p className="text-xs text-gray-500 mt-1">Obligatorio para eventos online</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Enlace online (para acceder)</label>
+              <input
+                type="url"
+                name="onlineLink"
+                value={form.onlineLink}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded"
+              />
+              <p className="text-xs text-gray-500 mt-1">Puedes añadirlo más tarde</p>
+            </div>
+          </>
         )}
+
         {form.locationType === 'presencial' && (
           <>
             <div className="mb-4">
@@ -249,20 +308,22 @@ function EditAction() {
                 className="w-full px-3 py-2 border rounded"
               />
             </div>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Enlace de registro (opcional)</label>
+              <input
+                type="url"
+                name="registrationLink"
+                value={form.registrationLink}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded"
+              />
+            </div>
           </>
         )}
+
+        {/* URL de grabación */}
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Enlace de registro</label>
-          <input
-            type="url"
-            name="registrationLink"
-            value={form.registrationLink}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded"
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">URL de grabación</label>
+          <label className="block text-gray-700 mb-2">URL de grabación (opcional)</label>
           <input
             type="url"
             name="recordingUrl"
@@ -271,6 +332,8 @@ function EditAction() {
             className="w-full px-3 py-2 border rounded"
           />
         </div>
+
+        {/* Checkbox en vivo */}
         <div className="mb-4">
           <label className="flex items-center">
             <input
@@ -284,10 +347,34 @@ function EditAction() {
           </label>
         </div>
 
+        {/* Imagen destacada */}
+        <div className="mb-4">
+          <label className="block text-gray-700 mb-2">Imagen destacada</label>
+          {currentFeaturedImage && !featuredImageFile && (
+            <div className="mb-2">
+              <img
+                src={`${process.env.NEXT_PUBLIC_BASE_URL}${currentFeaturedImage}`}
+                alt="Actual"
+                className="max-h-40 max-w-full rounded"
+              />
+              <p className="text-sm text-gray-500">Imagen actual. Si subes una nueva, se reemplazará.</p>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFeaturedImageChange}
+            className="w-full px-3 py-2 border rounded"
+          />
+          {featuredImagePreview && featuredImageFile && (
+            <img src={featuredImagePreview} alt="Preview destacada" className="mt-2 max-h-40 max-w-full rounded" />
+          )}
+        </div>
+
         {/* Imágenes existentes */}
         {existingImages.length > 0 && (
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Imágenes actuales</label>
+            <label className="block text-gray-700 mb-2">Imágenes de galería actuales</label>
             <div className="grid grid-cols-4 gap-4">
               {existingImages.map(img => (
                 <div key={img.id} className="relative">
@@ -312,7 +399,7 @@ function EditAction() {
 
         {/* Nuevas imágenes */}
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Añadir más imágenes (máx. 20 en total)</label>
+          <label className="block text-gray-700 mb-2">Añadir más imágenes a la galería (máx. 20 en total)</label>
           <input
             type="file"
             accept="image/*"

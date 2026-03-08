@@ -37,10 +37,7 @@ export default function Campanas() {
     fetchData();
   }, []);
 
-  const campaignMap = useMemo(() => {
-    return campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
-  }, [campaigns]);
-
+  const campaignMap = useMemo(() => campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {}), [campaigns]);
   const actionsByDate = useMemo(() => {
     const map = new Map();
     actions.forEach(action => {
@@ -65,7 +62,6 @@ export default function Campanas() {
     const dateStr = getLocalDateStr(date);
     const actionsOnDate = actionsByDate.get(dateStr) || [];
     if (actionsOnDate.length === 0) return null;
-
     const colors = [];
     for (const action of actionsOnDate) {
       const campaign = campaignMap[action.campaignId];
@@ -74,19 +70,12 @@ export default function Campanas() {
         if (colors.length >= 3) break;
       }
     }
-
     return (
       <div className="flex justify-center gap-0.5 mt-1">
         {colors.map((color, idx) => (
-          <span
-            key={idx}
-            className="inline-block w-2 h-2 rounded-full"
-            style={{ backgroundColor: color }}
-          />
+          <span key={idx} className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
         ))}
-        {actionsOnDate.length > 3 && (
-          <span className="text-xs text-gray-600 ml-1">+{actionsOnDate.length - 3}</span>
-        )}
+        {actionsOnDate.length > 3 && <span className="text-xs text-gray-600 ml-1">+{actionsOnDate.length - 3}</span>}
       </div>
     );
   };
@@ -98,18 +87,11 @@ export default function Campanas() {
     <Layout title="Campañas - LunaRoja">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8 text-center">Campañas</h1>
-
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="lg:w-1/3">
             <div className="bg-white rounded-xl shadow-lg p-6 sticky top-4">
               <h2 className="text-2xl font-semibold mb-4">Calendario</h2>
-              <Calendar
-                onChange={setSelectedDate}
-                value={selectedDate}
-                tileContent={tileContent}
-                className="rounded-lg w-full border-0"
-              />
-
+              <Calendar onChange={setSelectedDate} value={selectedDate} tileContent={tileContent} className="rounded-lg w-full border-0" />
               {nextActions.length > 0 && (
                 <div className="mt-6 p-4 bg-gradient-to-r from-red-50 to-white rounded-lg border-l-4 border-red-500">
                   <p className="text-sm text-gray-500 uppercase tracking-wider">
@@ -121,22 +103,16 @@ export default function Campanas() {
                       return (
                         <div key={action.id} className="flex items-start gap-2">
                           {campaign && (
-                            <span
-                              className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0"
-                              style={{ backgroundColor: campaign.color }}
-                            />
+                            <span className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: campaign.color }} />
                           )}
                           <div>
                             <Link href={`/acciones/${action.id}`} className="font-medium hover:text-red-600 transition">
                               {action.title}
                             </Link>
                             <p className="text-sm text-gray-600">
-                              {new Date(action.datetime).toLocaleDateString()} -{' '}
-                              {new Date(action.datetime).toLocaleTimeString()}
+                              {new Date(action.datetime).toLocaleDateString()} - {new Date(action.datetime).toLocaleTimeString()}
                             </p>
-                            {campaign && (
-                              <p className="text-xs text-gray-500">{campaign.name}</p>
-                            )}
+                            {campaign && <p className="text-xs text-gray-500">{campaign.name}</p>}
                           </div>
                         </div>
                       );
@@ -146,7 +122,6 @@ export default function Campanas() {
               )}
             </div>
           </div>
-
           <div className="lg:w-2/3">
             <h2 className="text-2xl font-semibold mb-4">Todas las campañas</h2>
             {loading ? (
@@ -158,11 +133,11 @@ export default function Campanas() {
                 {campaigns.map(campaign => (
                   <Link key={campaign.id} href={`/campanas/${campaign.id}`} className="block">
                     <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition p-6 border-t-4" style={{ borderTopColor: campaign.color }}>
+                      {campaign.imageUrl && (
+                        <img src={`${process.env.NEXT_PUBLIC_BASE_URL}${campaign.imageUrl}`} alt={campaign.name} className="w-full h-40 object-cover rounded-t-lg mb-3" />
+                      )}
                       <div className="flex items-center gap-3 mb-3">
-                        <span
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: campaign.color }}
-                        />
+                        <span className="w-4 h-4 rounded-full" style={{ backgroundColor: campaign.color }} />
                         <h3 className="text-xl font-semibold text-gray-800">{campaign.name}</h3>
                       </div>
                       <p className="text-gray-600 line-clamp-2">{campaign.description}</p>
@@ -171,7 +146,6 @@ export default function Campanas() {
                 ))}
               </div>
             )}
-
             {actionsOnSelected.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-xl font-semibold mb-3">
@@ -185,17 +159,10 @@ export default function Campanas() {
                     return (
                       <Link key={action.id} href={`/acciones/${action.id}`} className="block">
                         <div className="bg-white p-4 rounded-lg shadow hover:shadow-md transition flex items-center gap-3">
-                          {campaign && (
-                            <span
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: campaign.color }}
-                            />
-                          )}
+                          {campaign && <span className="w-3 h-3 rounded-full" style={{ backgroundColor: campaign.color }} />}
                           <div>
                             <span className="font-medium">{action.title}</span>
-                            {campaign && (
-                              <span className="text-sm text-gray-500 ml-2">({campaign.name})</span>
-                            )}
+                            {campaign && <span className="text-sm text-gray-500 ml-2">({campaign.name})</span>}
                           </div>
                         </div>
                       </Link>

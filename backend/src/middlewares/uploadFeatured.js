@@ -4,12 +4,7 @@ const fs = require('fs');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadDir;
-    if (file.fieldname === 'featuredImage') {
-      uploadDir = path.join(__dirname, '../../uploads/featured');
-    } else {
-      uploadDir = path.join(__dirname, '../../uploads/actions');
-    }
+    const uploadDir = path.join(__dirname, '../../uploads/featured');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -18,8 +13,7 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    const prefix = file.fieldname === 'featuredImage' ? 'featured-' : 'action-';
-    cb(null, prefix + uniqueSuffix + ext);
+    cb(null, 'featured-' + uniqueSuffix + ext);
   }
 });
 
@@ -31,13 +25,10 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({
+const uploadFeatured = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 
-module.exports = upload.fields([
-  { name: 'featuredImage', maxCount: 1 },
-  { name: 'images', maxCount: 20 }
-]);
+module.exports = uploadFeatured.single('featuredImage');

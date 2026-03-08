@@ -77,7 +77,6 @@ function AdminActions() {
           <table className="min-w-full">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left">Imagen</th>
                 <th className="px-6 py-3 text-left">Título</th>
                 <th className="px-6 py-3 text-left">Categoría</th>
                 <th className="px-6 py-3 text-left">Fecha/Hora</th>
@@ -93,19 +92,27 @@ function AdminActions() {
                 const now = new Date();
                 const isPast = actionDate < now;
                 const campaign = campaignMap[action.campaignId];
+                // Obtener imagen (destacada o primera de galería)
+                const imageUrl = action.featuredImage
+                  ? `${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`
+                  : (action.images && action.images.length > 0
+                    ? `${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`
+                    : null);
                 return (
                   <tr key={action.id} className="border-t">
                     <td className="px-6 py-4">
-                      {action.images && action.images.length > 0 ? (
-                        <img
-                          src={`${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`}
-                          alt={action.title}
-                          className="h-10 w-10 object-cover rounded"
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      ) : '-'}
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium">{action.title}</span>
+                        {imageUrl && (
+                          <img
+                            src={imageUrl}
+                            alt={action.title}
+                            className="h-8 w-8 object-cover rounded"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4">{action.title}</td>
                     <td className="px-6 py-4">{categoryLabels[action.category]}</td>
                     <td className="px-6 py-4">{actionDate.toLocaleString()}</td>
                     <td className="px-6 py-4">
@@ -113,17 +120,20 @@ function AdminActions() {
                     </td>
                     <td className="px-6 py-4">
                       {campaign ? (
-                        <span style={{ color: campaign.color }} className="font-semibold">
-                          {campaign.name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: campaign.color }}
+                          />
+                          <span className="font-semibold text-black">{campaign.name}</span>
+                        </div>
                       ) : '-'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-xs ${
-                        !action.isLive ? 'bg-gray-200' :
                         isPast ? 'bg-gray-200' : 'bg-green-200 text-green-800'
                       }`}>
-                        {!action.isLive ? 'Grabación' : isPast ? 'Pasado' : 'Próximo'}
+                        {isPast ? 'Pasado' : 'Próximo'}
                       </span>
                     </td>
                     <td className="px-6 py-4 space-x-2">

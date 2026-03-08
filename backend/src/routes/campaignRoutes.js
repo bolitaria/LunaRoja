@@ -7,12 +7,13 @@ const {
   deleteCampaign,
 } = require('../controllers/campaignController');
 const authMiddleware = require('../middlewares/auth');
+const uploadCampaign = require('../middlewares/uploadCampaign');
 const router = express.Router();
 
 router.get('/', getAllCampaigns);
 router.get('/:id', getCampaignById);
-router.post('/', authMiddleware, createCampaign);
-router.put('/:id', authMiddleware, updateCampaign);
+router.post('/', authMiddleware, uploadCampaign, createCampaign);
+router.put('/:id', authMiddleware, uploadCampaign, updateCampaign);
 router.delete('/:id', authMiddleware, deleteCampaign);
 
 module.exports = router;

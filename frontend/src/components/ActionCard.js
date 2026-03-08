@@ -5,14 +5,14 @@ export default function ActionCard({ action, type }) {
   const time = new Date(action.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const categoryLabels = {
-    webinar: 'Webinar',
-    talk: 'Charla',
-    protest: 'Manifestación',
-    bds: 'Acción BDS',
-    strike: 'Huelga',
-    march: 'Marcha',
     solidarity_action: 'Acción Solidaria',
-    workshop: 'Taller'
+    workshop: 'Talleres',
+    bds: 'Acción BDS',
+    protest: 'Concentración',
+    march: 'Marcha',
+    strike: 'Huelga',
+    talk: 'Charla',
+    webinar: 'Webinar'
   };
 
   const categoryColors = {

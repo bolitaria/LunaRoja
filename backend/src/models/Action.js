@@ -62,6 +62,10 @@ const Action = sequelize.define('Action', {
       key: 'id',
     },
   },
+  featuredImage: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

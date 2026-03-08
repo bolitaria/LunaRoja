@@ -35,16 +35,17 @@ export default function Acciones() {
   const upcoming = filteredActions.filter(a => new Date(a.datetime) > now && a.isLive);
   const past = filteredActions.filter(a => new Date(a.datetime) <= now || !a.isLive);
 
-  const categoryLabels = {
-    webinar: 'Webinar',
-    talk: 'Charla',
-    protest: 'Manifestación',
-    bds: 'Acción BDS',
-    strike: 'Huelga',
-    march: 'Marcha',
-    solidarity_action: 'Acción Solidaria',
-    workshop: 'Taller'
-  };
+  // Definir el orden personalizado de las categorías
+  const categoryOrder = [
+    { value: 'solidarity_action', label: 'Acción Solidaria' },
+    { value: 'workshop', label: 'Talleres' },
+    { value: 'bds', label: 'Acción BDS' },
+    { value: 'protest', label: 'Concentración' },
+    { value: 'march', label: 'Marcha' },
+    { value: 'strike', label: 'Huelga' },
+    { value: 'talk', label: 'Charla' },
+    { value: 'webinar', label: 'Webinar' }
+  ];
 
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
 
@@ -60,7 +61,7 @@ export default function Acciones() {
           >
             Todas
           </button>
-          {Object.entries(categoryLabels).map(([value, label]) => (
+          {categoryOrder.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => setFilterCategory(value)}
@@ -79,28 +80,18 @@ export default function Acciones() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {upcoming.map(action => (
-              <ActionCard
-                key={action.id}
-                action={action}
-                campaign={campaignMap[action.campaignId]}
-                type="upcoming"
-              />
+              <ActionCard key={action.id} action={action} campaign={campaignMap[action.campaignId]} type="upcoming" />
             ))}
           </div>
         )}
 
-        <h2 className="text-2xl font-semibold mb-4">Acciones pasadas (grabaciones)</h2>
+        <h2 className="text-2xl font-semibold mb-4">Acciones pasadas</h2>
         {past.length === 0 ? (
           <p>No hay grabaciones disponibles.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {past.map(action => (
-              <ActionCard
-                key={action.id}
-                action={action}
-                campaign={campaignMap[action.campaignId]}
-                type="past"
-              />
+              <ActionCard key={action.id} action={action} campaign={campaignMap[action.campaignId]} type="past" />
             ))}
           </div>
         )}
@@ -110,20 +101,18 @@ export default function Acciones() {
 }
 
 function ActionCard({ action, campaign, type }) {
-  if (!action) return null;
-
   const date = action.datetime ? new Date(action.datetime).toLocaleDateString() : 'Fecha no disponible';
   const time = action.datetime ? new Date(action.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   const categoryLabels = {
     webinar: 'Webinar',
     talk: 'Charla',
-    protest: 'Manifestación',
+    protest: 'Concentración',
     bds: 'Acción BDS',
     strike: 'Huelga',
     march: 'Marcha',
     solidarity_action: 'Acción Solidaria',
-    workshop: 'Taller'
+    workshop: 'Talleres'
   };
 
   const categoryColors = {
@@ -141,9 +130,11 @@ function ActionCard({ action, campaign, type }) {
   const categoryLabel = categoryLabels[category] || category;
   const categoryColor = categoryColors[category] || 'bg-gray-100 text-gray-800';
 
-  const imageUrl = action.images && action.images.length > 0 && action.images[0].url
-    ? `${process.env.NEXT_PUBLIC_BASE_URL || ''}${action.images[0].url}`
-    : null;
+  const imageUrl = action.featuredImage
+    ? `${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`
+    : (action.images && action.images.length > 0
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`
+      : null);
 
   return (
     <Link href={`/acciones/${action.id}`} className="block group">
@@ -154,6 +145,7 @@ function ActionCard({ action, campaign, type }) {
               src={imageUrl}
               alt={action.title || 'Acción'}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+              onError={(e) => { e.target.style.display = 'none'; }}
             />
           </div>
         )}
