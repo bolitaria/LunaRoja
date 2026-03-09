@@ -5,6 +5,6 @@ const router = express.Router();
 
 router.post('/register', register);
 router.post('/login', login);
-router.get('/me', authMiddleware, getMe); // <-- nueva ruta
+router.get('/me', authMiddleware, getMe);
 
 module.exports = router;

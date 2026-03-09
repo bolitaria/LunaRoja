@@ -6,14 +6,15 @@ const {
   deleteSubscriber,
 } = require('../controllers/subscriberController');
 const authMiddleware = require('../middlewares/auth');
+const { isSuperAdmin } = require('../middlewares/authorize');
 const router = express.Router();
 
 // Rutas públicas
 router.post('/', createSubscriber);
-router.post('/unsubscribe', unsubscribe); // Público para que el usuario se desuscriba
+router.post('/unsubscribe', unsubscribe);
 
-// Rutas protegidas (admin)
-router.get('/', authMiddleware, getAllSubscribers);
-router.delete('/:id', authMiddleware, deleteSubscriber);
+// Rutas protegidas (solo superadmin)
+router.get('/', authMiddleware, isSuperAdmin, getAllSubscribers);
+router.delete('/:id', authMiddleware, isSuperAdmin, deleteSubscriber);
 
 module.exports = router;

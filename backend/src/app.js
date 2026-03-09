@@ -16,20 +16,39 @@ const Subscriber = require('./models/Subscriber');
 const WorkingGroup = require('./models/WorkingGroup');
 const InstagramAccount = require('./models/InstagramAccount');
 const InstagramPost = require('./models/InstagramPost');
-
+const UserCampaign = require('./models/UserCampaign');
+const UserAction = require('./models/UserAction');
 
 // Definir asociaciones
+// Relaciones uno a muchos (campaña -> acciones)
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId' });
+
+// Relación acción -> imágenes múltiples
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
-ActionImage.belongsTo(Action, { foreignKey: 'actionId' });
+ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' }); // ¡Importante el alias!
+
+// Relaciones de Instagram
 InstagramAccount.hasMany(InstagramPost, { foreignKey: 'accountId', onDelete: 'CASCADE' });
 InstagramPost.belongsTo(InstagramAccount, { foreignKey: 'accountId', as: 'account' });
+
 InstagramAccount.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Campaign.hasMany(InstagramAccount, { foreignKey: 'campaignId' });
 
+// Relaciones muchos a muchos de usuarios con campañas y acciones
+User.belongsToMany(Campaign, { through: UserCampaign, as: 'campaigns', foreignKey: 'userId' });
+Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 'campaignId' });
+
+User.belongsToMany(Action, { through: UserAction, as: 'actions', foreignKey: 'userId' });
+Action.belongsToMany(User, { through: UserAction, as: 'admins', foreignKey: 'actionId' });
+
+// Relaciones para videos (si se vinculan a campañas/acciones)
+Video.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Video.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const subscriberRoutes = require('./routes/subscriberRoutes');
@@ -46,10 +65,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads')); // Servir archivos estáticos
 
-// Rutas
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/subscribers', subscriberRoutes);
@@ -58,7 +76,8 @@ app.use('/api/actions', actionRoutes);
 app.use('/api/working-groups', workingGroupRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/instagram', instagramRoutes);
-
+app.use(cors());
+app.use('/uploads', cors(), express.static('uploads'));  // Servir archivos estáticos
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Bienvenido a la API de LunaRoja' });
@@ -66,7 +85,7 @@ app.get('/api', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: false })
+sequelize.sync({ alter: true }) // Cambia a true si necesitas sincronización automática
   .then(() => {
     console.log('Base de datos sincronizada');
     app.listen(PORT, () => {
@@ -81,6 +100,5 @@ sequelize.sync({ alter: false })
 if (process.env.NODE_ENV === 'production') {
   require('./workers/instagramWorker');
 } else {
-  // En desarrollo, puede ejecutarse manualmente o no
   console.log('Worker de Instagram desactivado en desarrollo. Ejecuta manualmente si lo necesitas.');
 }

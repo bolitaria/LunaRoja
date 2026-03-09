@@ -1,26 +1,52 @@
 const Action = require('../models/Action');
 const ActionImage = require('../models/ActionImage');
+const UserCampaign = require('../models/UserCampaign');
+const UserAction = require('../models/UserAction');
 const fs = require('fs');
 const path = require('path');
 
-// Obtener todas las acciones (con filtro opcional por campaña)
 exports.getAllActions = async (req, res) => {
   try {
     const { campaignId } = req.query;
-    const where = {};
-    if (campaignId) where.campaignId = campaignId;
+    let where = {};
+
+    console.log('=== getAllActions ===');
+    console.log('req.user:', req.user);
+
+    if (req.user) {
+      if (req.user.role === 'campaign_admin') {
+        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+        const campaignIds = userCampaigns.map(uc => uc.campaignId);
+        console.log('campaignIds del usuario (campaign_admin):', campaignIds);
+        if (campaignIds.length === 0) return res.json([]);
+        where.campaignId = campaignIds;
+      } else if (req.user.role === 'action_admin') {
+        const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
+        const actionIds = userActions.map(ua => ua.actionId);
+        console.log('actionIds del usuario (action_admin):', actionIds);
+        if (actionIds.length === 0) return res.json([]);
+        where.id = actionIds;
+      }
+    }
+
+    if (campaignId) {
+      where.campaignId = campaignId;
+    }
+
     const actions = await Action.findAll({
       where,
       order: [['datetime', 'DESC']],
       include: [{ model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }]
     });
+    console.log('Acciones devueltas:', actions.map(a => a.id));
     res.json(actions);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getAllActions:', error);
     res.status(500).json({ message: 'Error al obtener acciones' });
   }
 };
 
+// ... resto del controlador
 // Obtener una acción por ID
 exports.getActionById = async (req, res) => {
   try {
@@ -44,12 +70,21 @@ exports.createAction = async (req, res) => {
       registrationLink, recordingUrl, isLive, campaignId
     } = req.body;
 
-    // Validaciones básicas
+    // Validar permisos según rol
+    if (req.user.role === 'campaign_admin') {
+      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
+      if (!campaignId || !allowedCampaignIds.includes(parseInt(campaignId))) {
+        return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'No tienes permiso para crear acciones' });
+    }
+
     if (!title || !datetime) {
       return res.status(400).json({ message: 'Título y fecha/hora son requeridos' });
     }
 
-    // Validar que si es online, el enlace de registro es obligatorio
     if (locationType === 'online' && (!registrationLink || registrationLink.trim() === '')) {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
@@ -60,13 +95,11 @@ exports.createAction = async (req, res) => {
     if (latitude !== null && !isNaN(parseFloat(latitude))) latitude = parseFloat(latitude);
     if (longitude !== null && !isNaN(parseFloat(longitude))) longitude = parseFloat(longitude);
 
-    // Procesar imagen destacada si se envió
     let featuredImage = null;
     if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
       featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
     }
 
-    // Crear la acción
     const action = await Action.create({
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
@@ -75,7 +108,6 @@ exports.createAction = async (req, res) => {
       featuredImage
     });
 
-    // Guardar imágenes múltiples si se subieron
     if (req.files && req.files.images && req.files.images.length > 0) {
       const imagePromises = req.files.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
@@ -88,7 +120,6 @@ exports.createAction = async (req, res) => {
       await Promise.all(imagePromises);
     }
 
-    // Devolver la acción con sus imágenes
     const actionWithImages = await Action.findByPk(action.id, {
       include: [{ model: ActionImage, as: 'images' }]
     });
@@ -99,7 +130,7 @@ exports.createAction = async (req, res) => {
   }
 };
 
-// Actualizar una acción existente
+// Actualizar una acción
 exports.updateAction = async (req, res) => {
   try {
     const action = await Action.findByPk(req.params.id, {
@@ -113,21 +144,36 @@ exports.updateAction = async (req, res) => {
       registrationLink, recordingUrl, isLive, campaignId
     } = req.body;
 
-    // Validar que si es online, el enlace de registro es obligatorio
+    // Verificar permisos
+    if (req.user.role === 'campaign_admin') {
+      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
+      if (!allowedCampaignIds.includes(action.campaignId)) {
+        return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
+      }
+      // No puede cambiar la campaña
+      campaignId = action.campaignId;
+    } else if (req.user.role === 'action_admin') {
+      const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
+      const allowedActionIds = userActions.map(ua => ua.actionId);
+      if (!allowedActionIds.includes(action.id)) {
+        return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
     if (locationType === 'online' && (!registrationLink || registrationLink.trim() === '')) {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
 
-    // Sanitizar coordenadas
     if (!latitude && latitude !== 0) latitude = null;
     if (!longitude && longitude !== 0) longitude = null;
     if (latitude !== null && !isNaN(parseFloat(latitude))) latitude = parseFloat(latitude);
     if (longitude !== null && !isNaN(parseFloat(longitude))) longitude = parseFloat(longitude);
 
-    // Manejar imagen destacada
     let featuredImage = action.featuredImage;
     if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
-      // Eliminar imagen anterior si existe
       if (action.featuredImage) {
         const oldPath = path.join(__dirname, '../../uploads/featured', path.basename(action.featuredImage));
         fs.unlink(oldPath, (err) => {
@@ -137,16 +183,14 @@ exports.updateAction = async (req, res) => {
       featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
     }
 
-    // Actualizar datos de la acción
     await action.update({
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
       registrationLink, recordingUrl, isLive,
-      campaignId: campaignId || null,
+      campaignId,
       featuredImage
     });
 
-    // Añadir nuevas imágenes múltiples si se subieron (sin eliminar las existentes)
     if (req.files && req.files.images && req.files.images.length > 0) {
       const currentImageCount = action.images ? action.images.length : 0;
       const imagePromises = req.files.images.map((file, index) => {
@@ -160,7 +204,6 @@ exports.updateAction = async (req, res) => {
       await Promise.all(imagePromises);
     }
 
-    // Devolver acción actualizada
     const updatedAction = await Action.findByPk(action.id, {
       include: [{ model: ActionImage, as: 'images' }]
     });
@@ -171,7 +214,7 @@ exports.updateAction = async (req, res) => {
   }
 };
 
-// Eliminar una acción
+// Eliminar una acción (solo superadmin)
 exports.deleteAction = async (req, res) => {
   try {
     const action = await Action.findByPk(req.params.id, {
@@ -179,15 +222,16 @@ exports.deleteAction = async (req, res) => {
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
 
-    // Eliminar imagen destacada del disco
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'No tienes permiso para eliminar acciones' });
+    }
+
     if (action.featuredImage) {
       const filePath = path.join(__dirname, '../../uploads/featured', path.basename(action.featuredImage));
       fs.unlink(filePath, (err) => {
         if (err) console.error('Error al eliminar imagen destacada:', err);
       });
     }
-
-    // Eliminar imágenes múltiples del disco
     if (action.images && action.images.length > 0) {
       for (const img of action.images) {
         const filePath = path.join(__dirname, '../../uploads/actions', path.basename(img.url));
@@ -196,7 +240,6 @@ exports.deleteAction = async (req, res) => {
         });
       }
     }
-
     await action.destroy();
     res.json({ message: 'Acción eliminada' });
   } catch (error) {
@@ -212,12 +255,10 @@ exports.deleteActionImage = async (req, res) => {
     const image = await ActionImage.findByPk(imageId);
     if (!image) return res.status(404).json({ message: 'Imagen no encontrada' });
 
-    // Eliminar archivo físico
     const filePath = path.join(__dirname, '../../uploads/actions', path.basename(image.url));
     fs.unlink(filePath, (err) => {
       if (err) console.error('Error al eliminar archivo:', err);
     });
-
     await image.destroy();
     res.json({ message: 'Imagen eliminada' });
   } catch (error) {

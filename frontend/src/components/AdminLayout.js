@@ -6,17 +6,47 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const menu = [
+  const baseMenu = [
     { name: 'Dashboard', path: '/admin' },
-    { name: 'Videos', path: '/admin/videos' },
-    { name: 'Reportes', path: '/admin/reports' },
+  ];
+
+  const superAdminMenu = [
+    { name: 'Administradores', path: '/admin/users' },
+    { name: 'Instagram', path: '/admin/instagram' },
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
-    { name: 'Grupos', path: '/admin/groups' },
-    { name: 'Instagram', path: '/admin/instagram' },
     { name: 'Imágenes', path: '/admin/images' },
+    { name: 'Videos', path: '/admin/videos' },
+    { name: 'Reportes', path: '/admin/reports' },
+    { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
   ];
+
+  const campaignAdminMenu = [
+    { name: 'Campañas', path: '/admin/campaigns' },
+    { name: 'Acciones', path: '/admin/actions' },
+    { name: 'Imágenes', path: '/admin/images' },
+    { name: 'Videos', path: '/admin/videos' },
+    { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
+  ];
+
+  const actionAdminMenu = [
+    { name: 'Acciones', path: '/admin/actions' },
+    { name: 'Imágenes', path: '/admin/images' },
+    { name: 'Videos', path: '/admin/videos' },
+    { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
+  ];
+
+  let menu = [...baseMenu];
+  if (user) {
+    if (user.role === 'superadmin') {
+      menu = [...baseMenu, ...superAdminMenu];
+    } else if (user.role === 'campaign_admin') {
+      menu = [...baseMenu, ...campaignAdminMenu];
+    } else if (user.role === 'action_admin') {
+      menu = [...baseMenu, ...actionAdminMenu];
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -24,7 +54,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/admin" className="text-xl font-bold">LunaRoja Admin</Link>
           <div className="flex items-center space-x-4">
-            <span>{user?.username}</span>
+            <span>{user?.username} ({user?.role === 'superadmin' ? 'Super' : user?.role === 'campaign_admin' ? 'Admin Campaña' : 'Admin Evento'})</span>
             <button onClick={logout} className="bg-red-800 px-3 py-1 rounded hover:bg-red-900">
               Cerrar sesión
             </button>

@@ -7,15 +7,17 @@ const {
   deleteVideo,
 } = require('../controllers/videoController');
 const authMiddleware = require('../middlewares/auth');
+const optionalAuth = require('../middlewares/optionalAuth');
+const { isSuperAdmin } = require('../middlewares/authorize');
 const router = express.Router();
 
-// Rutas públicas
-router.get('/', getAllVideos);
-router.get('/:id', getVideoById);
+// Rutas públicas con autenticación opcional
+router.get('/', optionalAuth, getAllVideos);
+router.get('/:id', optionalAuth, getVideoById);
 
-// Rutas protegidas (admin)
+// Rutas protegidas (solo superadmin para crear y eliminar, aunque el controlador permite campaign_admin)
 router.post('/', authMiddleware, createVideo);
 router.put('/:id', authMiddleware, updateVideo);
-router.delete('/:id', authMiddleware, deleteVideo);
+router.delete('/:id', authMiddleware, isSuperAdmin, deleteVideo);
 
 module.exports = router;

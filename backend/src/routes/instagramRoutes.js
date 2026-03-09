@@ -8,16 +8,18 @@ const {
   getPosts,
 } = require('../controllers/instagramController');
 const authMiddleware = require('../middlewares/auth');
+const optionalAuth = require('../middlewares/optionalAuth');
+const { isSuperAdmin } = require('../middlewares/authorize');
 const router = express.Router();
 
-// Rutas públicas
-router.get('/posts', getPosts);
+// Rutas públicas (posts) con autenticación opcional
+router.get('/posts', optionalAuth, getPosts);
 
-// Rutas protegidas (admin)
+// Rutas protegidas (solo superadmin para crear/editar, pero getAllAccounts puede filtrar por rol)
 router.get('/accounts', authMiddleware, getAllAccounts);
 router.get('/accounts/:id', authMiddleware, getAccountById);
-router.post('/accounts', authMiddleware, createAccount);
-router.put('/accounts/:id', authMiddleware, updateAccount);
-router.delete('/accounts/:id', authMiddleware, deleteAccount);
+router.post('/accounts', authMiddleware, isSuperAdmin, createAccount);
+router.put('/accounts/:id', authMiddleware, isSuperAdmin, updateAccount);
+router.delete('/accounts/:id', authMiddleware, isSuperAdmin, deleteAccount);
 
 module.exports = router;
