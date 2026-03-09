@@ -21,15 +21,14 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
   ];
-
   const campaignAdminMenu = [
+    { name: 'Administradores', path: '/admin/users' }, // añadido
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
     { name: 'Videos', path: '/admin/videos' },
     { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
   ];
-
   const actionAdminMenu = [
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },

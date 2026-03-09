@@ -6,8 +6,10 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useAuth } from '../../../context/AuthContext';
 
 function AdminUsers() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [actions, setActions] = useState([]);
@@ -15,7 +17,7 @@ function AdminUsers() {
   const [form, setForm] = useState({
     username: '',
     password: '',
-    role: 'campaign_admin',
+    role: 'action_admin',
     campaignIds: [],
     actionIds: []
   });
@@ -63,6 +65,12 @@ function AdminUsers() {
     Promise.all([fetchUsers(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false));
   }, []);
 
+  const canCreate = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'campaign_admin');
+  const availableRoles = currentUser?.role === 'superadmin'
+    ? ['superadmin', 'campaign_admin', 'action_admin']
+    : ['action_admin'];
+  const showCampaignSelect = currentUser?.role === 'superadmin';
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -97,7 +105,7 @@ function AdminUsers() {
         setUsers(prevUsers => [...prevUsers, response.data]);
         toast.success('Usuario creado');
       }
-      setForm({ username: '', password: '', role: 'campaign_admin', campaignIds: [], actionIds: [] });
+      setForm({ username: '', password: '', role: 'action_admin', campaignIds: [], actionIds: [] });
       setEditingId(null);
       setShowForm(false);
     } catch (error) {
@@ -146,14 +154,16 @@ function AdminUsers() {
   return (
     <AdminLayout title="Administrar Usuarios">
       <ToastContainer />
-      <button
-        onClick={() => setShowForm(!showForm)}
-        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        {showForm ? 'Cancelar' : 'Crear nuevo usuario'}
-      </button>
+      {canCreate && (
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          {showForm ? 'Cancelar' : 'Crear nuevo usuario'}
+        </button>
+      )}
 
-      {showForm && (
+      {showForm && canCreate && (
         <div className="mb-8 bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">{editingId ? 'Editar usuario' : 'Crear nuevo usuario'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -163,11 +173,12 @@ function AdminUsers() {
                 name="role"
                 value={form.role}
                 onChange={handleChange}
+                disabled={currentUser?.role !== 'superadmin'}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               >
-                <option value="campaign_admin">Administrador de campaña</option>
-                <option value="action_admin">Administrador de evento</option>
-                <option value="superadmin">Superadministrador</option>
+                {availableRoles.map(role => (
+                  <option key={role} value={role}>{roleLabels[role]}</option>
+                ))}
               </select>
             </div>
 
@@ -206,7 +217,7 @@ function AdminUsers() {
               </div>
             </div>
 
-            {form.role === 'campaign_admin' && (
+            {showCampaignSelect && form.role === 'campaign_admin' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">Campañas asignadas</label>
                 <Select
@@ -245,7 +256,7 @@ function AdminUsers() {
                   type="button"
                   onClick={() => {
                     setEditingId(null);
-                    setForm({ username: '', password: '', role: 'campaign_admin', campaignIds: [], actionIds: [] });
+                    setForm({ username: '', password: '', role: 'action_admin', campaignIds: [], actionIds: [] });
                   }}
                   className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
                 >
@@ -273,27 +284,35 @@ function AdminUsers() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{user.username}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{roleLabels[user.role]}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {user.role === 'campaign_admin' && user.campaigns && user.campaigns.map(c => c.name).join(', ')}
-                    {user.role === 'action_admin' && user.actions && user.actions.map(a => a.title).join(', ')}
-                    {user.role === 'superadmin' && '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    <button onClick={() => handleEdit(user)} className="text-blue-600 hover:text-blue-900">
-                      Editar
-                    </button>
-                    {user.id !== 1 && (
-                      <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
-                        Eliminar
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {users.map(user => {
+                const canEdit = currentUser?.role === 'superadmin' ||
+                  (currentUser?.role === 'campaign_admin' && user.role === 'action_admin');
+                return (
+                  <tr key={user.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">{user.username}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{roleLabels[user.role]}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.role === 'campaign_admin' && user.campaigns && user.campaigns.map(c => c.name).join(', ')}
+                      {user.role === 'action_admin' && user.actions && user.actions.map(a => a.title).join(', ')}
+                      {user.role === 'superadmin' && '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap space-x-2">
+                      {canEdit && (
+                        <>
+                          <button onClick={() => handleEdit(user)} className="text-blue-600 hover:text-blue-900">
+                            Editar
+                          </button>
+                          {user.id !== 1 && (
+                            <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
+                              Eliminar
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -4,19 +4,16 @@ const {
   createUser,
   updateUser,
   deleteUser,
-  changeMyPassword, // <-- importar la nueva función
+  changeMyPassword,
 } = require('../controllers/userController');
 const authMiddleware = require('../middlewares/auth');
-const { isSuperAdmin } = require('../middlewares/authorize');
 const router = express.Router();
 
-// Rutas existentes
-router.get('/', authMiddleware, isSuperAdmin, getAllUsers);
-router.post('/', authMiddleware, isSuperAdmin, createUser);
-router.put('/:id', authMiddleware, isSuperAdmin, updateUser);
-router.delete('/:id', authMiddleware, isSuperAdmin, deleteUser);
-
-// Nueva ruta para cambiar la propia contraseña (cualquier usuario autenticado)
+// Todas las rutas requieren autenticación, la autorización se maneja en el controlador
+router.get('/', authMiddleware, getAllUsers);
+router.post('/', authMiddleware, createUser);
+router.put('/:id', authMiddleware, updateUser);
+router.delete('/:id', authMiddleware, deleteUser);
 router.put('/me/password', authMiddleware, changeMyPassword);
 
 module.exports = router;
