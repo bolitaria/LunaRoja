@@ -1,7 +1,7 @@
 const WorkingGroup = require('../models/WorkingGroup');
+const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
 
-// Obtener todos los grupos (público o admin)
 exports.getAllGroups = async (req, res) => {
   try {
     let where = { isActive: true };
@@ -13,25 +13,46 @@ exports.getAllGroups = async (req, res) => {
         if (campaignIds.length === 0) return res.json([]);
         where.campaignId = campaignIds;
       } else if (req.user.role === 'action_admin') {
-        return res.json([]); // No ven grupos
+        return res.json([]);
       }
     }
 
     const groups = await WorkingGroup.findAll({
       where,
+      include: [{ model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] }],
       order: [['region', 'ASC'], ['name', 'ASC']]
     });
-    res.json(groups);
+
+    const formattedGroups = groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      description: g.description,
+      platform: g.platform,
+      link: g.link,
+      region: g.region,
+      isActive: g.isActive,
+      campaignId: g.campaignId,
+      campaign: g.campaign ? {
+        id: g.campaign.id,
+        name: g.campaign.name,
+        color: g.campaign.color
+      } : null,
+      createdAt: g.createdAt,
+      updatedAt: g.updatedAt
+    }));
+
+    res.json(formattedGroups);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al obtener grupos' });
   }
 };
 
-// Obtener un grupo por ID
 exports.getGroupById = async (req, res) => {
   try {
-    const group = await WorkingGroup.findByPk(req.params.id);
+    const group = await WorkingGroup.findByPk(req.params.id, {
+      include: [{ model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] }]
+    });
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
     res.json(group);
   } catch (error) {
@@ -40,7 +61,6 @@ exports.getGroupById = async (req, res) => {
   }
 };
 
-// Crear un nuevo grupo (solo superadmin)
 exports.createGroup = async (req, res) => {
   try {
     let { name, description, platform, link, region, campaignId } = req.body;
@@ -49,6 +69,17 @@ exports.createGroup = async (req, res) => {
     }
     if (description === '') description = null;
     if (region === '') region = null;
+
+    // Verificar permisos si es campaign_admin
+    if (req.user.role === 'campaign_admin') {
+      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
+      if (campaignId && !allowedCampaignIds.includes(parseInt(campaignId))) {
+        return res.status(403).json({ message: 'No tienes permiso para asociar este grupo a esa campaña' });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'No tienes permiso para crear grupos' });
+    }
 
     const group = await WorkingGroup.create({
       name,
@@ -66,23 +97,26 @@ exports.createGroup = async (req, res) => {
   }
 };
 
-// Actualizar un grupo (solo superadmin o campaign_admin propietario)
 exports.updateGroup = async (req, res) => {
   try {
     const group = await WorkingGroup.findByPk(req.params.id);
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
+    let { name, description, platform, link, region, isActive, campaignId } = req.body;
+
+    // Verificar permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (!group.campaignId || !allowedCampaignIds.includes(group.campaignId)) {
+      if (group.campaignId && !allowedCampaignIds.includes(group.campaignId)) {
         return res.status(403).json({ message: 'No tienes permiso para editar este grupo' });
       }
+      // No puede cambiar la campaña si no es superadmin
+      campaignId = group.campaignId;
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    let { name, description, platform, link, region, isActive, campaignId } = req.body;
     if (description === '') description = null;
     if (region === '') region = null;
 
@@ -94,7 +128,6 @@ exports.updateGroup = async (req, res) => {
   }
 };
 
-// Eliminar un grupo (solo superadmin)
 exports.deleteGroup = async (req, res) => {
   try {
     const group = await WorkingGroup.findByPk(req.params.id);

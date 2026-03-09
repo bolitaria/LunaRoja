@@ -18,33 +18,40 @@ const InstagramAccount = require('./models/InstagramAccount');
 const InstagramPost = require('./models/InstagramPost');
 const UserCampaign = require('./models/UserCampaign');
 const UserAction = require('./models/UserAction');
+const Document = require('./models/Document');
 
-// Definir asociaciones
-// Relaciones uno a muchos (campaña -> acciones)
+
+// Asociaciones
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
-Action.belongsTo(Campaign, { foreignKey: 'campaignId' });
+Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' }); // alias 'campaign'
 
-// Relación acción -> imágenes múltiples
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
-ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' }); // ¡Importante el alias!
+ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' }); // alias 'action'
 
-// Relaciones de Instagram
 InstagramAccount.hasMany(InstagramPost, { foreignKey: 'accountId', onDelete: 'CASCADE' });
 InstagramPost.belongsTo(InstagramAccount, { foreignKey: 'accountId', as: 'account' });
-
 InstagramAccount.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Campaign.hasMany(InstagramAccount, { foreignKey: 'campaignId' });
 
-// Relaciones muchos a muchos de usuarios con campañas y acciones
 User.belongsToMany(Campaign, { through: UserCampaign, as: 'campaigns', foreignKey: 'userId' });
 Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 'campaignId' });
 
 User.belongsToMany(Action, { through: UserAction, as: 'actions', foreignKey: 'userId' });
 Action.belongsToMany(User, { through: UserAction, as: 'admins', foreignKey: 'actionId' });
 
-// Relaciones para videos (si se vinculan a campañas/acciones)
+WorkingGroup.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Campaign.hasMany(WorkingGroup, { foreignKey: 'campaignId', as: 'groups' });
+
 Video.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Video.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+Campaign.hasMany(Video, { foreignKey: 'campaignId', as: 'videos' });
+Action.hasMany(Video, { foreignKey: 'actionId', as: 'videos' });
+
+// Si usas Document
+Document.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Document.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+Campaign.hasMany(Document, { foreignKey: 'campaignId', as: 'documents' });
+Action.hasMany(Document, { foreignKey: 'actionId', as: 'documents' });
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');

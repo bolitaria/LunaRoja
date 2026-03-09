@@ -4,6 +4,7 @@ import axios from 'axios';
 import AdminLayout from '../../../../components/AdminLayout';
 import { withAuth } from '../../../../lib/auth';
 import { toast } from 'react-toastify';
+import ActionPreview from '../../../../components/ActionPreview';
 
 function EditAction() {
   const router = useRouter();
@@ -124,10 +125,17 @@ function EditAction() {
     }
   };
 
+  const openGoogleMaps = () => {
+    if (form.address) {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.address)}`, '_blank');
+    } else {
+      window.open('https://www.google.com/maps', '_blank');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar que si es online, registrationLink sea obligatorio
     if (form.locationType === 'online' && !form.registrationLink.trim()) {
       toast.error('El enlace de registro es obligatorio para eventos online');
       return;
@@ -163,276 +171,281 @@ function EditAction() {
     }
   };
 
+  // Construir array de imágenes para vista previa
+  const allPreviewImages = [
+    ...(featuredImagePreview ? [featuredImagePreview] : []),
+    ...newImagePreviews
+  ];
+
   return (
     <AdminLayout title="Editar Acción">
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md max-w-2xl">
-        {/* Título */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Título *</label>
-          <input
-            type="text"
-            name="title"
-            value={form.title}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border rounded"
-          />
-        </div>
-
-        {/* Descripción */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Descripción</label>
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            rows="3"
-            className="w-full px-3 py-2 border rounded"
-          />
-        </div>
-
-        {/* Categoría */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Categoría *</label>
-          <select
-            name="category"
-            value={form.category}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded"
-          >
-            <option value="webinar">Webinar</option>
-            <option value="talk">Charla</option>
-            <option value="protest">Manifestación</option>
-            <option value="bds">Acción BDS</option>
-            <option value="strike">Huelga</option>
-            <option value="march">Marcha</option>
-            <option value="solidarity_action">Acción Solidaria</option>
-            <option value="workshop">Taller</option>
-          </select>
-        </div>
-
-        {/* Campaña relacionada */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Campaña relacionada</label>
-          <select
-            name="campaignId"
-            value={form.campaignId}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded"
-          >
-            <option value="">-- Ninguna --</option>
-            {campaigns.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Fecha y hora */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Fecha y hora *</label>
-          <input
-            type="datetime-local"
-            name="datetime"
-            value={form.datetime}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border rounded"
-          />
-        </div>
-
-        {/* Tipo de ubicación */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Tipo de ubicación</label>
-          <select
-            name="locationType"
-            value={form.locationType}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded"
-          >
-            <option value="online">Online</option>
-            <option value="presencial">Presencial</option>
-          </select>
-        </div>
-
-        {/* Campos según ubicación */}
-        {form.locationType === 'online' && (
-          <>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">
-                Enlace de registro <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="url"
-                name="registrationLink"
-                value={form.registrationLink}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border rounded"
-              />
-              <p className="text-xs text-gray-500 mt-1">Obligatorio para eventos online</p>
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Enlace online (para acceder)</label>
-              <input
-                type="url"
-                name="onlineLink"
-                value={form.onlineLink}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <p className="text-xs text-gray-500 mt-1">Puedes añadirlo más tarde</p>
-            </div>
-          </>
-        )}
-
-        {form.locationType === 'presencial' && (
-          <>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Nombre del lugar</label>
-              <input
-                type="text"
-                name="placeName"
-                value={form.placeName}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Dirección</label>
-              <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                required={form.locationType === 'presencial'}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Enlace de registro (opcional)</label>
-              <input
-                type="url"
-                name="registrationLink"
-                value={form.registrationLink}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-          </>
-        )}
-
-        {/* URL de grabación */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">URL de grabación (opcional)</label>
-          <input
-            type="url"
-            name="recordingUrl"
-            value={form.recordingUrl}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded"
-          />
-        </div>
-
-        {/* Checkbox en vivo */}
-        <div className="mb-4">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              name="isLive"
-              checked={form.isLive}
-              onChange={handleChange}
-              className="mr-2"
-            />
-            <span>En vivo (mostrar como próximo)</span>
-          </label>
-        </div>
-
-        {/* Imagen destacada */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Imagen destacada</label>
-          {currentFeaturedImage && !featuredImageFile && (
-            <div className="mb-2">
-              <img
-                src={`${process.env.NEXT_PUBLIC_BASE_URL}${currentFeaturedImage}`}
-                alt="Actual"
-                className="max-h-40 max-w-full rounded"
-              />
-              <p className="text-sm text-gray-500">Imagen actual. Si subes una nueva, se reemplazará.</p>
-            </div>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFeaturedImageChange}
-            className="w-full px-3 py-2 border rounded"
-          />
-          {featuredImagePreview && featuredImageFile && (
-            <img src={featuredImagePreview} alt="Preview destacada" className="mt-2 max-h-40 max-w-full rounded" />
-          )}
-        </div>
-
-        {/* Imágenes existentes */}
-        {existingImages.length > 0 && (
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md lg:w-2/3">
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Imágenes de galería actuales</label>
-            <div className="grid grid-cols-4 gap-4">
-              {existingImages.map(img => (
-                <div key={img.id} className="relative">
-                  <img
-                    src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
-                    alt="Existente"
-                    className="h-20 w-20 object-cover rounded"
-                    onError={(e) => { e.target.style.display = 'none'; }}
+            <label className="block text-gray-700 mb-2">Título *</label>
+            <input
+              type="text"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Descripción</label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows="3"
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Categoría *</label>
+            <select
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            >
+              <option value="webinar">Webinar</option>
+              <option value="talk">Charla</option>
+              <option value="protest">Manifestación</option>
+              <option value="bds">Acción BDS</option>
+              <option value="strike">Huelga</option>
+              <option value="march">Marcha</option>
+              <option value="solidarity_action">Acción Solidaria</option>
+              <option value="workshop">Taller</option>
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Campaña relacionada</label>
+            <select
+              name="campaignId"
+              value={form.campaignId}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            >
+              <option value="">-- Ninguna --</option>
+              {campaigns.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Fecha y hora *</label>
+            <input
+              type="datetime-local"
+              name="datetime"
+              value={form.datetime}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Tipo de ubicación</label>
+            <select
+              name="locationType"
+              value={form.locationType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            >
+              <option value="online">Online</option>
+              <option value="presencial">Presencial</option>
+            </select>
+          </div>
+
+          {form.locationType === 'online' && (
+            <>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">
+                  Enlace de registro <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  name="registrationLink"
+                  value={form.registrationLink}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Enlace online (para acceder)</label>
+                <input
+                  type="url"
+                  name="onlineLink"
+                  value={form.onlineLink}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+            </>
+          )}
+
+          {form.locationType === 'presencial' && (
+            <>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Nombre del lugar</label>
+                <input
+                  type="text"
+                  name="placeName"
+                  value={form.placeName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">
+                  Dirección <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="address"
+                    value={form.address}
+                    onChange={handleChange}
+                    required
+                    className="flex-1 px-3 py-2 border rounded"
                   />
                   <button
                     type="button"
-                    onClick={() => handleDeleteImage(img.id)}
-                    className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    onClick={openGoogleMaps}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                   >
-                    ×
+                    Ver en mapa
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Puedes buscar la ubicación en Google Maps y copiar la dirección aquí.
+                </p>
+              </div>
+            </>
+          )}
 
-        {/* Nuevas imágenes */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Añadir más imágenes a la galería (máx. 20 en total)</label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleNewImages}
-            className="w-full px-3 py-2 border rounded"
-          />
-          {newImagePreviews.length > 0 && (
-            <div className="mt-4 grid grid-cols-4 gap-4">
-              {newImagePreviews.map((src, idx) => (
-                <div key={idx} className="relative">
-                  <img src={src} alt={`Preview ${idx}`} className="h-20 w-20 object-cover rounded" />
-                  <button
-                    type="button"
-                    onClick={() => removeNewImage(idx)}
-                    className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">URL de grabación</label>
+            <input
+              type="url"
+              name="recordingUrl"
+              value={form.recordingUrl}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                name="isLive"
+                checked={form.isLive}
+                onChange={handleChange}
+                className="mr-2"
+              />
+              <span>En vivo (mostrar como próximo)</span>
+            </label>
+          </div>
+
+          {/* Imagen destacada */}
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Imagen destacada</label>
+            {currentFeaturedImage && !featuredImageFile && (
+              <div className="mb-2">
+                <img
+                  src={`${process.env.NEXT_PUBLIC_BASE_URL}${currentFeaturedImage}`}
+                  alt="Actual"
+                  className="max-h-40 max-w-full rounded"
+                />
+                <p className="text-sm text-gray-500">Imagen actual. Si subes una nueva, se reemplazará.</p>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFeaturedImageChange}
+              className="w-full px-3 py-2 border rounded"
+            />
+            {featuredImagePreview && featuredImageFile && (
+              <img src={featuredImagePreview} alt="Preview destacada" className="mt-2 max-h-40 max-w-full rounded" />
+            )}
+          </div>
+
+          {/* Imágenes existentes */}
+          {existingImages.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Imágenes de galería actuales</label>
+              <div className="grid grid-cols-4 gap-4">
+                {existingImages.map(img => (
+                  <div key={img.id} className="relative">
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
+                      alt="Existente"
+                      className="h-20 w-20 object-cover rounded"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(img.id)}
+                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
-        >
-          {loading ? 'Guardando...' : 'Actualizar Acción'}
-        </button>
-      </form>
+          {/* Nuevas imágenes */}
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Añadir más imágenes a la galería (máx. 20 en total)</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleNewImages}
+              className="w-full px-3 py-2 border rounded"
+            />
+            {newImagePreviews.length > 0 && (
+              <div className="mt-4 grid grid-cols-4 gap-4">
+                {newImagePreviews.map((src, idx) => (
+                  <div key={idx} className="relative">
+                    <img src={src} alt={`Preview ${idx}`} className="h-20 w-20 object-cover rounded" />
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(idx)}
+                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {loading ? 'Guardando...' : 'Actualizar Acción'}
+          </button>
+        </form>
+
+        {/* Vista previa */}
+        <div className="lg:w-1/3">
+          <ActionPreview
+            form={form}
+            featuredImage={featuredImagePreview || (currentFeaturedImage ? `${process.env.NEXT_PUBLIC_BASE_URL}${currentFeaturedImage}` : null)}
+            images={allPreviewImages}
+          />
+        </div>
+      </div>
     </AdminLayout>
   );
 }

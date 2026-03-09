@@ -106,6 +106,7 @@ exports.createUser = async (req, res) => {
 };
 
 // Actualizar un usuario (solo superadmin)
+// Actualizar un usuario (solo superadmin)
 exports.updateUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -126,7 +127,7 @@ exports.updateUser = async (req, res) => {
 
     // Actualizar datos básicos
     if (username) user.username = username;
-    if (password) user.password = password;
+    if (password) user.password = password; // se encriptará por hook
     if (role) user.role = role;
     await user.save({ transaction: t });
 
@@ -159,7 +160,17 @@ exports.updateUser = async (req, res) => {
     }
 
     await t.commit();
-    res.json({ message: 'Usuario actualizado' });
+
+    // Obtener el usuario actualizado con sus relaciones
+    const updatedUser = await User.findByPk(userId, {
+      attributes: { exclude: ['password'] },
+      include: [
+        { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
+        { model: Action, as: 'actions', attributes: ['id', 'title'], through: { attributes: [] } }
+      ]
+    });
+
+    res.json(updatedUser);
   } catch (error) {
     await t.rollback();
     console.error(error);
@@ -181,5 +192,29 @@ exports.deleteUser = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al eliminar usuario' });
+  }
+};
+
+// Cambiar contraseña del propio usuario
+exports.changeMyPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'La contraseña actual no es correcta' });
+    }
+
+    user.password = newPassword; // el hook beforeUpdate se encargará de hashearla
+    await user.save();
+
+    res.json({ message: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al cambiar la contraseña' });
   }
 };

@@ -20,7 +20,6 @@ function AdminGroups() {
     link: '',
     region: '',
     campaignId: '',
-    actionId: '',
     isActive: true
   });
   const [editingId, setEditingId] = useState(null);
@@ -84,7 +83,7 @@ function AdminGroups() {
         });
         toast.success('Grupo creado');
       }
-      setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', actionId: '', isActive: true });
+      setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', isActive: true });
       setEditingId(null);
       setShowForm(false);
       fetchGroups();
@@ -95,13 +94,13 @@ function AdminGroups() {
 
   const handleEdit = (group) => {
     setForm({
+      password: '',
       name: group.name,
       description: group.description || '',
       platform: group.platform,
       link: group.link,
       region: group.region || '',
       campaignId: group.campaignId || '',
-      actionId: group.actionId || '',
       isActive: group.isActive
     });
     setEditingId(group.id);
@@ -122,17 +121,16 @@ function AdminGroups() {
   };
 
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
-  const actionMap = actions.reduce((acc, a) => ({ ...acc, [a.id]: a }), {});
 
-  // Determinar si el usuario puede crear grupos (superadmin, campaign_admin, action_admin)
-  const canCreate = user && (user.role === 'superadmin' || user.role === 'campaign_admin' || user.role === 'action_admin');
+  // Determinar si el usuario puede crear grupos
+  const canCreate = user && (user.role === 'superadmin' || user.role === 'campaign_admin');
 
   return (
     <AdminLayout title="Administrar Grupos de Trabajo">
       <ToastContainer />
       {canCreate && (
         <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', actionId: '', isActive: true }); }}
+          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', isActive: true }); }}
           className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           {showForm ? 'Cancelar' : 'Nuevo grupo'}
@@ -197,38 +195,20 @@ function AdminGroups() {
               className="w-full px-3 py-2 border rounded"
             />
           </div>
-          {user.role === 'superadmin' && (
-            <>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Campaña asociada (opcional)</label>
-                <select
-                  name="campaignId"
-                  value={form.campaignId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                >
-                  <option value="">-- Ninguna --</option>
-                  {campaigns.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Acción asociada (opcional)</label>
-                <select
-                  name="actionId"
-                  value={form.actionId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                >
-                  <option value="">-- Ninguna --</option>
-                  {actions.map(a => (
-                    <option key={a.id} value={a.id}>{a.title}</option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2">Campaña asociada (opcional)</label>
+            <select
+              name="campaignId"
+              value={form.campaignId}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+            >
+              <option value="">-- Ninguna --</option>
+              {campaigns.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="mb-4">
             <label className="flex items-center">
               <input
@@ -260,7 +240,6 @@ function AdminGroups() {
                 <th className="px-6 py-3 text-left">Plataforma</th>
                 <th className="px-6 py-3 text-left">Región</th>
                 <th className="px-6 py-3 text-left">Campaña</th>
-                <th className="px-6 py-3 text-left">Acción</th>
                 <th className="px-6 py-3 text-left">Estado</th>
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
@@ -268,12 +247,9 @@ function AdminGroups() {
             <tbody>
               {groups.map(group => {
                 const campaign = campaignMap[group.campaignId];
-                const action = actionMap[group.actionId];
                 // Permitir editar/eliminar según rol
-                const canEdit = 
-                  user.role === 'superadmin' ||
-                  (user.role === 'campaign_admin' && group.campaignId === user.campaignId) ||
-                  (user.role === 'action_admin' && group.actionId === user.actionId);
+                const canEdit = user && (user.role === 'superadmin' || 
+                  (user.role === 'campaign_admin' && group.campaignId && user.campaigns?.some(c => c.id === group.campaignId)));
                 return (
                   <tr key={group.id} className="border-t">
                     <td className="px-6 py-4">{group.name}</td>
@@ -283,11 +259,14 @@ function AdminGroups() {
                     <td className="px-6 py-4">{group.region || '-'}</td>
                     <td className="px-6 py-4">
                       {campaign ? (
-                        <span style={{ color: campaign.color }}>{campaign.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: campaign.color }}
+                          />
+                          <span className="font-medium text-black">{campaign.name}</span>
+                        </div>
                       ) : '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {action ? action.title : '-'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-xs ${group.isActive ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'}`}>

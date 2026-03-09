@@ -4,7 +4,8 @@ import { withAuth } from '../../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Select from 'react-select'; // Asegúrate de tener instalado react-select
+import Select from 'react-select';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -20,6 +21,8 @@ function AdminUsers() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
@@ -65,33 +68,38 @@ function AdminUsers() {
   };
 
   const handleSelectChange = (selectedOptions, field) => {
-    // selectedOptions es un array de objetos { value, label } o null
     const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
     setForm({ ...form, [field]: values });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.username || !form.password || !form.role) {
-      toast.warning('Completa todos los campos obligatorios');
+    if (!form.username || !form.role) {
+      toast.warning('Completa los campos obligatorios');
+      return;
+    }
+    if (!editingId && !form.password) {
+      toast.warning('La contraseña es obligatoria para nuevos usuarios');
       return;
     }
     setSubmitting(true);
     try {
       if (editingId) {
-        await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/users/${editingId}`, form, {
+        const response = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/users/${editingId}`, form, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        setUsers(prevUsers => prevUsers.map(u => u.id === editingId ? response.data : u));
         toast.success('Usuario actualizado');
       } else {
-        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/users`, form, {
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/users`, form, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        setUsers(prevUsers => [...prevUsers, response.data]);
         toast.success('Usuario creado');
       }
       setForm({ username: '', password: '', role: 'campaign_admin', campaignIds: [], actionIds: [] });
       setEditingId(null);
-      fetchUsers();
+      setShowForm(false);
     } catch (error) {
       const msg = error.response?.data?.message || 'Error al guardar usuario';
       toast.error(msg);
@@ -104,12 +112,13 @@ function AdminUsers() {
   const handleEdit = (user) => {
     setForm({
       username: user.username,
-      password: '', // no se muestra la contraseña
+      password: '',
       role: user.role,
       campaignIds: user.campaigns ? user.campaigns.map(c => c.id) : [],
       actionIds: user.actions ? user.actions.map(a => a.id) : []
     });
     setEditingId(user.id);
+    setShowForm(true);
   };
 
   const handleDelete = async (id) => {
@@ -137,106 +146,121 @@ function AdminUsers() {
   return (
     <AdminLayout title="Administrar Usuarios">
       <ToastContainer />
-      <div className="mb-8 bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">{editingId ? 'Editar usuario' : 'Crear nuevo usuario'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campo Rol */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Rol *</label>
-            <select
-              name="role"
-              value={form.role}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            >
-              <option value="campaign_admin">Administrador de campaña</option>
-              <option value="action_admin">Administrador de evento</option>
-              <option value="superadmin">Superadministrador</option>
-            </select>
-          </div>
+      <button
+        onClick={() => setShowForm(!showForm)}
+        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        {showForm ? 'Cancelar' : 'Crear nuevo usuario'}
+      </button>
 
-          {/* Campo Usuario */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Nombre de usuario *</label>
-            <input
-              type="text"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              required
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            />
-          </div>
-
-          {/* Campo Contraseña */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Contraseña {editingId && '(dejar vacío para no cambiar)'} *
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required={!editingId}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            />
-          </div>
-
-          {/* Selector de campañas (si el rol es campaign_admin) */}
-          {form.role === 'campaign_admin' && (
+      {showForm && (
+        <div className="mb-8 bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">{editingId ? 'Editar usuario' : 'Crear nuevo usuario'}</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Campañas asignadas</label>
-              <Select
-                isMulti
-                options={campaignOptions}
-                value={campaignOptions.filter(opt => form.campaignIds.includes(opt.value))}
-                onChange={(selected) => handleSelectChange(selected, 'campaignIds')}
-                className="mt-1"
-              />
-            </div>
-          )}
-
-          {/* Selector de acciones (si el rol es action_admin) */}
-          {form.role === 'action_admin' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Acciones asignadas</label>
-              <Select
-                isMulti
-                options={actionOptions}
-                value={actionOptions.filter(opt => form.actionIds.includes(opt.value))}
-                onChange={(selected) => handleSelectChange(selected, 'actionIds')}
-                className="mt-1"
-              />
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {submitting ? 'Guardando...' : (editingId ? 'Actualizar' : 'Crear usuario')}
-            </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setForm({ username: '', password: '', role: 'campaign_admin', campaignIds: [], actionIds: [] });
-                }}
-                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              <label className="block text-sm font-medium text-gray-700">Rol *</label>
+              <select
+                name="role"
+                value={form.role}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               >
-                Cancelar
-              </button>
+                <option value="campaign_admin">Administrador de campaña</option>
+                <option value="action_admin">Administrador de evento</option>
+                <option value="superadmin">Superadministrador</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Nombre de usuario *</label>
+              <input
+                type="text"
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                required
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Contraseña {editingId && '(dejar vacío para no cambiar)'} *
+              </label>
+              <div className="relative mt-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required={!editingId}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm p-2 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+            </div>
+
+            {form.role === 'campaign_admin' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Campañas asignadas</label>
+                <Select
+                  isMulti
+                  options={campaignOptions}
+                  value={campaignOptions.filter(opt => form.campaignIds.includes(opt.value))}
+                  onChange={(selected) => handleSelectChange(selected, 'campaignIds')}
+                  className="mt-1"
+                />
+              </div>
             )}
-          </div>
-        </form>
-      </div>
+
+            {form.role === 'action_admin' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Acciones asignadas</label>
+                <Select
+                  isMulti
+                  options={actionOptions}
+                  value={actionOptions.filter(opt => form.actionIds.includes(opt.value))}
+                  onChange={(selected) => handleSelectChange(selected, 'actionIds')}
+                  className="mt-1"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submitting ? 'Guardando...' : (editingId ? 'Actualizar' : 'Crear usuario')}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setForm({ username: '', password: '', role: 'campaign_admin', campaignIds: [], actionIds: [] });
+                  }}
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
 
       {loading ? (
         <p>Cargando usuarios...</p>
+      ) : users.length === 0 ? (
+        <p>No hay usuarios creados.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">

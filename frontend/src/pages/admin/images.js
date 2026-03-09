@@ -56,6 +56,7 @@ function AdminImages() {
                 <th className="px-6 py-3 text-left">Vista previa</th>
                 <th className="px-6 py-3 text-left">Tipo</th>
                 <th className="px-6 py-3 text-left">Relacionado</th>
+                <th className="px-6 py-3 text-left">Campaña</th>
                 <th className="px-6 py-3 text-left">Fecha</th>
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
@@ -76,6 +77,17 @@ function AdminImages() {
                   </td>
                   <td className="px-6 py-4">
                     {img.relatedTitle || `ID: ${img.relatedId}`}
+                  </td>
+                  <td className="px-6 py-4">
+                    {img.campaign ? (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: img.campaign.color }}
+                        />
+                        <span className="font-medium text-black">{img.campaign.name}</span>
+                      </div>
+                    ) : '-'}
                   </td>
                   <td className="px-6 py-4">
                     {new Date(img.createdAt).toLocaleDateString()}

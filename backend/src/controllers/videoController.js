@@ -1,8 +1,9 @@
 const Video = require('../models/Video');
+const Campaign = require('../models/Campaign');
+const Action = require('../models/Action');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
 
-// Obtener todos los videos (público o admin)
 exports.getAllVideos = async (req, res) => {
   try {
     const { campaignId, actionId } = req.query;
@@ -12,16 +13,12 @@ exports.getAllVideos = async (req, res) => {
       if (req.user.role === 'campaign_admin') {
         const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        if (campaignIds.length === 0) {
-          return res.json([]);
-        }
+        if (campaignIds.length === 0) return res.json([]);
         where.campaignId = campaignIds;
       } else if (req.user.role === 'action_admin') {
         const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
         const actionIds = userActions.map(ua => ua.actionId);
-        if (actionIds.length === 0) {
-          return res.json([]);
-        }
+        if (actionIds.length === 0) return res.json([]);
         where.actionId = actionIds;
       }
     }
@@ -29,11 +26,31 @@ exports.getAllVideos = async (req, res) => {
     if (campaignId) where.campaignId = campaignId;
     if (actionId) where.actionId = actionId;
 
-    const videos = await Video.findAll({ 
-      where, 
-      order: [['publishedAt', 'DESC']] 
+    const videos = await Video.findAll({
+      where,
+      include: [
+        { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
+        { model: Action, as: 'action', attributes: ['id', 'title'] }
+      ],
+      order: [['publishedAt', 'DESC']]
     });
-    res.json(videos);
+
+    // Formatear respuesta
+    const formattedVideos = videos.map(v => ({
+      id: v.id,
+      title: v.title,
+      description: v.description,
+      youtubeUrl: v.youtubeUrl,
+      thumbnail: v.thumbnail,
+      publishedAt: v.publishedAt,
+      isNews: v.isNews,
+      campaign: v.campaign ? { id: v.campaign.id, name: v.campaign.name, color: v.campaign.color } : null,
+      action: v.action ? { id: v.action.id, title: v.action.title } : null,
+      createdAt: v.createdAt,
+      updatedAt: v.updatedAt
+    }));
+
+    res.json(formattedVideos);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al obtener videos' });

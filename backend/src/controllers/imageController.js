@@ -1,5 +1,6 @@
 const ActionImage = require('../models/ActionImage');
 const Action = require('../models/Action');
+const Campaign = require('../models/Campaign');
 const UserAction = require('../models/UserAction');
 const UserCampaign = require('../models/UserCampaign');
 const Report = require('../models/Report');
@@ -10,21 +11,33 @@ exports.getAllImages = async (req, res) => {
   try {
     console.log('=== getAllImages ===');
     console.log('req.user:', req.user);
+
     let actionWhere = {};
-    let includeAction = { model: Action, as: 'action', attributes: ['title'] }; // alias correcto
+    let includeAction = {
+      model: Action,
+      as: 'action',
+      attributes: ['title', 'campaignId'],
+      include: [
+        {
+          model: Campaign,
+          as: 'campaign',
+          attributes: ['id', 'name', 'color']
+        }
+      ]
+    };
 
     if (req.user) {
       if (req.user.role === 'campaign_admin') {
         const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        console.log('campaignIds del usuario (campaign_admin):', campaignIds);
         if (campaignIds.length === 0) return res.json([]);
+        console.log('campaignIds del usuario (campaign_admin):', campaignIds);
         includeAction.where = { campaignId: campaignIds };
       } else if (req.user.role === 'action_admin') {
         const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
         const actionIds = userActions.map(ua => ua.actionId);
-        console.log('actionIds del usuario (action_admin):', actionIds);
         if (actionIds.length === 0) return res.json([]);
+        console.log('actionIds del usuario (action_admin):', actionIds);
         actionWhere.actionId = actionIds;
       }
     }
@@ -59,6 +72,11 @@ exports.getAllImages = async (req, res) => {
         relatedId: img.actionId,
         relatedType: 'action',
         relatedTitle: img.action ? img.action.title : 'Acción',
+        campaign: img.action && img.action.campaign ? {
+          id: img.action.campaign.id,
+          name: img.action.campaign.name,
+          color: img.action.campaign.color
+        } : null,
         createdAt: img.createdAt
       })),
       ...reportFiles
@@ -72,17 +90,14 @@ exports.getAllImages = async (req, res) => {
   }
 };
 
-// Eliminar una imagen (solo superadmin o propietario)
 exports.deleteImage = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Intentar como ActionImage
     const actionImage = await ActionImage.findByPk(id, {
-      include: [{ model: Action, as: 'action' }]
+      include: [{ model: Action, as: 'action', include: [{ model: Campaign, as: 'campaign' }] }]
     });
     if (actionImage) {
-      // Verificar permisos
       if (req.user.role !== 'superadmin') {
         if (req.user.role === 'campaign_admin') {
           const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
@@ -109,7 +124,6 @@ exports.deleteImage = async (req, res) => {
       return res.json({ message: 'Imagen de acción eliminada' });
     }
 
-    // Si no, podría ser un reporte (id empieza con "report-")
     if (typeof id === 'string' && id.startsWith('report-')) {
       if (req.user.role !== 'superadmin') {
         return res.status(403).json({ message: 'Solo superadmin puede eliminar imágenes de reportes' });

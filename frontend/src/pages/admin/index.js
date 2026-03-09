@@ -2,123 +2,145 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { withAuth } from '../../lib/auth';
 import axios from 'axios';
-import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 function AdminDashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    videos: 0,
-    actions: 0,
-    campaigns: 0,
-    groups: 0,
-    subscribers: 0,
-    instagramPosts: 0,
-    reports: 0,
-    images: 0,
-  });
+  const [stats, setStats] = useState({});
+  const [actionsByCategory, setActionsByCategory] = useState([]);
+  const [recentActions, setRecentActions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        
-        // Peticiones según el rol
-        const promises = [];
-        
-        // Videos
-        promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/videos`, { headers }).then(res => ({ key: 'videos', value: res.data.length })));
-        
-        // Acciones
-        promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers }).then(res => ({ key: 'actions', value: res.data.length })));
-        
-        // Campañas (solo si es superadmin o campaign_admin)
-        if (user.role === 'superadmin' || user.role === 'campaign_admin') {
-          promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers }).then(res => ({ key: 'campaigns', value: res.data.length })));
-        } else {
-          promises.push(Promise.resolve({ key: 'campaigns', value: 0 }));
-        }
-        
-        // Grupos
-        promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups`, { headers }).then(res => ({ key: 'groups', value: res.data.length })));
-        
-        // Suscriptores (solo superadmin)
+        if (!user) return;
+
         if (user.role === 'superadmin') {
-          promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subscribers`, { headers }).then(res => ({ key: 'subscribers', value: res.data.length })));
-        } else {
-          promises.push(Promise.resolve({ key: 'subscribers', value: 0 }));
+          const [
+            campaignsRes,
+            actionsRes,
+            videosRes,
+            reportsRes,
+            subscribersRes,
+            groupsRes,
+            imagesRes
+          ] = await Promise.all([
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/videos`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subscribers`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/images`, { headers: { Authorization: `Bearer ${token}` } })
+          ]);
+          setStats({
+            Campañas: campaignsRes.data.length,
+            Acciones: actionsRes.data.length,
+            Videos: videosRes.data.length,
+            Reportes: reportsRes.data.length,
+            Suscriptores: subscribersRes.data.length,
+            Grupos: groupsRes.data.length,
+            Imágenes: imagesRes.data.length,
+          });
+
+          // Datos para gráfico de acciones por categoría
+          const categoryCount = actionsRes.data.reduce((acc, action) => {
+            acc[action.category] = (acc[action.category] || 0) + 1;
+            return acc;
+          }, {});
+          const categoryData = Object.entries(categoryCount).map(([cat, count]) => ({
+            name: cat,
+            value: count
+          }));
+          setActionsByCategory(categoryData);
+
+          // Acciones recientes
+          const recent = actionsRes.data.slice(0, 5);
+          setRecentActions(recent);
+        } else if (user.role === 'campaign_admin') {
+          const [campaignsRes, actionsRes] = await Promise.all([
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } })
+          ]);
+          setStats({
+            'Mis campañas': campaignsRes.data.length,
+            'Acciones de mis campañas': actionsRes.data.length,
+          });
+        } else if (user.role === 'action_admin') {
+          const actionsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } });
+          setStats({
+            'Mis acciones': actionsRes.data.length,
+          });
         }
-        
-        // Instagram posts
-        promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/instagram/posts`, { headers }).then(res => ({ key: 'instagramPosts', value: res.data.total || 0 })));
-        
-        // Reportes (solo superadmin)
-        if (user.role === 'superadmin') {
-          promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports`, { headers }).then(res => ({ key: 'reports', value: res.data.length })));
-        } else {
-          promises.push(Promise.resolve({ key: 'reports', value: 0 }));
-        }
-        
-        // Imágenes (solo superadmin y campaign_admin pueden verlas, pero el endpoint ya filtra)
-        promises.push(axios.get(`${process.env.NEXT_PUBLIC_API_URL}/images`, { headers }).then(res => ({ key: 'images', value: res.data.length })));
-        
-        const results = await Promise.all(promises);
-        const newStats = results.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {});
-        setStats(newStats);
       } catch (error) {
-        console.error('Error fetching stats', error);
+        console.error('Error al cargar estadísticas:', error);
       } finally {
         setLoading(false);
       }
     };
-    if (user) fetchStats();
+    fetchStats();
   }, [user]);
 
-  if (loading) return <AdminLayout><p>Cargando estadísticas...</p></AdminLayout>;
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Tarjetas visibles según rol */}
-        {(user.role === 'superadmin' || user.role === 'campaign_admin' || user.role === 'action_admin') && (
-          <StatCard title="Videos" value={stats.videos} link="/admin/videos" />
-        )}
-        {(user.role === 'superadmin' || user.role === 'campaign_admin' || user.role === 'action_admin') && (
-          <StatCard title="Acciones" value={stats.actions} link="/admin/actions" />
-        )}
-        {(user.role === 'superadmin' || user.role === 'campaign_admin') && (
-          <StatCard title="Campañas" value={stats.campaigns} link="/admin/campaigns" />
-        )}
-        {(user.role === 'superadmin' || user.role === 'campaign_admin' || user.role === 'action_admin') && (
-          <StatCard title="Grupos" value={stats.groups} link="/admin/groups" />
-        )}
-        {user.role === 'superadmin' && (
-          <>
-            <StatCard title="Suscriptores" value={stats.subscribers} link="/admin/subscribers" />
-            <StatCard title="Reportes" value={stats.reports} link="/admin/reports" />
-          </>
-        )}
-        {(user.role === 'superadmin' || user.role === 'campaign_admin' || user.role === 'action_admin') && (
-          <StatCard title="Publicaciones Instagram" value={stats.instagramPosts} link="/admin/instagram" />
-        )}
-        {(user.role === 'superadmin' || user.role === 'campaign_admin' || user.role === 'action_admin') && (
-          <StatCard title="Imágenes" value={stats.images} link="/admin/images" />
-        )}
-      </div>
-    </AdminLayout>
-  );
-}
+      {loading ? (
+        <p className="text-center py-8">Cargando...</p>
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {Object.entries(stats).map(([key, value]) => (
+              <div key={key} className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-gray-500 text-sm uppercase mb-2">{key}</h3>
+                <p className="text-3xl font-bold">{value}</p>
+              </div>
+            ))}
+          </div>
 
-function StatCard({ title, value, link }) {
-  return (
-    <Link href={link} className="block">
-      <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-        <h3 className="text-gray-500 text-sm uppercase">{title}</h3>
-        <p className="text-3xl font-bold">{value}</p>
-      </div>
-    </Link>
+          {user?.role === 'superadmin' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-4">Acciones por categoría</h2>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={actionsByCategory}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {actionsByCategory.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-4">Acciones recientes</h2>
+                <ul className="space-y-2">
+                  {recentActions.map(action => (
+                    <li key={action.id} className="border-b pb-2">
+                      <p className="font-medium">{action.title}</p>
+                      <p className="text-sm text-gray-500">{new Date(action.datetime).toLocaleDateString()}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </AdminLayout>
   );
 }
 

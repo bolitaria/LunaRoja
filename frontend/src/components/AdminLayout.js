@@ -34,7 +34,6 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
     { name: 'Videos', path: '/admin/videos' },
-    { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
   ];
 
   let menu = [...baseMenu];
@@ -48,13 +47,22 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     }
   }
 
+  // Añadir "Mi Perfil" al final del menú (debe existir la página /admin/profile)
+  const profileItem = { name: 'Mi Perfil', path: '/admin/profile' };
+  menu.push(profileItem);
+
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-red-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/admin" className="text-xl font-bold">LunaRoja Admin</Link>
           <div className="flex items-center space-x-4">
-            <span>{user?.username} ({user?.role === 'superadmin' ? 'Super' : user?.role === 'campaign_admin' ? 'Admin Campaña' : 'Admin Evento'})</span>
+            <span>
+              {user?.username} (
+              {user?.role === 'superadmin' ? 'Superadmin' : 
+               user?.role === 'campaign_admin' ? 'Admin Campaña' : 
+               user?.role === 'action_admin' ? 'Admin Evento' : ''})
+            </span>
             <button onClick={logout} className="bg-red-800 px-3 py-1 rounded hover:bg-red-900">
               Cerrar sesión
             </button>
