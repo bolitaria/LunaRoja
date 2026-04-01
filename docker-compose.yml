@@ -32,6 +32,8 @@ services:
   backend:
     build: ./backend
     container_name: lunaroja_backend
+    env_file:
+      - .env   # carga EMAIL_PASS, JWT_SECRET, etc.
     restart: always
     ports:
       - "5000:5000"
@@ -43,13 +45,6 @@ services:
       DB_USER: lunaroja
       DB_PASSWORD: lunaroja123
       DB_NAME: lunaroja
-      JWT_SECRET: supersecretkey
-      EMAIL_HOST: smtp.gmail.com
-      EMAIL_PORT: 587
-      EMAIL_SECURE: false
-      EMAIL_USER: bolitaria.fire@gmail.com
-      EMAIL_PASS: tu-contraseña-de-app
-      EMAIL_FROM: "LunaRoja <noreply@lunaroja.org>"
       FRONTEND_URL: http://localhost:3000
     depends_on:
       - postgres

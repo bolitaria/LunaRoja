@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const sequelize = require('./config/database');
 const path = require('path');
 
-// Importar modelos
+// Import models
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
 const ActionImage = require('./models/ActionImage');
@@ -21,7 +21,10 @@ const Document = require('./models/Document');
 const SubscribersReminder = require('./models/SubscribersReminder');
 const translateRoutes = require('./routes/translateRoutes');
 
-// Asociaciones
+// Import email service
+const { initEmailService } = require('./services/emailService');
+
+// Associations (unchanged)
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
@@ -56,7 +59,7 @@ SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders', onDelete: 'CASCADE' });
 SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
 
-// Importar rutas
+// Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const newsRoutes = require('./routes/newsRoutes');
@@ -74,11 +77,16 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// CORS – allow frontend domain
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/news', newsRoutes);
@@ -94,22 +102,24 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/translate', translateRoutes);
 
 app.get('/api', (req, res) => {
-  res.json({ message: 'Bienvenido a la API de LunaRoja' });
+  res.json({ message: 'Welcome to LunaRoja API' });
 });
 
 const PORT = process.env.PORT || 5000;
 
-// Sincronizar base de datos y arrancar servidor
-sequelize.sync({ alter: true })
-  .then(() => {
-    console.log('✅ Base de datos sincronizada');
+const startServer = async () => {
+  try {
+    await initEmailService();   // Ensure email templates are loaded
+    await sequelize.sync({ alter: true });
+    console.log('✅ Database synchronized');
     app.listen(PORT, () => {
-      console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
-    // Iniciar el job de scraping (se encarga de programar el cron)
     require('./jobs/scraperJob');
-  })
-  .catch(err => {
-    console.error('❌ Error al conectar con la base de datos:', err);
+  } catch (err) {
+    console.error('❌ Failed to start server:', err);
     process.exit(1);
-  });
+  }
+};
+
+startServer();

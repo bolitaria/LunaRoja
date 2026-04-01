@@ -5,9 +5,9 @@ const Action = require('../models/Action');
 const Subscriber = require('../models/Subscriber');
 const { sendReminderEmail } = require('../services/emailService');
 
-// Ejecutar cada 10 minutos
+// Run every 10 minutes
 cron.schedule('*/10 * * * *', async () => {
-  console.log('[ReminderJob] Comprobando recordatorios pendientes...');
+  console.log('[ReminderJob] Checking pending reminders...');
   const now = new Date();
   const reminders = await SubscribersReminder.findAll({
     where: {
@@ -25,9 +25,10 @@ cron.schedule('*/10 * * * *', async () => {
       await sendReminderEmail(reminder.subscriber.email, reminder.action, reminder.action.campaign);
       reminder.sent = true;
       await reminder.save();
-      console.log(`Recordatorio enviado a ${reminder.subscriber.email} para acción ${reminder.action.title}`);
+      console.log(`Reminder sent to ${reminder.subscriber.email} for action ${reminder.action.title}`);
     } catch (error) {
-      console.error(`Error al enviar recordatorio a ${reminder.subscriber.email}:`, error);
+      console.error(`Failed to send reminder to ${reminder.subscriber.email}:`, error);
+      // Optionally increment retry count and mark as failed after N attempts
     }
   }
 });

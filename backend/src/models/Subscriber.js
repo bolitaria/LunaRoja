@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../config/database'); // adjust to your DB config
 
 const Subscriber = sequelize.define('Subscriber', {
   id: {
@@ -11,7 +11,9 @@ const Subscriber = sequelize.define('Subscriber', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    validate: { isEmail: true },
+    validate: {
+      isEmail: true,
+    },
   },
   status: {
     type: DataTypes.ENUM('active', 'unsubscribed'),
@@ -26,7 +28,8 @@ const Subscriber = sequelize.define('Subscriber', {
     defaultValue: DataTypes.NOW,
   },
 }, {
-  timestamps: true,
+  tableName: 'subscribers',
+  timestamps: false, // or use createdAt/updatedAt if you prefer
 });
 
 module.exports = Subscriber;
