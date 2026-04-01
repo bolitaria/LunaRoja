@@ -4,12 +4,9 @@ import { withAuth } from '../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useAuth } from '../../context/AuthContext';
-import Link from 'next/link';
 
-function AdminVideos() {
-  const { user } = useAuth();
-  const [videos, setVideos] = useState([]);
+function AdminNews() {
+  const [news, setNews] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,14 +24,21 @@ function AdminVideos() {
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
-  const fetchVideos = async () => {
+  const getYoutubeId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const fetchNews = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/videos`, {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/news`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setVideos(res.data);
+      setNews(res.data);
     } catch (error) {
-      toast.error('Error al cargar videos');
+      toast.error('Error al cargar noticias');
     }
   };
 
@@ -61,83 +65,106 @@ function AdminVideos() {
   };
 
   useEffect(() => {
-    Promise.all([fetchVideos(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false));
+    Promise.all([fetchNews(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false));
   }, []);
 
   const handleChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+    const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+
+    setForm(prev => {
+      const updated = { ...prev, [name]: newValue };
+      if (name === 'youtubeUrl') {
+        const videoId = getYoutubeId(value);
+        if (videoId) {
+          updated.thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        } else if (!value) {
+          updated.thumbnail = '';
+        }
+      }
+      return updated;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const campaignValue = form.campaignId === '' ? null : Number(form.campaignId);
+      const actionValue = form.actionId === '' ? null : Number(form.actionId);
+
+      const dataToSend = {
+        title: form.title,
+        description: form.description,
+        youtubeUrl: form.youtubeUrl,
+        thumbnail: form.thumbnail,
+        isNews: form.isNews,
+        campaignId: campaignValue,
+        actionId: actionValue,
+      };
+
       if (editingId) {
-        await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/videos/${editingId}`, form, {
+        await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/news/${editingId}`, dataToSend, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        toast.success('Video actualizado');
+        toast.success('Noticia actualizada');
       } else {
-        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/videos`, form, {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/news`, dataToSend, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        toast.success('Video creado');
+        toast.success('Noticia creada');
       }
+
       setForm({ title: '', description: '', youtubeUrl: '', thumbnail: '', isNews: false, campaignId: '', actionId: '' });
       setEditingId(null);
       setShowForm(false);
-      fetchVideos();
+      fetchNews();
     } catch (error) {
+      console.error('Error al guardar:', error.response?.data || error.message);
       toast.error('Error al guardar');
     }
   };
 
-  const handleEdit = (video) => {
+  const handleEdit = (item) => {
     setForm({
-      title: video.title,
-      description: video.description || '',
-      youtubeUrl: video.youtubeUrl,
-      thumbnail: video.thumbnail || '',
-      isNews: video.isNews || false,
-      campaignId: video.campaignId || '',
-      actionId: video.actionId || ''
+      title: item.title,
+      description: item.description || '',
+      youtubeUrl: item.youtubeUrl,
+      thumbnail: item.thumbnail || '',
+      isNews: item.isNews || false,
+      campaignId: item.campaignId || '',
+      actionId: item.actionId || ''
     });
-    setEditingId(video.id);
+    setEditingId(item.id);
     setShowForm(true);
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar video?')) return;
+    if (!confirm('¿Eliminar noticia?')) return;
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/videos/${id}`, {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/news/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success('Video eliminado');
-      fetchVideos();
+      toast.success('Noticia eliminada');
+      fetchNews();
     } catch (error) {
       toast.error('Error al eliminar');
     }
   };
 
-  // Mapa de campañas para mostrar el nombre y color
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
-
-  // Determinar si puede crear (superadmin o campaign_admin)
-  const canCreate = user && (user.role === 'superadmin' || user.role === 'campaign_admin');
+  const actionMap = actions.reduce((acc, a) => ({ ...acc, [a.id]: a }), {});
 
   return (
-    <AdminLayout title="Administrar Videos">
+    <AdminLayout title="Administrar Noticias">
       <ToastContainer />
-      {canCreate && (
-        <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ title: '', description: '', youtubeUrl: '', thumbnail: '', isNews: false, campaignId: '', actionId: '' }); }}
-          className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          {showForm ? 'Cancelar' : 'Nuevo video'}
-        </button>
-      )}
+      <button
+        onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ title: '', description: '', youtubeUrl: '', thumbnail: '', isNews: false, campaignId: '', actionId: '' }); }}
+        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        {showForm ? 'Cancelar' : 'Nueva noticia'}
+      </button>
 
-      {showForm && canCreate && (
+      {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8">
           <div className="mb-4">
             <label className="block text-gray-700 mb-2">Título *</label>
@@ -180,6 +207,11 @@ function AdminVideos() {
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
             />
+            {form.thumbnail && (
+              <div className="mt-2">
+                <img src={form.thumbnail} alt="Vista previa" className="h-20 rounded shadow" />
+              </div>
+            )}
           </div>
           <div className="mb-4">
             <label className="flex items-center">
@@ -229,8 +261,8 @@ function AdminVideos() {
 
       {loading ? (
         <p>Cargando...</p>
-      ) : videos.length === 0 ? (
-        <p>No hay videos creados.</p>
+      ) : news.length === 0 ? (
+        <p>No hay noticias creadas.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full">
@@ -245,43 +277,32 @@ function AdminVideos() {
               </tr>
             </thead>
             <tbody>
-              {videos.map(video => {
-                const campaign = campaignMap[video.campaignId];
-                const action = actions.find(a => a.id === video.actionId);
-                return (
-                  <tr key={video.id} className="border-t">
-                    <td className="px-6 py-4">{video.title}</td>
-                    <td className="px-6 py-4">
-                      {video.isNews ? 'Sí' : 'No'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {campaign ? (
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: campaign.color }}
-                          />
-                          <span className="font-medium text-black">{campaign.name}</span>
-                        </div>
-                      ) : '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {action ? action.title : '-'}
-                    </td>
-                    <td className="px-6 py-4">{new Date(video.publishedAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 space-x-2">
-                      <button onClick={() => handleEdit(video)} className="text-blue-600 hover:underline">Editar</button>
-                      <button onClick={() => handleDelete(video.id)} className="text-red-600 hover:underline">Eliminar</button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {news.map(item => (
+                <tr key={item.id} className="border-t">
+                  <td className="px-6 py-4">{item.title}</td>
+                  <td className="px-6 py-4">{item.isNews ? 'Sí' : 'No'}</td>
+                  <td className="px-6 py-4">
+                    {item.campaign ? (
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.campaign.color }} />
+                        <span className="font-medium text-black">{item.campaign.name}</span>
+                      </div>
+                    ) : '-'}
+                  </td>
+                  <td className="px-6 py-4">{item.action ? item.action.title : '-'}</td>
+                  <td className="px-6 py-4">{new Date(item.publishedAt).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 space-x-2">
+                    <button onClick={() => handleEdit(item)} className="text-blue-600 hover:underline">Editar</button>
+                    <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">Eliminar</button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
-          </table>
+           </table>
         </div>
       )}
     </AdminLayout>
   );
 }
 
-export default withAuth(AdminVideos);
+export default withAuth(AdminNews);

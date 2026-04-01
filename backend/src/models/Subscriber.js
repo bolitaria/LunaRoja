@@ -11,13 +11,15 @@ const Subscriber = sequelize.define('Subscriber', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    validate: {
-      isEmail: true,
-    },
+    validate: { isEmail: true },
   },
   status: {
     type: DataTypes.ENUM('active', 'unsubscribed'),
     defaultValue: 'active',
+  },
+  sendReminders: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   subscribedAt: {
     type: DataTypes.DATE,

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bienvenido a LunaRoja</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #b91c1c; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; }
+    .footer { font-size: 12px; text-align: center; margin-top: 20px; color: #777; }
+    .button { background-color: #b91c1c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>¡Bienvenido a LunaRoja!</h1>
+    </div>
+    <div class="content">
+      <p>Hola {{username}},</p>
+      <p>Gracias por suscribirte a nuestras novedades. A partir de ahora recibirás información sobre campañas, acciones y eventos importantes que organizamos.</p>
+      <p>Si en algún momento deseas dejar de recibir estos correos, puedes hacer clic en el enlace de desuscripción al final de cada mensaje.</p>
+      <p>¡Gracias por formar parte de esta comunidad!</p>
+      <p>Un abrazo,<br>Equipo de LunaRoja</p>
+    </div>
+    <div class="footer">
+      <p>Si no solicitaste este correo, ignóralo.</p>
+      <p><a href="{{unsubscribeLink}}">Darse de baja</a></p>
+    </div>
+  </div>
+</body>
+</html>

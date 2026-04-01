@@ -31,7 +31,7 @@ export default function CampanaDetalle() {
           setCampaign(campaignRes.data);
           const actionsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions?campaignId=${id}`);
           setActions(actionsRes.data);
-          const groupsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups?campaignId=${id}`);
+          const groupsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups?campaignId=${id}`);
           setCampaignGroups(groupsRes.data);
         } catch (error) {
           console.error('Error fetching data', error);
@@ -157,7 +157,7 @@ export default function CampanaDetalle() {
 
         {campaignGroups.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-2xl font-semibold mb-4">Grupos de esta campaña</h2>
+            <h2 className="text-2xl font-semibold mb-4">Grupos de Chat de esta campaña</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {campaignGroups.map(group => (
                 <a key={group.id} href={group.link} target="_blank" rel="noopener" className="block border rounded p-4 hover:shadow transition">

@@ -1,26 +1,31 @@
-const WorkingGroup = require('../models/WorkingGroup');
+// backend/src/controllers/chatGroupController.js
+const ChatGroup = require('../models/ChatGroup');
 const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
+const UserAction = require('../models/UserAction');
 
 exports.getAllGroups = async (req, res) => {
   try {
-    let where = { isActive: true };
+    let where = {};
 
-    if (req.user) {
-      if (req.user.role === 'campaign_admin') {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-        const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        if (campaignIds.length === 0) return res.json([]);
-        where.campaignId = campaignIds;
-      } else if (req.user.role === 'action_admin') {
-        return res.json([]);
-      }
+    if (req.user && req.user.role === 'campaign_admin') {
+      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+      const campaignIds = userCampaigns.map(uc => uc.campaignId);
+      if (campaignIds.length === 0) return res.json([]);
+      where.campaignId = campaignIds;
+    } else if (req.user && req.user.role === 'action_admin') {
+      const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
+      const actionIds = userActions.map(ua => ua.actionId);
+      if (actionIds.length === 0) return res.json([]);
+      // For action_admin, we could allow seeing groups of campaigns linked to their actions
+      // but for simplicity, return empty (or could query groups of those campaigns)
+      return res.json([]);
     }
 
-    const groups = await WorkingGroup.findAll({
+    const groups = await ChatGroup.findAll({
       where,
       include: [{ model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] }],
-      order: [['region', 'ASC'], ['name', 'ASC']]
+      order: [['createdAt', 'DESC']]
     });
 
     const formattedGroups = groups.map(g => ({
@@ -29,28 +34,23 @@ exports.getAllGroups = async (req, res) => {
       description: g.description,
       platform: g.platform,
       link: g.link,
-      region: g.region,
-      isActive: g.isActive,
       campaignId: g.campaignId,
-      campaign: g.campaign ? {
-        id: g.campaign.id,
-        name: g.campaign.name,
-        color: g.campaign.color
-      } : null,
+      isActive: g.isActive,
       createdAt: g.createdAt,
-      updatedAt: g.updatedAt
+      updatedAt: g.updatedAt,
+      campaign: g.campaign ? { id: g.campaign.id, name: g.campaign.name, color: g.campaign.color } : null,
     }));
 
     res.json(formattedGroups);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error al obtener grupos' });
+    res.status(500).json({ message: 'Error al obtener grupos de chat' });
   }
 };
 
 exports.getGroupById = async (req, res) => {
   try {
-    const group = await WorkingGroup.findByPk(req.params.id, {
+    const group = await ChatGroup.findByPk(req.params.id, {
       include: [{ model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] }]
     });
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
@@ -63,14 +63,11 @@ exports.getGroupById = async (req, res) => {
 
 exports.createGroup = async (req, res) => {
   try {
-    let { name, description, platform, link, region, campaignId } = req.body;
-    if (!name || !link) {
-      return res.status(400).json({ message: 'Nombre y enlace son requeridos' });
+    const { name, description, platform, link, campaignId, isActive } = req.body;
+    if (!name || !platform || !link) {
+      return res.status(400).json({ message: 'Nombre, plataforma y enlace son requeridos' });
     }
-    if (description === '') description = null;
-    if (region === '') region = null;
 
-    // Verificar permisos si es campaign_admin
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
@@ -81,14 +78,13 @@ exports.createGroup = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para crear grupos' });
     }
 
-    const group = await WorkingGroup.create({
+    const group = await ChatGroup.create({
       name,
       description,
-      platform: platform || 'telegram',
+      platform,
       link,
-      region,
       campaignId: campaignId || null,
-      isActive: true
+      isActive: isActive !== undefined ? isActive : true,
     });
     res.status(201).json(group);
   } catch (error) {
@@ -99,28 +95,29 @@ exports.createGroup = async (req, res) => {
 
 exports.updateGroup = async (req, res) => {
   try {
-    const group = await WorkingGroup.findByPk(req.params.id);
+    const group = await ChatGroup.findByPk(req.params.id);
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
-    let { name, description, platform, link, region, isActive, campaignId } = req.body;
+    const { name, description, platform, link, campaignId, isActive } = req.body;
 
-    // Verificar permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
       if (group.campaignId && !allowedCampaignIds.includes(group.campaignId)) {
         return res.status(403).json({ message: 'No tienes permiso para editar este grupo' });
       }
-      // No puede cambiar la campaña si no es superadmin
-      campaignId = group.campaignId;
     } else if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Acceso denegado' });
+      return res.status(403).json({ message: 'No tienes permiso para editar grupos' });
     }
 
-    if (description === '') description = null;
-    if (region === '') region = null;
-
-    await group.update({ name, description, platform, link, region, isActive, campaignId });
+    await group.update({
+      name,
+      description,
+      platform,
+      link,
+      campaignId: campaignId || null,
+      isActive,
+    });
     res.json(group);
   } catch (error) {
     console.error(error);
@@ -130,7 +127,7 @@ exports.updateGroup = async (req, res) => {
 
 exports.deleteGroup = async (req, res) => {
   try {
-    const group = await WorkingGroup.findByPk(req.params.id);
+    const group = await ChatGroup.findByPk(req.params.id);
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
     if (req.user.role !== 'superadmin') {

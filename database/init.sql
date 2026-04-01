@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS "Users" (
   "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
--- Tabla de videos
-CREATE TABLE IF NOT EXISTS "Videos" (
+-- Tabla de videos de Noticias
+CREATE TABLE IF NOT EXISTS "Noticias" (
   id SERIAL PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   description TEXT,

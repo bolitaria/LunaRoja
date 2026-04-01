@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Layout from '../components/Layout';
-import VideoCard from '../components/VideoCard';
+import NewsCard from '../components/NewsCard';
 
-export default function Videos() {
-  const [videos, setVideos] = useState([]);
+export default function Noticias() {
+  const [news, setNews] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterCampaign, setFilterCampaign] = useState('all');
   const [showNewsOnly, setShowNewsOnly] = useState(false);
@@ -13,12 +14,14 @@ export default function Videos() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [videosRes, campaignsRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/videos`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`)
+        const [newsRes, campaignsRes, actionsRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/news`),          // <-- endpoint correcto
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`)
         ]);
-        setVideos(videosRes.data);
+        setNews(newsRes.data);
         setCampaigns(campaignsRes.data);
+        setActions(actionsRes.data);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -28,21 +31,26 @@ export default function Videos() {
     fetchData();
   }, []);
 
-  // Filtrar videos
-  const filteredVideos = videos.filter(video => {
-    // Filtro "solo noticias": videos con isNews=true y sin campaña
-    if (showNewsOnly && (!video.isNews || video.campaignId !== null)) return false;
-    // Filtro por campaña
-    if (filterCampaign !== 'all' && video.campaignId !== parseInt(filterCampaign)) return false;
+  const hasCampaign = (noticia) => noticia.campaignId != null && noticia.campaignId !== '';
+  const hasAction = (noticia) => noticia.actionId != null && noticia.actionId !== '';
+
+  const filteredNews = news.filter(noticia => {
+    if (showNewsOnly) {
+      const isNews = noticia.isNews === true;
+      const isGeneral = !hasCampaign(noticia) && !hasAction(noticia);
+      if (!(isNews || isGeneral)) return false;
+    }
+    if (filterCampaign !== 'all' && noticia.campaignId !== parseInt(filterCampaign)) return false;
     return true;
   });
 
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
+  const actionMap = actions.reduce((acc, a) => ({ ...acc, [a.id]: a }), {});
 
   return (
-    <Layout title="Videos - LunaRoja">
+    <Layout title="Noticias - LunaRoja">
       <div className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8 text-center">Videos</h1>
+        <h1 className="text-4xl font-bold mb-8 text-center">Noticias</h1>
 
         <div className="flex flex-wrap items-center gap-4 mb-8 justify-center">
           <label className="flex items-center gap-2">
@@ -59,6 +67,7 @@ export default function Videos() {
             value={filterCampaign}
             onChange={(e) => setFilterCampaign(e.target.value)}
             className="px-3 py-2 border rounded"
+            disabled={showNewsOnly}
           >
             <option value="all">Todas las campañas</option>
             {campaigns.map(c => (
@@ -68,13 +77,18 @@ export default function Videos() {
         </div>
 
         {loading ? (
-          <p className="text-center">Cargando videos...</p>
-        ) : filteredVideos.length === 0 ? (
-          <p className="text-center">No hay videos que coincidan con los filtros.</p>
+          <p className="text-center">Cargando noticias...</p>
+        ) : filteredNews.length === 0 ? (
+          <p className="text-center">No hay noticias que coincidan con los filtros.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredVideos.map(video => (
-              <VideoCard key={video.id} video={video} campaign={campaignMap[video.campaignId]} />
+            {filteredNews.map(noticia => (
+              <NewsCard
+                key={noticia.id}
+                noticia={noticia}
+                campaign={campaignMap[noticia.campaignId]}
+                action={actionMap[noticia.actionId]}
+              />
             ))}
           </div>
         )}

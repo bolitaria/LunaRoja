@@ -1,35 +1,36 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const WorkingGroup = sequelize.define('WorkingGroup', {
+const Noticia = sequelize.define('Noticia', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true,
   },
-  name: {
+  title: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   description: {
     type: DataTypes.TEXT,
   },
-  platform: {
-    type: DataTypes.ENUM('telegram', 'whatsapp'),
-    defaultValue: 'telegram',
-    allowNull: false,
-  },
-  link: {
+  youtubeUrl: {
     type: DataTypes.STRING,
     allowNull: false,
+    validate: {
+      isUrl: true,
+    },
   },
-  region: {
+  thumbnail: {
     type: DataTypes.STRING,
-    allowNull: true,
   },
-  isActive: {
+  publishedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  isNews: {
     type: DataTypes.BOOLEAN,
-    defaultValue: true,
+    defaultValue: false,
   },
   campaignId: {
     type: DataTypes.INTEGER,
@@ -39,8 +40,17 @@ const WorkingGroup = sequelize.define('WorkingGroup', {
       key: 'id',
     },
   },
+  actionId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Actions',
+      key: 'id',
+    },
+  },
 }, {
+  tableName: 'News',  // IMPORTANTE: coincide con el nombre real de la tabla
   timestamps: true,
 });
 
-module.exports = WorkingGroup;
+module.exports = Noticia;

@@ -1,36 +1,30 @@
+// backend/src/models/ChatGroup.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Video = sequelize.define('Video', {
+const ChatGroup = sequelize.define('ChatGroup', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true,
   },
-  title: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   description: {
     type: DataTypes.TEXT,
   },
-  youtubeUrl: {
+  platform: {
+    type: DataTypes.ENUM('telegram', 'whatsapp', 'signal'),
+    allowNull: false,
+  },
+  link: {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
       isUrl: true,
     },
-  },
-  thumbnail: {
-    type: DataTypes.STRING,
-  },
-  publishedAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-  isNews: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
   },
   campaignId: {
     type: DataTypes.INTEGER,
@@ -40,16 +34,12 @@ const Video = sequelize.define('Video', {
       key: 'id',
     },
   },
-  actionId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'Actions',
-      key: 'id',
-    },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
   },
 }, {
   timestamps: true,
 });
 
-module.exports = Video;
+module.exports = ChatGroup;

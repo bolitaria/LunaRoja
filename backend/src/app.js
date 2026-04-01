@@ -2,31 +2,30 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
-
-const { startProxyUpdater } = require('./services/proxyManager');
+const path = require('path');
 
 // Importar modelos
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
 const ActionImage = require('./models/ActionImage');
 const User = require('./models/User');
-const Video = require('./models/Video');
+const Noticia = require('./models/News');
 const Report = require('./models/Report');
 const Subscriber = require('./models/Subscriber');
-const WorkingGroup = require('./models/WorkingGroup');
+const ChatGroup = require('./models/ChatGroup');
 const InstagramAccount = require('./models/InstagramAccount');
 const InstagramPost = require('./models/InstagramPost');
 const UserCampaign = require('./models/UserCampaign');
 const UserAction = require('./models/UserAction');
 const Document = require('./models/Document');
-
+const SubscribersReminder = require('./models/SubscribersReminder');
+const translateRoutes = require('./routes/translateRoutes');
 
 // Asociaciones
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
-Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' }); // alias 'campaign'
-
+Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
-ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' }); // alias 'action'
+ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
 InstagramAccount.hasMany(InstagramPost, { foreignKey: 'accountId', onDelete: 'CASCADE' });
 InstagramPost.belongsTo(InstagramAccount, { foreignKey: 'accountId', as: 'account' });
@@ -39,31 +38,37 @@ Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 
 User.belongsToMany(Action, { through: UserAction, as: 'actions', foreignKey: 'userId' });
 Action.belongsToMany(User, { through: UserAction, as: 'admins', foreignKey: 'actionId' });
 
-WorkingGroup.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
-Campaign.hasMany(WorkingGroup, { foreignKey: 'campaignId', as: 'groups' });
+ChatGroup.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Campaign.hasMany(ChatGroup, { foreignKey: 'campaignId', as: 'groups' });
 
-Video.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
-Video.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
-Campaign.hasMany(Video, { foreignKey: 'campaignId', as: 'videos' });
-Action.hasMany(Video, { foreignKey: 'actionId', as: 'videos' });
+Noticia.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Noticia.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+Campaign.hasMany(Noticia, { foreignKey: 'campaignId', as: 'noticias' });
+Action.hasMany(Noticia, { foreignKey: 'actionId', as: 'noticias' });
 
-// Si usas Document
 Document.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Document.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 Campaign.hasMany(Document, { foreignKey: 'campaignId', as: 'documents' });
 Action.hasMany(Document, { foreignKey: 'actionId', as: 'documents' });
 
+Action.hasMany(SubscribersReminder, { foreignKey: 'actionId', as: 'reminders', onDelete: 'CASCADE' });
+SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders', onDelete: 'CASCADE' });
+SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
+
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-const videoRoutes = require('./routes/videoRoutes');
+const newsRoutes = require('./routes/newsRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const subscriberRoutes = require('./routes/subscriberRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const actionRoutes = require('./routes/actionRoutes');
-const workingGroupRoutes = require('./routes/workingGroupRoutes');
+const chatGroupRoutes = require('./routes/chatGroupRoutes');
 const imageRoutes = require('./routes/imageRoutes');
 const instagramRoutes = require('./routes/instagramRoutes');
+const dbAdminRoutes = require('./routes/dbAdminRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 dotenv.config();
 
@@ -72,19 +77,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads'));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/videos', videoRoutes);
+app.use('/api/news', newsRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/subscribers', subscriberRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/actions', actionRoutes);
-app.use('/api/working-groups', workingGroupRoutes);
+app.use('/api/chats-groups', chatGroupRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/instagram', instagramRoutes);
-app.use(cors());
-app.use('/uploads', cors(), express.static('uploads'));  // Servir archivos estáticos
+app.use('/api/db-admin', dbAdminRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/translate', translateRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Bienvenido a la API de LunaRoja' });
@@ -92,20 +99,17 @@ app.get('/api', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: true }) // Cambia a true si necesitas sincronización automática
+// Sincronizar base de datos y arrancar servidor
+sequelize.sync({ alter: true })
   .then(() => {
-    console.log('Base de datos sincronizada');
+    console.log('✅ Base de datos sincronizada');
     app.listen(PORT, () => {
-      console.log(`Servidor corriendo en puerto ${PORT}`);
+      console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
     });
-    startProxyUpdater();
+    // Iniciar el job de scraping (se encarga de programar el cron)
+    require('./jobs/scraperJob');
   })
   .catch(err => {
-    console.error('Error al conectar a la base de datos:', err);
+    console.error('❌ Error al conectar con la base de datos:', err);
+    process.exit(1);
   });
-
-if (process.env.NODE_ENV === 'production') {
-  require('./workers/instagramWorker');
-} else {
-  console.log('Worker de Instagram desactivado en desarrollo. Ejecuta manualmente si lo necesitas.');
-}

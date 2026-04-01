@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nueva campaña: {{campaign.name}}</title>
+  <style> /* mismo estilo */ </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Nueva campaña: {{campaign.name}}</h1>
+    </div>
+    <div class="content">
+      <p>¡Hola!</p>
+      <p>Acabamos de lanzar una nueva campaña: <strong>{{campaign.name}}</strong></p>
+      <p>{{campaign.description}}</p>
+      <p>Visita nuestra web para más información y para participar.</p>
+      <p><a href="{{campaign.url}}" class="button">Conocer más</a></p>
+      <p>¡Gracias por tu apoyo!</p>
+    </div>
+    <div class="footer">
+      <p><a href="{{unsubscribeLink}}">Darse de baja</a> | <a href="{{preferencesLink}}">Preferencias de recordatorios</a></p>
+    </div>
+  </div>
+</body>
+</html>

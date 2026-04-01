@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nueva acción: {{action.title}}</title>
+  <style> /* mismo estilo base */ </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Nueva acción: {{action.title}}</h1>
+    </div>
+    <div class="content">
+      <p>¡Hola!</p>
+      <p>Se ha programado una nueva acción dentro de la campaña <strong>{{campaign.name}}</strong>:</p>
+      <h3>{{action.title}}</h3>
+      <p><strong>Fecha:</strong> {{formatDate action.datetime}}</p>
+      <p><strong>Descripción:</strong> {{action.description}}</p>
+      {{#if action.registrationLink}}
+        <p><a href="{{action.registrationLink}}" class="button">Inscribirme</a></p>
+      {{/if}}
+      <p>Puedes consultar todos los detalles en nuestra web.</p>
+      <p>Si deseas recibir un recordatorio un día antes de este evento, activa la opción de recordatorios en tus preferencias.</p>
+    </div>
+    <div class="footer">
+      <p><a href="{{unsubscribeLink}}">Darse de baja</a> | <a href="{{preferencesLink}}">Preferencias de recordatorios</a></p>
+    </div>
+  </div>
+</body>
+</html>

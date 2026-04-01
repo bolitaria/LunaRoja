@@ -1,10 +1,10 @@
-const Video = require('../models/Video');
+const News = require('../models/News');
 const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
 
-exports.getAllVideos = async (req, res) => {
+exports.getAllNews = async (req, res) => {
   try {
     const { campaignId, actionId } = req.query;
     let where = {};
@@ -26,7 +26,7 @@ exports.getAllVideos = async (req, res) => {
     if (campaignId) where.campaignId = campaignId;
     if (actionId) where.actionId = actionId;
 
-    const videos = await Video.findAll({
+    const news = await News.findAll({
       where,
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
@@ -35,46 +35,44 @@ exports.getAllVideos = async (req, res) => {
       order: [['publishedAt', 'DESC']]
     });
 
-    // Formatear respuesta
-    const formattedVideos = videos.map(v => ({
-      id: v.id,
-      title: v.title,
-      description: v.description,
-      youtubeUrl: v.youtubeUrl,
-      thumbnail: v.thumbnail,
-      publishedAt: v.publishedAt,
-      isNews: v.isNews,
-      campaign: v.campaign ? { id: v.campaign.id, name: v.campaign.name, color: v.campaign.color } : null,
-      action: v.action ? { id: v.action.id, title: v.action.title } : null,
-      createdAt: v.createdAt,
-      updatedAt: v.updatedAt
+    const formattedNews = news.map(n => ({
+      id: n.id,
+      title: n.title,
+      description: n.description,
+      youtubeUrl: n.youtubeUrl,
+      thumbnail: n.thumbnail,
+      publishedAt: n.publishedAt,
+      isNews: n.isNews,
+      campaignId: n.campaignId,
+      actionId: n.actionId,
+      campaign: n.campaign ? { id: n.campaign.id, name: n.campaign.name, color: n.campaign.color } : null,
+      action: n.action ? { id: n.action.id, title: n.action.title } : null,
+      createdAt: n.createdAt,
+      updatedAt: n.updatedAt
     }));
 
-    res.json(formattedVideos);
+    res.json(formattedNews);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error al obtener videos' });
+    res.status(500).json({ message: 'Error al obtener noticias' });
   }
 };
 
-// Obtener un video por ID (público)
-exports.getVideoById = async (req, res) => {
+exports.getNewsById = async (req, res) => {
   try {
-    const video = await Video.findByPk(req.params.id);
-    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
-    res.json(video);
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
+    res.json(news);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error al obtener video' });
+    res.status(500).json({ message: 'Error al obtener noticia' });
   }
 };
 
-// Crear un nuevo video (solo superadmin o campaign_admin)
-exports.createVideo = async (req, res) => {
+exports.createNews = async (req, res) => {
   try {
     const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
 
-    // Verificar permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
@@ -82,76 +80,87 @@ exports.createVideo = async (req, res) => {
         return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
       }
     } else if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'No tienes permiso para crear videos' });
+      return res.status(403).json({ message: 'No tienes permiso para crear noticias' });
     }
 
     if (!title || !youtubeUrl) {
       return res.status(400).json({ message: 'Título y URL de YouTube son requeridos' });
     }
 
-    const video = await Video.create({ 
+    const finalCampaignId = campaignId ? parseInt(campaignId) : null;
+    const finalActionId = actionId ? parseInt(actionId) : null;
+
+    const news = await News.create({ 
       title, 
       description, 
       youtubeUrl, 
       thumbnail, 
       isNews: isNews || false,
-      campaignId: campaignId || null,
-      actionId: actionId || null
+      campaignId: finalCampaignId,
+      actionId: finalActionId
     });
-    res.status(201).json(video);
+    res.status(201).json(news);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error al crear video' });
+    res.status(500).json({ message: 'Error al crear noticia' });
   }
 };
 
-// Actualizar un video
-exports.updateVideo = async (req, res) => {
+exports.updateNews = async (req, res) => {
   try {
-    const video = await Video.findByPk(req.params.id);
-    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
     const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
 
-    // Verificar permisos según rol
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (!video.campaignId || !allowedCampaignIds.includes(video.campaignId)) {
-        return res.status(403).json({ message: 'No tienes permiso para editar este video' });
+      if (news.campaignId && !allowedCampaignIds.includes(news.campaignId)) {
+        return res.status(403).json({ message: 'No tienes permiso para editar esta noticia' });
       }
     } else if (req.user.role === 'action_admin') {
       const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
       const allowedActionIds = userActions.map(ua => ua.actionId);
-      if (!video.actionId || !allowedActionIds.includes(video.actionId)) {
-        return res.status(403).json({ message: 'No tienes permiso para editar este video' });
+      if (news.actionId && !allowedActionIds.includes(news.actionId)) {
+        return res.status(403).json({ message: 'No tienes permiso para editar esta noticia' });
       }
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    await video.update({ title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId });
-    res.json(video);
+    const finalCampaignId = campaignId ? parseInt(campaignId) : null;
+    const finalActionId = actionId ? parseInt(actionId) : null;
+
+    await news.update({ 
+      title, 
+      description, 
+      youtubeUrl, 
+      thumbnail, 
+      isNews, 
+      campaignId: finalCampaignId, 
+      actionId: finalActionId 
+    });
+    res.json(news);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error al actualizar video' });
+    res.status(500).json({ message: 'Error al actualizar noticia' });
   }
 };
 
-// Eliminar un video (solo superadmin)
-exports.deleteVideo = async (req, res) => {
+exports.deleteNews = async (req, res) => {
   try {
-    const video = await Video.findByPk(req.params.id);
-    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
     if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'No tienes permiso para eliminar videos' });
+      return res.status(403).json({ message: 'No tienes permiso para eliminar noticias' });
     }
 
-    await video.destroy();
-    res.json({ message: 'Video eliminado' });
+    await news.destroy();
+    res.json({ message: 'Noticia eliminada' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error al eliminar video' });
+    res.status(500).json({ message: 'Error al eliminar noticia' });
   }
 };

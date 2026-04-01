@@ -11,13 +11,11 @@ const InstagramAccount = sequelize.define('InstagramAccount', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    validate: {
-      notEmpty: true,
-    },
   },
-  igUserId: {
+  tag: {
     type: DataTypes.STRING,
     allowNull: true,
+    comment: 'Etiqueta para filtrar publicaciones (ej. campaña, acción)',
   },
   isActive: {
     type: DataTypes.BOOLEAN,

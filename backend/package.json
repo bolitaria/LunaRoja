@@ -18,11 +18,12 @@
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.33.0",
     "axios": "^1.6.2",
-    "instagram-web-api": "^2.2.2",
     "node-cron": "^3.0.3",
     "puppeteer-core": "^21.0.0",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "nodemailer": "^6.9.3",
+    "handlebars": "^4.7.8"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

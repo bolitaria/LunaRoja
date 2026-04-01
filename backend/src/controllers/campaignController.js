@@ -1,7 +1,10 @@
 const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
+const Subscriber = require('../models/Subscriber');
+const { sendCampaignNotification } = require('../services/emailService');
 const fs = require('fs');
 const path = require('path');
+
 
 exports.getAllCampaigns = async (req, res) => {
   try {
@@ -62,6 +65,19 @@ exports.createCampaign = async (req, res) => {
     }
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
     const campaign = await Campaign.create({ name, description, color, imageUrl });
+
+    // --- Notificar a suscriptores activos ---
+    try {
+      const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
+      for (const sub of subscribers) {
+        await sendCampaignNotification(sub.email, campaign).catch(err => console.error(`Error email a ${sub.email}:`, err));
+      }
+      console.log(`Notificaciones de campaña enviadas a ${subscribers.length} suscriptores`);
+    } catch (emailError) {
+      console.error('Error al enviar notificaciones de campaña:', emailError);
+      // No interrumpimos la creación de la campaña
+    }
+
     res.status(201).json(campaign);
   } catch (error) {
     console.error(error);

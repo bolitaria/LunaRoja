@@ -22,7 +22,7 @@ function AdminDashboard() {
           const [
             campaignsRes,
             actionsRes,
-            videosRes,
+            newsRes,
             reportsRes,
             subscribersRes,
             groupsRes,
@@ -30,19 +30,19 @@ function AdminDashboard() {
           ] = await Promise.all([
             axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } }),
             axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/videos`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/news`, { headers: { Authorization: `Bearer ${token}` } }),
             axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports`, { headers: { Authorization: `Bearer ${token}` } }),
             axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subscribers`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chat-groups`, { headers: { Authorization: `Bearer ${token}` } }),
             axios.get(`${process.env.NEXT_PUBLIC_API_URL}/images`, { headers: { Authorization: `Bearer ${token}` } })
           ]);
           setStats({
             Campañas: campaignsRes.data.length,
             Acciones: actionsRes.data.length,
-            Videos: videosRes.data.length,
+            Noticias: newsRes.data.length,
             Reportes: reportsRes.data.length,
             Suscriptores: subscribersRes.data.length,
-            Grupos: groupsRes.data.length,
+            GruposChat: groupsRes.data.length,
             Imágenes: imagesRes.data.length,
           });
 

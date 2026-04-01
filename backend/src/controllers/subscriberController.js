@@ -1,4 +1,6 @@
 const Subscriber = require('../models/Subscriber');
+const SubscribersReminder = require('../models/SubscribersReminder');
+const { sendWelcomeEmail, sendGoodbyeEmail } = require('../services/emailService');
 
 // Obtener todos los suscriptores (admin)
 const getAllSubscribers = async (req, res) => {
@@ -14,7 +16,7 @@ const getAllSubscribers = async (req, res) => {
 // Crear un nuevo suscriptor (público)
 const createSubscriber = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, sendReminders = false } = req.body;
     if (!email) {
       return res.status(400).json({ message: 'Email es requerido' });
     }
@@ -22,15 +24,17 @@ const createSubscriber = async (req, res) => {
     // Verificar si ya existe
     const existing = await Subscriber.findOne({ where: { email } });
     if (existing) {
-      // Si existe pero está desuscrito, se puede reactivar
       if (existing.status === 'unsubscribed') {
-        await existing.update({ status: 'active' });
+        // Reactivar
+        await existing.update({ status: 'active', sendReminders });
+        await sendWelcomeEmail(email);
         return res.json({ message: 'Suscripción reactivada', subscriber: existing });
       }
       return res.status(400).json({ message: 'Este email ya está suscrito' });
     }
 
-    const subscriber = await Subscriber.create({ email });
+    const subscriber = await Subscriber.create({ email, sendReminders });
+    await sendWelcomeEmail(email);
     res.status(201).json({ message: 'Suscripción exitosa', subscriber });
   } catch (error) {
     console.error(error);
@@ -38,7 +42,7 @@ const createSubscriber = async (req, res) => {
   }
 };
 
-// Desuscribir (público - se puede enviar enlace)
+// Desuscribir (público)
 const unsubscribe = async (req, res) => {
   try {
     const { email } = req.body;
@@ -48,6 +52,7 @@ const unsubscribe = async (req, res) => {
     }
 
     await subscriber.update({ status: 'unsubscribed' });
+    await sendGoodbyeEmail(email);
     res.json({ message: 'Desuscripción exitosa' });
   } catch (error) {
     console.error(error);
@@ -71,9 +76,26 @@ const deleteSubscriber = async (req, res) => {
   }
 };
 
+// Actualizar preferencias (opcional)
+const updatePreferences = async (req, res) => {
+  try {
+    const { email, sendReminders } = req.body;
+    const subscriber = await Subscriber.findOne({ where: { email } });
+    if (!subscriber) {
+      return res.status(404).json({ message: 'Suscriptor no encontrado' });
+    }
+    await subscriber.update({ sendReminders });
+    res.json({ message: 'Preferencias actualizadas', subscriber });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al actualizar preferencias' });
+  }
+};
+
 module.exports = {
   getAllSubscribers,
   createSubscriber,
   unsubscribe,
   deleteSubscriber,
+  updatePreferences,
 };

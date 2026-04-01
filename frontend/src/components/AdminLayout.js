@@ -16,23 +16,24 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
-    { name: 'Videos', path: '/admin/videos' },
+    { name: 'Noticias', path: '/admin/news' },
     { name: 'Reportes', path: '/admin/reports' },
-    { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
+    { name: 'Grupos de Chat', path: '/admin/chatGroups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
+    { name: 'Base de Datos', path: '/admin/database' },  // <-- nuevo
   ];
   const campaignAdminMenu = [
     { name: 'Administradores', path: '/admin/users' }, // añadido
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
-    { name: 'Videos', path: '/admin/videos' },
-    { name: 'Grupos WhatsApp/Telegram', path: '/admin/groups' },
+    { name: 'Noticias', path: '/admin/news' },
+    { name: 'Grupos de Chat', path: '/admin/chatGroups' },
   ];
   const actionAdminMenu = [
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
-    { name: 'Videos', path: '/admin/videos' },
+    { name: 'Noticias', path: '/admin/news' },
   ];
 
   let menu = [...baseMenu];

@@ -2,8 +2,12 @@ const Action = require('../models/Action');
 const ActionImage = require('../models/ActionImage');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
+const Subscriber = require('../models/Subscriber');
+const SubscribersReminder = require('../models/SubscribersReminder');
+const { sendActionNotification } = require('../services/emailService');
 const fs = require('fs');
 const path = require('path');
+
 
 exports.getAllActions = async (req, res) => {
   try {
@@ -108,6 +112,7 @@ exports.createAction = async (req, res) => {
       featuredImage
     });
 
+    // Procesar imágenes adicionales (si existen)
     if (req.files && req.files.images && req.files.images.length > 0) {
       const imagePromises = req.files.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
@@ -118,6 +123,39 @@ exports.createAction = async (req, res) => {
         });
       });
       await Promise.all(imagePromises);
+    }
+
+    // --- Notificar a suscriptores activos sobre la nueva acción ---
+    try {
+      const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
+      const campaign = await action.getCampaign(); // obtener la campaña asociada
+      for (const sub of subscribers) {
+        await sendActionNotification(sub.email, action, campaign).catch(err => console.error(`Error email a ${sub.email}:`, err));
+      }
+      console.log(`Notificaciones de acción enviadas a ${subscribers.length} suscriptores`);
+    } catch (emailError) {
+      console.error('Error al enviar notificaciones de acción:', emailError);
+    }
+
+    // --- Crear recordatorios para suscriptores que hayan activado recordatorios ---
+    try {
+      const reminderSubscribers = await Subscriber.findAll({ where: { status: 'active', sendReminders: true } });
+      const actionDate = new Date(datetime);
+      const reminderDate = new Date(actionDate);
+      reminderDate.setDate(reminderDate.getDate() - 1);
+      reminderDate.setHours(9, 0, 0, 0); // a las 9:00 AM del día anterior
+
+      for (const sub of reminderSubscribers) {
+        await SubscribersReminder.create({
+          actionId: action.id,
+          subscriberId: sub.id,
+          scheduledAt: reminderDate,
+          sent: false,
+        });
+      }
+      console.log(`Creados ${reminderSubscribers.length} recordatorios para la acción ${action.id}`);
+    } catch (reminderError) {
+      console.error('Error al crear recordatorios:', reminderError);
     }
 
     const actionWithImages = await Action.findByPk(action.id, {
@@ -266,3 +304,4 @@ exports.deleteActionImage = async (req, res) => {
     res.status(500).json({ message: 'Error al eliminar imagen' });
   }
 };
+

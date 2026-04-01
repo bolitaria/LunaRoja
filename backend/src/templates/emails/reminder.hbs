@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Recordatorio: {{action.title}}</title>
+  <style> /* mismo estilo base */ </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Recordatorio: {{action.title}}</h1>
+    </div>
+    <div class="content">
+      <p>¡Hola!</p>
+      <p>Te recordamos que la acción <strong>{{action.title}}</strong> de la campaña <strong>{{campaign.name}}</strong> se celebrará <strong>mañana</strong>.</p>
+      <p><strong>Fecha:</strong> {{formatDate action.datetime}}</p>
+      {{#if action.registrationLink}}
+        <p><a href="{{action.registrationLink}}" class="button">Inscribirme</a></p>
+      {{/if}}
+      <p>¡Esperamos verte!</p>
+    </div>
+    <div class="footer">
+      <p><a href="{{unsubscribeLink}}">Darse de baja</a> | <a href="{{preferencesLink}}">Preferencias de recordatorios</a></p>
+    </div>
+  </div>
+</body>
+</html>
