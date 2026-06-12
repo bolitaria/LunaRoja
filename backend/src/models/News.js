@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Video = sequelize.define('Video', {
+const Noticia = sequelize.define('Noticia', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -49,7 +49,8 @@ const Video = sequelize.define('Video', {
     },
   },
 }, {
+  tableName: 'News',  // IMPORTANTE: coincide con el nombre real de la tabla
   timestamps: true,
 });
 
-module.exports = Video;
+module.exports = Noticia;

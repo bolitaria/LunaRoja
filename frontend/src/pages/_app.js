@@ -1,6 +1,6 @@
 import '../styles/globals.css';
 import { AuthProvider } from '../context/AuthContext';
-import 'react-calendar/dist/Calendar.css'; // Asegurar que el CSS se carga
+import 'react-calendar/dist/Calendar.css';
 
 function MyApp({ Component, pageProps }) {
   return (

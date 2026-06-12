@@ -17,7 +17,7 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'El usuario ya existe' });
     }
 
-    const user = await User.create({ username, password });
+    const user = await User.create({ username, password, role: 'superadmin' }); // Por defecto superadmin, pero puedes ajustar
     res.status(201).json({ message: 'Usuario creado exitosamente', userId: user.id });
   } catch (error) {
     console.error(error);
@@ -51,7 +51,11 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.json({ message: 'Login exitoso', token, user: { id: user.id, username: user.username, role: user.role } });
+    res.json({
+      message: 'Login exitoso',
+      token,
+      user: { id: user.id, username: user.username, role: user.role }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al iniciar sesión' });
@@ -61,8 +65,12 @@ const login = async (req, res) => {
 // Obtener información del usuario autenticado
 const getMe = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id', 'username', 'role'] });
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] }
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
     res.json({ user });
   } catch (error) {
     console.error(error);

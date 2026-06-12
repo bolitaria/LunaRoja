@@ -28,7 +28,7 @@ export default function EventCard({ event, type }) {
     if (event.locationType === 'online') {
       return (
         <p className="text-sm text-blue-600">
-          📍 Online: <a href={event.onlineLink} target="_blank" rel="noopener" className="underline">Enlace de acceso</a>
+          💻 Online: <a href={event.onlineLink} target="_blank" rel="noopener" className="underline">Enlace de acceso</a>
         </p>
       );
     } else {

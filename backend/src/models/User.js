@@ -18,8 +18,8 @@ const User = sequelize.define('User', {
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM('admin', 'editor'),
-    defaultValue: 'admin',
+    type: DataTypes.ENUM('superadmin', 'campaign_admin', 'action_admin'),
+    defaultValue: 'superadmin',
   },
 }, {
   timestamps: true,
@@ -39,7 +39,6 @@ const User = sequelize.define('User', {
   },
 });
 
-// Método para comparar contraseñas
 User.prototype.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };

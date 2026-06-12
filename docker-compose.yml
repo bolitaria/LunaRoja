@@ -32,6 +32,8 @@ services:
   backend:
     build: ./backend
     container_name: lunaroja_backend
+    env_file:
+      - .env   # carga EMAIL_PASS, JWT_SECRET, etc.
     restart: always
     ports:
       - "5000:5000"
@@ -43,11 +45,12 @@ services:
       DB_USER: lunaroja
       DB_PASSWORD: lunaroja123
       DB_NAME: lunaroja
-      JWT_SECRET: supersecretkey
+      FRONTEND_URL: http://localhost:3000
     depends_on:
       - postgres
+      - libretranslate
     volumes:
-      - uploads_data:/app/uploads   # Volumen persistente para archivos subidos
+      - uploads_data:/app/uploads
     networks:
       - lunaroja_net
 
@@ -64,11 +67,27 @@ services:
     networks:
       - lunaroja_net
 
+  libretranslate:
+    image: libretranslate/libretranslate:v1.5.0
+    container_name: lunaroja_libretranslate
+    restart: always
+    user: root
+    ports:
+      - "5001:5000"
+    environment:
+      - LT_LOAD_ONLY=es,en,ar
+      - LT_UPDATE_MODELS=false
+    volumes:
+      - libretranslate_data:/home/libretranslate/.local/share
+    networks:
+      - lunaroja_net
+
 volumes:
   postgres_data:
     name: lunaroja_postgres_data
   uploads_data:
     name: lunaroja_uploads_data
+  libretranslate_data:
 
 networks:
   lunaroja_net:

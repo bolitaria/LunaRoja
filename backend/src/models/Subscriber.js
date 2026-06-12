@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../config/database'); // adjust to your DB config
 
 const Subscriber = sequelize.define('Subscriber', {
   id: {
@@ -19,12 +19,17 @@ const Subscriber = sequelize.define('Subscriber', {
     type: DataTypes.ENUM('active', 'unsubscribed'),
     defaultValue: 'active',
   },
+  sendReminders: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
   subscribedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
   },
 }, {
-  timestamps: true,
+  tableName: 'subscribers',
+  timestamps: false, // or use createdAt/updatedAt if you prefer
 });
 
 module.exports = Subscriber;

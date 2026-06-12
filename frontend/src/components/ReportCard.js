@@ -21,3 +21,4 @@ export default function ReportCard({ report }) {
     </div>
   );
 }
+

@@ -5,6 +5,9 @@ const path = require('path');
 // Obtener todos los reportes (público)
 exports.getAllReports = async (req, res) => {
   try {
+    if (req.user && req.user.role !== 'superadmin') {
+      return res.json([]); // o res.status(403).json({ message: 'No autorizado' });
+    }
     const reports = await Report.findAll({ order: [['publishedAt', 'DESC']] });
     res.json(reports);
   } catch (error) {

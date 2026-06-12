@@ -3,22 +3,28 @@ import AdminLayout from '../../../components/AdminLayout';
 import { withAuth } from '../../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
+import { useAuth } from '../../../context/AuthContext';
 
 function AdminActions() {
   const [actions, setActions] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   const fetchActions = async () => {
     try {
+      console.log('Token usado para acciones:', token);
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Acciones recibidas:', res.data);
       setActions(res.data);
     } catch (error) {
+      console.error('Error al cargar acciones:', error);
       toast.error('Error al cargar acciones');
     }
   };
@@ -62,11 +68,13 @@ function AdminActions() {
   return (
     <AdminLayout title="Administrar Acciones">
       <ToastContainer />
-      <div className="mb-4">
-        <Link href="/admin/actions/new" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          Nueva Acción
-        </Link>
-      </div>
+      {user && (user.role === 'superadmin' || user.role === 'campaign_admin') && (
+        <div className="mb-4">
+          <Link href="/admin/actions/new" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Nueva Acción
+          </Link>
+        </div>
+      )}
 
       {loading ? (
         <p>Cargando...</p>
@@ -92,12 +100,14 @@ function AdminActions() {
                 const now = new Date();
                 const isPast = actionDate < now;
                 const campaign = campaignMap[action.campaignId];
-                // Obtener imagen (destacada o primera de galería)
-                const imageUrl = action.featuredImage
-                  ? `${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`
-                  : (action.images && action.images.length > 0
-                    ? `${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`
-                    : null);
+                // Construir URL de la imagen
+                let imageUrl = null;
+                if (action.featuredImage) {
+                  imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`;
+                } else if (action.images && action.images.length > 0) {
+                  imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`;
+                }
+                if (imageUrl) console.log('URL imagen:', imageUrl);
                 return (
                   <tr key={action.id} className="border-t">
                     <td className="px-6 py-4">
@@ -108,7 +118,10 @@ function AdminActions() {
                             src={imageUrl}
                             alt={action.title}
                             className="h-8 w-8 object-cover rounded"
-                            onError={(e) => { e.target.style.display = 'none'; }}
+                            onError={(e) => { 
+                              console.log('Error al cargar imagen:', imageUrl);
+                              e.target.style.display = 'none'; 
+                            }}
                           />
                         )}
                       </div>

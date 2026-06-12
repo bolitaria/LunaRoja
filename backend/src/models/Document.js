@@ -1,35 +1,26 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const WorkingGroup = sequelize.define('WorkingGroup', {
+const Document = sequelize.define('Document', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true,
   },
-  name: {
+  title: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   description: {
     type: DataTypes.TEXT,
   },
-  platform: {
-    type: DataTypes.ENUM('telegram', 'whatsapp'),
-    defaultValue: 'telegram',
-    allowNull: false,
-  },
-  link: {
+  fileUrl: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  region: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  isActive: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
+  type: {
+    type: DataTypes.ENUM('organizer', 'public'),
+    defaultValue: 'public',
   },
   campaignId: {
     type: DataTypes.INTEGER,
@@ -38,9 +29,19 @@ const WorkingGroup = sequelize.define('WorkingGroup', {
       model: 'Campaigns',
       key: 'id',
     },
+    onDelete: 'CASCADE',
+  },
+  actionId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Actions',
+      key: 'id',
+    },
+    onDelete: 'CASCADE',
   },
 }, {
   timestamps: true,
 });
 
-module.exports = WorkingGroup;
+module.exports = Document;

@@ -6,25 +6,63 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const menu = [
+  const baseMenu = [
     { name: 'Dashboard', path: '/admin' },
-    { name: 'Videos', path: '/admin/videos' },
-    { name: 'Reportes', path: '/admin/reports' },
+  ];
+
+  const superAdminMenu = [
+    { name: 'Administradores', path: '/admin/users' },
+    { name: 'Instagram', path: '/admin/instagram' },
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
-    { name: 'Grupos', path: '/admin/groups' },
-    { name: 'Instagram', path: '/admin/instagram' },
     { name: 'Imágenes', path: '/admin/images' },
+    { name: 'Noticias', path: '/admin/news' },
+    { name: 'Reportes', path: '/admin/reports' },
+    { name: 'Grupos de Chat', path: '/admin/chatGroups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
+    { name: 'Base de Datos', path: '/admin/database' },  // <-- nuevo
   ];
+  const campaignAdminMenu = [
+    { name: 'Administradores', path: '/admin/users' }, // añadido
+    { name: 'Campañas', path: '/admin/campaigns' },
+    { name: 'Acciones', path: '/admin/actions' },
+    { name: 'Imágenes', path: '/admin/images' },
+    { name: 'Noticias', path: '/admin/news' },
+    { name: 'Grupos de Chat', path: '/admin/chatGroups' },
+  ];
+  const actionAdminMenu = [
+    { name: 'Acciones', path: '/admin/actions' },
+    { name: 'Imágenes', path: '/admin/images' },
+    { name: 'Noticias', path: '/admin/news' },
+  ];
+
+  let menu = [...baseMenu];
+  if (user) {
+    if (user.role === 'superadmin') {
+      menu = [...baseMenu, ...superAdminMenu];
+    } else if (user.role === 'campaign_admin') {
+      menu = [...baseMenu, ...campaignAdminMenu];
+    } else if (user.role === 'action_admin') {
+      menu = [...baseMenu, ...actionAdminMenu];
+    }
+  }
+
+  // Añadir "Mi Perfil" al final del menú (debe existir la página /admin/profile)
+  const profileItem = { name: 'Mi Perfil', path: '/admin/profile' };
+  menu.push(profileItem);
 
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-red-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/admin" className="text-xl font-bold">LunaRoja Admin</Link>
+          <Link href="/admin" className="text-xl font-bold">Voces Palestinas por la Justicia Admin</Link>
           <div className="flex items-center space-x-4">
-            <span>{user?.username}</span>
+            <span>
+              {user?.username} (
+              {user?.role === 'superadmin' ? 'Superadmin' : 
+               user?.role === 'campaign_admin' ? 'Admin Campaña' : 
+               user?.role === 'action_admin' ? 'Admin Evento' : ''})
+            </span>
             <button onClick={logout} className="bg-red-800 px-3 py-1 rounded hover:bg-red-900">
               Cerrar sesión
             </button>

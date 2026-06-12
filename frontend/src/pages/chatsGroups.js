@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Layout from '../components/Layout';
-import GroupCard from '../components/GroupCard';
+import ChatGroupCard from '../components/ChatGroupCard';
 
-export default function Grupos() {
+export default function GruposChats() {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [regions, setRegions] = useState([]);
@@ -11,10 +11,10 @@ export default function Grupos() {
   useEffect(() => {
     const fetchGroups = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups`);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups`);
         const data = res.data;
         setGroups(data);
-        
+
         // Agrupar por región
         const regionMap = {};
         data.forEach(group => {
@@ -22,7 +22,6 @@ export default function Grupos() {
           if (!regionMap[region]) regionMap[region] = [];
           regionMap[region].push(group);
         });
-        // Ordenar regiones alfabéticamente
         const sortedRegions = Object.keys(regionMap).sort();
         setRegions(sortedRegions.map(r => ({ name: r, groups: regionMap[r] })));
       } catch (error) {
@@ -35,17 +34,17 @@ export default function Grupos() {
   }, []);
 
   return (
-    <Layout title="Grupos de Trabajo - LunaRoja">
+    <Layout title="Grupos de Chat - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-4 text-center">Grupos de Trabajo</h1>
+        <h1 className="text-4xl font-bold mb-4 text-center">Grupos de Chat</h1>
         <p className="text-center text-gray-600 mb-8">
-          Únete a la conversación en Telegram o WhatsApp y colabora con otros miembros de la comunidad.
+          Únete a la conversación en Telegram, WhatsApp o Signal y colabora con otros miembros de la comunidad.
         </p>
 
         {loading ? (
-          <p className="text-center">Cargando grupos...</p>
+          <p className="text-center">Cargando grupos de chats...</p>
         ) : regions.length === 0 ? (
-          <p className="text-center">No hay grupos activos por el momento.</p>
+          <p className="text-center">No hay grupos de chats activos por el momento.</p>
         ) : (
           <div>
             {regions.map(region => (
@@ -53,7 +52,7 @@ export default function Grupos() {
                 <h2 className="text-2xl font-semibold mb-4 border-b pb-2">{region.name}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {region.groups.map(group => (
-                    <GroupCard key={group.id} group={group} />
+                    <ChatGroupCard key={group.id} group={group} />
                   ))}
                 </div>
               </div>

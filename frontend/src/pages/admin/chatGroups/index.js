@@ -1,12 +1,14 @@
+// frontend/src/pages/admin/chatGroups/index.js
 import { useState, useEffect } from 'react';
-import AdminLayout from '../../components/AdminLayout';
-import { withAuth } from '../../lib/auth';
+import AdminLayout from '../../../components/AdminLayout';
+import { withAuth } from '../../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Link from 'next/link';
+import { useAuth } from '../../../context/AuthContext';
 
 function AdminGroups() {
+  const { user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +17,6 @@ function AdminGroups() {
     description: '',
     platform: 'telegram',
     link: '',
-    region: '',
     campaignId: '',
     isActive: true
   });
@@ -26,12 +27,12 @@ function AdminGroups() {
 
   const fetchGroups = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/working-groups`, {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGroups(res.data);
     } catch (error) {
-      toast.error('Error al cargar grupos');
+      toast.error('Error al cargar grupos de chat');
     }
   };
 
@@ -59,17 +60,17 @@ function AdminGroups() {
     e.preventDefault();
     try {
       if (editingId) {
-        await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/working-groups/${editingId}`, form, {
+        await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups/${editingId}`, form, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Grupo actualizado');
       } else {
-        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/working-groups`, form, {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups`, form, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Grupo creado');
       }
-      setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', isActive: true });
+      setForm({ name: '', description: '', platform: 'telegram', link: '', campaignId: '', isActive: true });
       setEditingId(null);
       setShowForm(false);
       fetchGroups();
@@ -84,7 +85,6 @@ function AdminGroups() {
       description: group.description || '',
       platform: group.platform,
       link: group.link,
-      region: group.region || '',
       campaignId: group.campaignId || '',
       isActive: group.isActive
     });
@@ -95,7 +95,7 @@ function AdminGroups() {
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar grupo?')) return;
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/working-groups/${id}`, {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Grupo eliminado');
@@ -105,20 +105,29 @@ function AdminGroups() {
     }
   };
 
-  // Mapa de campañas para mostrar el nombre
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
 
-  return (
-    <AdminLayout title="Administrar Grupos de Trabajo">
-      <ToastContainer />
-      <button
-        onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', region: '', campaignId: '', isActive: true }); }}
-        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        {showForm ? 'Cancelar' : 'Nuevo grupo'}
-      </button>
+  const canCreate = user && (user.role === 'superadmin' || user.role === 'campaign_admin');
 
-      {showForm && (
+  const platformNames = {
+    telegram: 'Telegram',
+    whatsapp: 'WhatsApp',
+    signal: 'Signal'
+  };
+
+  return (
+    <AdminLayout title="Administrar Grupos de Chat">
+      <ToastContainer />
+      {canCreate && (
+        <button
+          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ name: '', description: '', platform: 'telegram', link: '', campaignId: '', isActive: true }); }}
+          className="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          {showForm ? 'Cancelar' : 'Nuevo grupo'}
+        </button>
+      )}
+
+      {showForm && canCreate && (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8">
           <div className="mb-4">
             <label className="block text-gray-700 mb-2">Nombre del grupo *</label>
@@ -151,6 +160,7 @@ function AdminGroups() {
             >
               <option value="telegram">Telegram</option>
               <option value="whatsapp">WhatsApp</option>
+              <option value="signal">Signal</option>
             </select>
           </div>
           <div className="mb-4">
@@ -161,18 +171,7 @@ function AdminGroups() {
               value={form.link}
               onChange={handleChange}
               required
-              placeholder="https://t.me/... o https://chat.whatsapp.com/..."
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Área geográfica (opcional)</label>
-            <input
-              type="text"
-              name="region"
-              value={form.region}
-              onChange={handleChange}
-              placeholder="Ej: Nacional, Europa, América Latina"
+              placeholder="https://t.me/..., https://chat.whatsapp.com/..., https://signal.group/..."
               className="w-full px-3 py-2 border rounded"
             />
           </div>
@@ -210,6 +209,8 @@ function AdminGroups() {
 
       {loading ? (
         <p>Cargando...</p>
+      ) : groups.length === 0 ? (
+        <p>No hay grupos de chat activos.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full">
@@ -217,7 +218,6 @@ function AdminGroups() {
               <tr>
                 <th className="px-6 py-3 text-left">Nombre</th>
                 <th className="px-6 py-3 text-left">Plataforma</th>
-                <th className="px-6 py-3 text-left">Región</th>
                 <th className="px-6 py-3 text-left">Campaña</th>
                 <th className="px-6 py-3 text-left">Estado</th>
                 <th className="px-6 py-3 text-left">Acciones</th>
@@ -226,16 +226,23 @@ function AdminGroups() {
             <tbody>
               {groups.map(group => {
                 const campaign = campaignMap[group.campaignId];
+                const canEdit = user && (user.role === 'superadmin' || 
+                  (user.role === 'campaign_admin' && group.campaignId && user.campaigns?.some(c => c.id === group.campaignId)));
                 return (
                   <tr key={group.id} className="border-t">
                     <td className="px-6 py-4">{group.name}</td>
                     <td className="px-6 py-4">
-                      {group.platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
+                      {platformNames[group.platform] || group.platform}
                     </td>
-                    <td className="px-6 py-4">{group.region || '-'}</td>
                     <td className="px-6 py-4">
                       {campaign ? (
-                        <span style={{ color: campaign.color }}>{campaign.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: campaign.color }}
+                          />
+                          <span className="font-medium text-black">{campaign.name}</span>
+                        </div>
                       ) : '-'}
                     </td>
                     <td className="px-6 py-4">
@@ -244,14 +251,18 @@ function AdminGroups() {
                       </span>
                     </td>
                     <td className="px-6 py-4 space-x-2">
-                      <button onClick={() => handleEdit(group)} className="text-blue-600 hover:underline">Editar</button>
-                      <button onClick={() => handleDelete(group.id)} className="text-red-600 hover:underline">Eliminar</button>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => handleEdit(group)} className="text-blue-600 hover:underline">Editar</button>
+                          <button onClick={() => handleDelete(group.id)} className="text-red-600 hover:underline">Eliminar</button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+           </table>
         </div>
       )}
     </AdminLayout>
