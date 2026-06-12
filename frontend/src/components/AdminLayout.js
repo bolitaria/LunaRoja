@@ -55,7 +55,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-red-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/admin" className="text-xl font-bold">LunaRoja Admin</Link>
+          <Link href="/admin" className="text-xl font-bold">Voces Palestinas por la Justicia Admin</Link>
           <div className="flex items-center space-x-4">
             <span>
               {user?.username} (

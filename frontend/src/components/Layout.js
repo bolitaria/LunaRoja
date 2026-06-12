@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import { translateText } from '../lib/translate';
 
-export default function Layout({ children, title = 'LunaRoja' }) {
+export default function Layout({ children, title = 'Voces Palestinas por la Justicia' }) {
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [currentLang, setCurrentLang] = useState('es');
   const [translating, setTranslating] = useState(false);
@@ -176,7 +176,7 @@ export default function Layout({ children, title = 'LunaRoja' }) {
             </Link>
           </div>
           <div className="flex-1 flex justify-start pl-8">
-            <Link href="/" className="text-2xl font-bold text-red-700 notranslate">LunaRoja</Link>
+            <Link href="/" className="text-2xl font-bold text-red-700 notranslate">Voces Palestinas por la Justicia</Link>
           </div>
           <div className="flex-1 flex justify-end items-center space-x-6 pr-4">
             <div className="hidden md:flex space-x-6">
@@ -238,7 +238,7 @@ export default function Layout({ children, title = 'LunaRoja' }) {
       <footer className="bg-gray-800 text-white py-8">
         <div className="container mx-auto px-4 text-center">
           {/* Pie de página sin notranslate para que se traduzca */}
-          <p>&copy; {new Date().getFullYear()} LunaRoja. Todos los derechos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Voces Palestinas por la Justicia. Todos los derechos reservados.</p>
         </div>
       </footer>
     </>

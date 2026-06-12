@@ -50,7 +50,7 @@ export default function Acciones() {
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
 
   return (
-    <Layout title="Acciones - LunaRoja">
+    <Layout title="Acciones - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8 text-center">Acciones</h1>
 

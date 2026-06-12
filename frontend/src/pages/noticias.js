@@ -48,7 +48,7 @@ export default function Noticias() {
   const actionMap = actions.reduce((acc, a) => ({ ...acc, [a.id]: a }), {});
 
   return (
-    <Layout title="Noticias - LunaRoja">
+    <Layout title="Noticias - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8 text-center">Noticias</h1>
 

@@ -69,7 +69,7 @@ export default function Calendario() {
   };
 
   return (
-    <Layout title="Calendario de Acciones - LunaRoja">
+    <Layout title="Calendario de Acciones - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8 text-center">Calendario de Acciones</h1>
         <div className="flex flex-col md:flex-row gap-8">

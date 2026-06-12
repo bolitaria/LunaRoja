@@ -1,6 +1,5 @@
 const cron = require('node-cron');
 
-// Importar de forma segura
 let scrapeAllAccounts;
 try {
   const scraper = require('../services/instagramScraper');
@@ -11,9 +10,9 @@ try {
 }
 
 if (scrapeAllAccounts) {
-  console.log('⏰ Programando scraping de Instagram cada 15 minutos...');
-  cron.schedule('*/15 * * * *', async () => {
-    console.log('🔄 [CRON] Ejecutando scraping de Instagram...');
+  console.log('⏰ Programando scraping de Instagram a las 11:00, 16:00 y 21:00...');
+  cron.schedule('0 11,16,21 * * *', async () => {
+    console.log('🔄 [CRON] Ejecutando scraping programado...');
     try {
       await scrapeAllAccounts();
       console.log('✅ [CRON] Scraping completado.');

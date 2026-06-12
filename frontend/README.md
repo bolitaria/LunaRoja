@@ -1,6 +1,6 @@
-# LunaRoja Frontend
+# Voces Palestinas por la Justicia Frontend
 
-Aplicación Next.js para la plataforma LunaRoja.
+Aplicación Next.js para la plataforma Voces Palestinas por la Justicia.
 
 ## Tecnologías
 

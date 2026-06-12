@@ -19,8 +19,14 @@ const randomDelay = (min = 2000, max = 5000) =>
 
 /**
  * Descarga un archivo multimedia a la carpeta uploads/instagram.
+ * Retorna la ruta relativa o null si falla.
  */
 async function downloadMedia(url, shortcode) {
+  if (!url || url.startsWith('blob:')) {
+    console.warn(`   ⚠️ URL inválida para ${shortcode}: ${url}`);
+    return null;
+  }
+
   try {
     const cleanId = shortcode.replace(/[^a-zA-Z0-9_-]/g, '');
     let ext = 'jpg';
@@ -49,8 +55,8 @@ async function downloadMedia(url, shortcode) {
       writer.on('error', reject);
     });
   } catch (error) {
-    console.error(`Error descargando media para ${shortcode}:`, error.message);
-    return url;
+    console.error(`   Error descargando media para ${shortcode}:`, error.message);
+    return null;
   }
 }
 
@@ -134,6 +140,57 @@ async function scrapeWithPuppeteer(username, limit = 20, maxRetries = 3) {
           });
           await randomDelay(2000, 4000);
 
+          // Esperar a que la imagen/vídeo cargue y obtener URL válida
+          const isVideo = await page.evaluate(() => !!document.querySelector('video'));
+          const mediaSelector = isVideo ? 'video' : 'article img';
+          await page.waitForSelector(mediaSelector, { timeout: 10000 });
+
+          const mediaUrl = await page.evaluate((sel, video) => {
+            const el = document.querySelector(sel);
+            if (!el) return '';
+            if (video) return el.src || el.querySelector('source')?.src || '';
+            // Para imágenes, intentar src, srcset, data-src
+            let src = el.src;
+            if (!src || src.startsWith('blob:')) {
+              const srcset = el.srcset;
+              if (srcset) {
+                const first = srcset.split(',')[0].trim().split(' ')[0];
+                if (first) src = first;
+              }
+            }
+            if (!src || src.startsWith('blob:')) {
+              src = el.getAttribute('data-src') || el.getAttribute('data-url') || '';
+            }
+            return src;
+          }, mediaSelector, isVideo);
+
+          if (!mediaUrl || mediaUrl.startsWith('blob:')) {
+            console.warn(`   No se pudo obtener URL válida para ${post.shortcode}`);
+            // Intentar fallback con og:image
+            const fallbackUrl = await page.evaluate(() => {
+              const meta = document.querySelector('meta[property="og:image"]');
+              return meta?.content || '';
+            });
+            if (fallbackUrl) {
+              const localFallback = await downloadMedia(fallbackUrl, post.shortcode);
+              if (localFallback) {
+                detailedPosts.push({
+                  postId: post.shortcode,
+                  shortcode: post.shortcode,
+                  caption: '',
+                  mediaType: 'image',
+                  mediaUrl: localFallback,
+                  thumbnailUrl: localFallback,
+                  permalink: `https://www.instagram.com/p/${post.shortcode}/`,
+                  timestamp: new Date(),
+                  likes: 0,
+                  comments: 0,
+                });
+              }
+            }
+            continue;
+          }
+
           const details = await page.evaluate(() => {
             const likesElement = document.querySelector('span.html-span.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x1hl2dhg.x16tdsg8.x1vvkbs');
             const likes = likesElement ? parseInt(likesElement.textContent.replace(/\./g, '')) : 0;
@@ -142,34 +199,26 @@ async function scrapeWithPuppeteer(username, limit = 20, maxRetries = 3) {
             const captionElement = document.querySelector('h1 + div span');
             const fullCaption = captionElement ? captionElement.textContent : '';
 
-            const videoElement = document.querySelector('video');
-            const mediaType = videoElement ? 'video' : 'image';
-            let mediaUrl = '';
             let thumbnailUrl = '';
+            const videoElement = document.querySelector('video');
+            if (videoElement) thumbnailUrl = videoElement.getAttribute('poster') || '';
 
-            if (mediaType === 'video') {
-              mediaUrl = videoElement.src;
-              thumbnailUrl = videoElement.getAttribute('poster') || '';
-            } else {
-              const imgElement = document.querySelector('article img');
-              mediaUrl = imgElement ? imgElement.src : '';
-              thumbnailUrl = mediaUrl;
-            }
-
-            return { likes, timestamp, fullCaption, mediaType, mediaUrl, thumbnailUrl };
+            return { likes, timestamp, fullCaption, thumbnailUrl };
           });
 
-          const localMediaUrl = await downloadMedia(details.mediaUrl, post.shortcode);
+          const localMediaUrl = await downloadMedia(mediaUrl, post.shortcode);
+          if (!localMediaUrl) continue; // Saltar si no se pudo descargar
+
           let localThumbnailUrl = localMediaUrl;
-          if (details.mediaType === 'video' && details.thumbnailUrl) {
-            localThumbnailUrl = await downloadMedia(details.thumbnailUrl, `${post.shortcode}_thumb`);
+          if (isVideo && details.thumbnailUrl) {
+            localThumbnailUrl = await downloadMedia(details.thumbnailUrl, `${post.shortcode}_thumb`) || localMediaUrl;
           }
 
           detailedPosts.push({
             postId: post.shortcode,
             shortcode: post.shortcode,
             caption: details.fullCaption,
-            mediaType: details.mediaType,
+            mediaType: isVideo ? 'video' : 'image',
             mediaUrl: localMediaUrl,
             thumbnailUrl: localThumbnailUrl,
             permalink: `https://www.instagram.com/p/${post.shortcode}/`,
@@ -179,20 +228,6 @@ async function scrapeWithPuppeteer(username, limit = 20, maxRetries = 3) {
           });
         } catch (error) {
           console.error(`Error obteniendo detalles del post ${post.shortcode}:`, error.message);
-          const fallbackUrl = `https://www.instagram.com/p/${post.shortcode}/media/?size=l`;
-          const localUrl = await downloadMedia(fallbackUrl, post.shortcode);
-          detailedPosts.push({
-            postId: post.shortcode,
-            shortcode: post.shortcode,
-            caption: '',
-            mediaType: 'image',
-            mediaUrl: localUrl,
-            thumbnailUrl: localUrl,
-            permalink: `https://www.instagram.com/p/${post.shortcode}/`,
-            timestamp: new Date(),
-            likes: 0,
-            comments: 0,
-          });
         }
         await randomDelay(2000, 3000);
       }
@@ -213,7 +248,6 @@ async function scrapeWithPuppeteer(username, limit = 20, maxRetries = 3) {
  * Procesa una cuenta individual.
  */
 async function scrapeAccount(account) {
-  // Importar modelo directamente para evitar dependencias circulares
   const InstagramPost = require('../models/InstagramPost');
   console.log(`📱 Procesando cuenta: @${account.username}`);
   try {
@@ -257,7 +291,6 @@ async function scrapeAccount(account) {
  * Itera sobre todas las cuentas activas.
  */
 async function scrapeAllAccounts() {
-  // Importar modelo directamente
   const InstagramAccount = require('../models/InstagramAccount');
   const accounts = await InstagramAccount.findAll({ where: { isActive: true } });
   console.log(`🔍 Iniciando scraping para ${accounts.length} cuentas activas.`);

@@ -34,7 +34,7 @@ export default function GruposChats() {
   }, []);
 
   return (
-    <Layout title="Grupos de Chat - LunaRoja">
+    <Layout title="Grupos de Chat - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-4 text-center">Grupos de Chat</h1>
         <p className="text-center text-gray-600 mb-8">

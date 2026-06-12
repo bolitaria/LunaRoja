@@ -55,11 +55,11 @@ export default function Home() {
   }, []);
 
   return (
-    <Layout title="Inicio - LunaRoja">
+    <Layout title="Inicio - Voces Palestinas por la Justicia">
       {/* Hero section */}
       <section className="bg-red-700 text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">LunaRoja</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Voces Palestinas por la Justicia</h1>
           <p className="text-xl mb-8">Unidos por una causa: información, conciencia y acción.</p>
           <Link href="/about" className="bg-white text-red-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
             Conoce más

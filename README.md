@@ -1,6 +1,6 @@
-# LunaRoja - Plataforma de Concientización
+# Voces Palestinas por la Justicia - Plataforma de Concientización
 
-LunaRoja es una plataforma web diseñada para difundir información sobre una causa social, ofreciendo contenido multimedia (videos, reportes) y un sistema de suscripción para recordatorios por correo electrónico.
+Voces Palestinas por la Justicia es una plataforma web diseñada para difundir información sobre una causa social, ofreciendo contenido multimedia (videos, reportes) y un sistema de suscripción para recordatorios por correo electrónico.
 
 ## Estado del proyecto
 

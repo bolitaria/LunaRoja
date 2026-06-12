@@ -22,7 +22,7 @@ export default function Reports() {
   }, []);
 
   return (
-    <Layout title="Reportes - LunaRoja">
+    <Layout title="Reportes - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8 text-center">Reportes y documentos</h1>
         {loading ? (

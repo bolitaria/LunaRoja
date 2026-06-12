@@ -87,7 +87,7 @@ export default function CampanaDetalle() {
   if (!campaign) return <Layout><p className="text-center py-20">Campaña no encontrada</p></Layout>;
 
   return (
-    <Layout title={`${campaign.name} - LunaRoja`}>
+    <Layout title={`${campaign.name} - Voces Palestinas por la Justicia`}>
       <div className="container mx-auto px-4 py-12">
         <div className="flex items-center gap-2 mb-4">
           <span className="w-4 h-4 rounded-full" style={{ backgroundColor: campaign.color }}></span>

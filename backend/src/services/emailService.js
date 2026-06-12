@@ -92,7 +92,7 @@ const sendEmail = async (to, subject, templateName, context = {}) => {
 
   try {
     await transporter.sendMail({
-      from: `"LunaRoja" <${process.env.EMAIL_FROM}>`,
+      from: `"Voces Palestinas por la Justicia" <${process.env.EMAIL_FROM}>`,
       to,
       subject,
       html,
@@ -104,10 +104,10 @@ const sendEmail = async (to, subject, templateName, context = {}) => {
 };
 
 const sendWelcomeEmail = (email) =>
-  sendEmail(email, '¡Bienvenido a LunaRoja!', 'welcome', { username: email.split('@')[0] });
+  sendEmail(email, '¡Bienvenido a Voces Palestinas por la Justicia!', 'welcome', { username: email.split('@')[0] });
 
 const sendGoodbyeEmail = (email) =>
-  sendEmail(email, 'LunaRoja – Lamentamos que te vayas', 'goodbye', {});
+  sendEmail(email, 'Voces Palestinas por la Justicia – Lamentamos que te vayas', 'goodbye', {});
 
 const sendCampaignNotification = (email, campaign) =>
   sendEmail(email, `Nueva campaña: ${campaign.name}`, 'campaign', { campaign });

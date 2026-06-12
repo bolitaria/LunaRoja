@@ -1,7 +1,7 @@
 {
   "name": "lunaroja-backend",
   "version": "1.0.0",
-  "description": "API para LunaRoja",
+  "description": "API para Voces Palestinas por la Justicia",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",

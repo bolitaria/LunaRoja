@@ -84,7 +84,7 @@ export default function Campanas() {
   const actionsOnSelected = actionsByDate.get(selectedDateStr) || [];
 
   return (
-    <Layout title="Campañas - LunaRoja">
+    <Layout title="Campañas - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8 text-center">Campañas</h1>
         <div className="flex flex-col lg:flex-row gap-8">

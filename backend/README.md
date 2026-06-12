@@ -1,6 +1,6 @@
-# LunaRoja Backend
+# Voces Palestinas por la Justicia Backend
 
-API REST para la plataforma LunaRoja.
+API REST para la plataforma Voces Palestinas por la Justicia.
 
 ## Tecnologías
 
