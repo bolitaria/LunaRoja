@@ -1,86 +1,108 @@
-# Voces Palestinas por la Justicia - Plataforma de Concientización
+# Voices for Palestinian Justice - Awareness Platform
 
-Voces Palestinas por la Justicia es una plataforma web diseñada para difundir información sobre una causa social, ofreciendo contenido multimedia (videos, reportes) y un sistema de suscripción para recordatorios por correo electrónico.
+Voices for Palestinian Justice is a web platform designed to disseminate information about a social cause, offering multimedia content (videos, reports) and an email subscription system for reminders.
 
-## Estado del proyecto
+## Project Status
 
-**Fase 1 (MVP) completada.**  
-La aplicación incluye:
-- Visualización pública de videos (embebidos de YouTube) y reportes (PDF).
-- Formulario de suscripción para recibir novedades.
-- Panel de administración protegido para gestionar contenido (CRUD de videos y reportes, listado de suscriptores).
-- Autenticación JWT.
-- Base de datos PostgreSQL.
-- Contenerización con Docker.
+**Phase 1 (MVP) completed.**  
+The application includes:
+- Public display of videos (embedded YouTube) and reports (PDF).
+- Subscription form to receive news and updates.
+- Protected admin dashboard for content management (CRUD for videos and reports, subscriber list).
+- JWT authentication.
+- PostgreSQL database.
+- Docker containerization.
 
-## Tecnologías utilizadas
+## Technologies Used
 
 - **Frontend:** Next.js (React), Tailwind CSS, Axios, SWR.
 - **Backend:** Node.js + Express, Sequelize ORM, PostgreSQL, JWT, Multer.
-- **Infraestructura:** Docker, Docker Compose.
+- **Infrastructure:** Docker, Docker Compose.
 
-## Estructura del repositorio
+## Repository Structure
+
+```
 LunaRoja/
-├── backend/ # API REST
-│ ├── src/
-│ │ ├── controllers/ # Lógica de negocio
-│ │ ├── models/ # Modelos Sequelize
-│ │ ├── routes/ # Definición de rutas
-│ │ ├── middlewares/ # Autenticación y otros
-│ │ ├── config/ # Configuración de BD
-│ │ ├── utils/ # Utilidades
-│ │ └── app.js # Punto de entrada
-│ ├── uploads/ # Archivos subidos (PDF)
-│ ├── package.json
-│ └── Dockerfile
-├── frontend/ # Aplicación Next.js
-│ ├── public/
-│ ├── src/
-│ │ ├── components/ # Componentes reutilizables
-│ │ ├── pages/ # Páginas (incluyendo admin)
-│ │ ├── context/ # Contexto de autenticación
-│ │ ├── lib/ # Utilidades (auth)
-│ │ ├── styles/ # CSS global
-│ │ └── hooks/ # Hooks personalizados
-│ ├── package.json
-│ ├── next.config.js
-│ └── Dockerfile
-├── database/ # Scripts SQL iniciales
-│ └── init.sql
-├── docker-compose.yml # Orquestación de servicios
+├── backend/                    # REST API
+│   ├── src/
+│   │   ├── controllers/        # Business logic
+│   │   ├── models/             # Sequelize models
+│   │   ├── routes/             # Route definitions
+│   │   ├── middlewares/        # Authentication and other middlewares
+│   │   ├── services/           # Business services
+│   │   ├── jobs/               # Background jobs
+│   │   ├── config/             # Database configuration
+│   │   ├── utils/              # Utility functions
+│   │   └── app.js              # Entry point
+│   ├── uploads/                # Uploaded files (PDFs)
+│   ├── seeders/                # Database seeders
+│   ├── package.json
+│   └── Dockerfile
+├── frontend/                   # Next.js application
+│   ├── public/
+│   ├── src/
+│   │   ├── components/         # Reusable components
+│   │   ├── pages/              # Pages (including admin)
+│   │   ├── context/            # Authentication context
+│   │   ├── lib/                # Utility libraries
+│   │   ├── styles/             # Global styles
+│   │   └── hooks/              # Custom hooks
+│   ├── package.json
+│   ├── next.config.js
+│   └── Dockerfile
+├── database/                   # Initial SQL scripts
+│   └── init.sql
+├── docker-compose.yml          # Service orchestration
 └── README.md
+```
 
 
-## Requisitos previos
+## Prerequisites
 
-- Docker y Docker Compose instalados.
-- Git (opcional).
+- Docker and Docker Compose installed.
+- Git (optional).
 
-## Instalación y ejecución
+## Installation and Setup
 
-1. Clona el repositorio (si es necesario):
+1. Clone the repository:
    ```bash
-   git clone <url>
+   git clone <repository-url>
    cd LunaRoja
+   ```
 
+2. Start the application with Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
 
-Creación del primer usuario administrador
-Una vez que los contenedores estén corriendo, ejecuta:
+3. Create the first admin user:
+   Once the containers are running, execute:
+   ```bash
+   curl -X POST http://localhost:5000/api/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"admin123"}'
+   ```
 
-bash
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+## Common Docker Commands
 
-  
-Acción	Comando
-Iniciar contenedores	docker-compose up -d
-Detener contenedores (sin perder datos)	docker-compose down
-Ver estado	docker-compose ps
-Ver logs del backend	docker-compose logs backend
-Ver logs de la base de datos	docker-compose logs db
-Acceder a la base de datos (psql)	docker exec -it lunaroja_db psql -U lunaroja -d lunaroja
-Backup manual	docker exec -t lunaroja_db pg_dump -U lunaroja lunaroja > backup.sql
+| Action | Command |
+|--------|----------|
+| Start containers | `docker-compose up -d` |
+| Stop containers (without losing data) | `docker-compose down` |
+| View container status | `docker-compose ps` |
+| View backend logs | `docker-compose logs backend` |
+| View database logs | `docker-compose logs db` |
+| Access the database (psql) | `docker exec -it lunaroja_db psql -U lunaroja -d lunaroja` |
+| Manual backup | `docker exec -t lunaroja_db pg_dump -U lunaroja lunaroja > backup.sql` |
 
-Insertar Video Admin
-Miniatura: https://img.youtube.com/vi/<video-id>/maxresdefault.jpg 
+## Adding Content via Admin Dashboard
+
+**For YouTube Videos:**
+- Thumbnail: `https://img.youtube.com/vi/<video-id>/maxresdefault.jpg`
+- Use the video ID from the YouTube URL
+
+## Access Points
+
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:5000
+- **Admin Dashboard:** http://localhost:3000/admin (requires authentication) 
