@@ -12,7 +12,6 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
 
   const superAdminMenu = [
     { name: 'Administradores', path: '/admin/users' },
-    { name: 'Instagram', path: '/admin/instagram' },
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
@@ -20,16 +19,18 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Reportes', path: '/admin/reports' },
     { name: 'Grupos de Chat', path: '/admin/chatGroups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
-    { name: 'Base de Datos', path: '/admin/database' },  // <-- nuevo
+    { name: 'Base de Datos', path: '/admin/database' },
   ];
+  
   const campaignAdminMenu = [
-    { name: 'Administradores', path: '/admin/users' }, // añadido
+    { name: 'Administradores', path: '/admin/users' },
     { name: 'Campañas', path: '/admin/campaigns' },
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
     { name: 'Noticias', path: '/admin/news' },
     { name: 'Grupos de Chat', path: '/admin/chatGroups' },
   ];
+  
   const actionAdminMenu = [
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
@@ -47,7 +48,6 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     }
   }
 
-  // Añadir "Mi Perfil" al final del menú (debe existir la página /admin/profile)
   const profileItem = { name: 'Mi Perfil', path: '/admin/profile' };
   menu.push(profileItem);
 

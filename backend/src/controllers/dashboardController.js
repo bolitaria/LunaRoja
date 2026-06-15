@@ -1,4 +1,3 @@
-// backend/src/controllers/dashboardController.js
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const Action = require('../models/Action');
@@ -7,16 +6,14 @@ const Subscriber = require('../models/Subscriber');
 const Noticia = require('../models/News');
 const Report = require('../models/Report');
 const ChatGroup = require('../models/ChatGroup');
-const InstagramPost = require('../models/InstagramPost');
 const User = require('../models/User');
 
-// Datos principales del dashboard
 exports.getDashboardData = async (req, res) => {
   try {
     const now = new Date();
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1); // últimos 6 meses completos
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    // 1. Estadísticas globales (totales)
+    // 1. Totales generales
     const [
       totalCampaigns,
       totalActions,
@@ -24,7 +21,6 @@ exports.getDashboardData = async (req, res) => {
       totalReports,
       totalSubscribers,
       totalChatGroups,
-      totalInstagramPosts,
       totalUsers,
     ] = await Promise.all([
       Campaign.count(),
@@ -33,21 +29,18 @@ exports.getDashboardData = async (req, res) => {
       Report.count(),
       Subscriber.count({ where: { status: 'active' } }),
       ChatGroup.count(),
-      InstagramPost.count(),
       User.count(),
     ]);
 
-    // 2. Acciones próximas (próximos 30 días, ordenadas por fecha)
+    // 2. Acciones próximas (30 días)
     const upcomingActions = await Action.findAll({
-      where: {
-        datetime: { [Op.gte]: new Date() },
-      },
+      where: { datetime: { [Op.gte]: new Date() } },
       limit: 5,
       order: [['datetime', 'ASC']],
       include: [{ model: Campaign, as: 'campaign', attributes: ['name'] }],
     });
 
-    // 3. Últimos suscriptores (5 más recientes)
+    // 3. Últimos suscriptores
     const recentSubscribers = await Subscriber.findAll({
       limit: 5,
       order: [['createdAt', 'DESC']],
@@ -60,9 +53,7 @@ exports.getDashboardData = async (req, res) => {
         [sequelize.fn('date_trunc', 'month', sequelize.col('datetime')), 'month'],
         [sequelize.fn('count', '*'), 'count'],
       ],
-      where: {
-        datetime: { [Op.gte]: sixMonthsAgo },
-      },
+      where: { datetime: { [Op.gte]: sixMonthsAgo } },
       group: [sequelize.fn('date_trunc', 'month', sequelize.col('datetime'))],
       order: [[sequelize.fn('date_trunc', 'month', sequelize.col('datetime')), 'ASC']],
     });
@@ -73,9 +64,7 @@ exports.getDashboardData = async (req, res) => {
         [sequelize.fn('date_trunc', 'month', sequelize.col('createdAt')), 'month'],
         [sequelize.fn('count', '*'), 'count'],
       ],
-      where: {
-        createdAt: { [Op.gte]: sixMonthsAgo },
-      },
+      where: { createdAt: { [Op.gte]: sixMonthsAgo } },
       group: [sequelize.fn('date_trunc', 'month', sequelize.col('createdAt'))],
       order: [[sequelize.fn('date_trunc', 'month', sequelize.col('createdAt')), 'ASC']],
     });
@@ -102,20 +91,11 @@ exports.getDashboardData = async (req, res) => {
       attributes: ['id', 'title', 'publishedAt'],
     });
 
-    // 9. Actividad de Instagram (últimos 5 posts)
-    const latestInstagramPosts = await InstagramPost.findAll({
-      limit: 5,
-      order: [['timestamp', 'DESC']],
-      attributes: ['shortcode', 'caption', 'timestamp', 'mediaType'],
-    });
-
-    // 10. Próximas acciones a 7 días vista (para alertas)
+    // 9. Próximas acciones a 7 días vista (alertas)
     const weekFromNow = new Date();
     weekFromNow.setDate(weekFromNow.getDate() + 7);
     const upcomingWeekActions = await Action.findAll({
-      where: {
-        datetime: { [Op.between]: [new Date(), weekFromNow] },
-      },
+      where: { datetime: { [Op.between]: [new Date(), weekFromNow] } },
       order: [['datetime', 'ASC']],
       include: [{ model: Campaign, as: 'campaign', attributes: ['name'] }],
     });
@@ -128,7 +108,6 @@ exports.getDashboardData = async (req, res) => {
         reports: totalReports,
         subscribers: totalSubscribers,
         chatGroups: totalChatGroups,
-        instagramPosts: totalInstagramPosts,
         users: totalUsers,
       },
       upcomingActions,
@@ -151,7 +130,6 @@ exports.getDashboardData = async (req, res) => {
         actionCount: parseInt(c.dataValues.actionCount),
       })),
       latestNews,
-      latestInstagramPosts,
       upcomingWeekActions,
     });
   } catch (error) {

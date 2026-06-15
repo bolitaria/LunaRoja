@@ -4,7 +4,6 @@ const dotenv = require('dotenv');
 const sequelize = require('./config/database');
 const path = require('path');
 
-// Import models
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
 const ActionImage = require('./models/ActionImage');
@@ -13,27 +12,18 @@ const Noticia = require('./models/News');
 const Report = require('./models/Report');
 const Subscriber = require('./models/Subscriber');
 const ChatGroup = require('./models/ChatGroup');
-const InstagramAccount = require('./models/InstagramAccount');
-const InstagramPost = require('./models/InstagramPost');
 const UserCampaign = require('./models/UserCampaign');
 const UserAction = require('./models/UserAction');
 const Document = require('./models/Document');
 const SubscribersReminder = require('./models/SubscribersReminder');
-const translateRoutes = require('./routes/translateRoutes');
 
 // Import email service
 const { initEmailService } = require('./services/emailService');
 
-// Associations (unchanged)
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
 ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
-
-InstagramAccount.hasMany(InstagramPost, { foreignKey: 'accountId', onDelete: 'CASCADE' });
-InstagramPost.belongsTo(InstagramAccount, { foreignKey: 'accountId', as: 'account' });
-InstagramAccount.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
-Campaign.hasMany(InstagramAccount, { foreignKey: 'campaignId' });
 
 User.belongsToMany(Campaign, { through: UserCampaign, as: 'campaigns', foreignKey: 'userId' });
 Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 'campaignId' });
@@ -59,7 +49,6 @@ SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders', onDelete: 'CASCADE' });
 SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
 
-// Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const newsRoutes = require('./routes/newsRoutes');
@@ -69,7 +58,6 @@ const campaignRoutes = require('./routes/campaignRoutes');
 const actionRoutes = require('./routes/actionRoutes');
 const chatGroupRoutes = require('./routes/chatGroupRoutes');
 const imageRoutes = require('./routes/imageRoutes');
-const instagramRoutes = require('./routes/instagramRoutes');
 const dbAdminRoutes = require('./routes/dbAdminRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
@@ -96,10 +84,8 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/chats-groups', chatGroupRoutes);
 app.use('/api/images', imageRoutes);
-app.use('/api/instagram', instagramRoutes);
 app.use('/api/db-admin', dbAdminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/translate', translateRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' });
@@ -115,7 +101,6 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-    require('./jobs/scraperJob');
   } catch (err) {
     console.error('❌ Failed to start server:', err);
     process.exit(1);

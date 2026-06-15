@@ -1,57 +1,42 @@
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import axios from 'axios';
 import Layout from '../components/Layout';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
 import Link from 'next/link';
+
+const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
 export default function Calendario() {
   const [actions, setActions] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchActions = async () => {
       try {
-        const [actionsRes, campaignsRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/events`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`)
-        ]);
-        setActions(actionsRes.data);
-        setCampaigns(campaignsRes.data);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`);
+        setActions(res.data);
       } catch (error) {
-        console.error('Error fetching data', error);
+        console.error('Error fetching actions:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchActions();
   }, []);
 
-  // Mapa de campañas para obtener color (podríamos asignar colores según tipo)
-  const campaignColors = {
-    concrete: 'bg-blue-500',
-    permanent: 'bg-purple-500'
-  };
-
   const tileContent = ({ date, view }) => {
-    if (view === 'month') {
-      const dateStr = date.toISOString().split('T')[0];
-      const actionsOnDate = actions.filter(a => {
-        const actionDate = new Date(a.datetime).toISOString().split('T')[0];
-        return actionDate === dateStr;
-      });
-      if (actionsOnDate.length > 0) {
-        // Mostrar un indicador del número de acciones
-        return (
-          <span className="bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mx-auto">
-            {actionsOnDate.length}
-          </span>
-        );
-      }
-    }
-    return null;
+    if (view !== 'month') return null;
+    const dateStr = date.toISOString().split('T')[0];
+    const count = actions.filter(a => {
+      const actionDate = new Date(a.datetime).toISOString().split('T')[0];
+      return actionDate === dateStr;
+    }).length;
+    return count > 0 ? (
+      <span className="block w-5 h-5 bg-green-500 text-white text-xs rounded-full flex items-center justify-center mx-auto">
+        {count}
+      </span>
+    ) : null;
   };
 
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
@@ -59,8 +44,6 @@ export default function Calendario() {
     const actionDate = new Date(a.datetime).toISOString().split('T')[0];
     return actionDate === selectedDateStr;
   });
-
-  const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
 
   const categoryLabels = {
     webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
@@ -71,69 +54,42 @@ export default function Calendario() {
   return (
     <Layout title="Calendario de Acciones - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8 text-center">Calendario de Acciones</h1>
+        <h1 className="text-4xl font-bold mb-8 text-center">Calendario</h1>
         <div className="flex flex-col md:flex-row gap-8">
-          <div className="md:w-1/2">
+          <div className="md:w-1/2 flex justify-center">
             <Calendar
               onChange={setSelectedDate}
               value={selectedDate}
               tileContent={tileContent}
-              className="rounded-lg shadow"
+              className="rounded-lg shadow border-0"
             />
           </div>
           <div className="md:w-1/2">
             <h2 className="text-2xl font-semibold mb-4">
-              Acciones del {selectedDate.toLocaleDateString()}
+              {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
             </h2>
             {loading ? (
-              <p>Cargando...</p>
+              <p className="text-gray-500">Cargando...</p>
             ) : actionsOnSelected.length === 0 ? (
-              <p>No hay acciones en esta fecha.</p>
+              <p className="text-gray-500">No hay acciones en esta fecha.</p>
             ) : (
               <ul className="space-y-4">
-                {actionsOnSelected.map(action => {
-                  const campaign = campaignMap[action.actionId];
-                  return (
-                    <li key={action.id} className="border p-4 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        {campaign && (
-                          <span className={`w-3 h-3 rounded-full ${campaignColors[campaign.actionType] || 'bg-gray-500'}`} title={campaign.title}></span>
-                        )}
-                        <Link href={`/acciones/${action.id}`} className="text-xl font-semibold text-blue-600 hover:underline">
-                          {action.title}
-                        </Link>
-                      </div>
-                      {campaign && (
-                        <Link href={`/campanas/${campaign.id}`} className="text-sm text-gray-500 hover:underline block">
-                          Campaña: {campaign.title}
-                        </Link>
-                      )}
-                      <p className="text-gray-700 mt-2">{action.description}</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {new Date(action.datetime).toLocaleString()} · {categoryLabels[action.category]}
-                      </p>
-                      {action.locationType === 'online' ? (
-                        <a href={action.onlineLink} target="_blank" rel="noopener" className="text-blue-600 text-sm underline">
-                          Enlace online
-                        </a>
-                      ) : (
-                        <p className="text-sm">
-                          📍 {action.placeName} - {action.address}
-                          {action.address && (
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(action.address)}`}
-                              target="_blank"
-                              rel="noopener"
-                              className="text-blue-600 underline ml-2"
-                            >
-                              Mapa
-                            </a>
-                          )}
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
+                {actionsOnSelected.map(action => (
+                  <li key={action.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                    <div className="flex items-center justify-between mb-1">
+                      <Link href={`/acciones/${action.id}`} className="text-lg font-semibold text-red-700 hover:underline">
+                        {action.title}
+                      </Link>
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                        {categoryLabels[action.category] || action.category}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 text-sm line-clamp-2">{action.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(action.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </li>
+                ))}
               </ul>
             )}
           </div>

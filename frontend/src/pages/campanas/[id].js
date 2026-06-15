@@ -1,10 +1,13 @@
 import { useRouter } from 'next/router';
 import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import axios from 'axios';
 import Layout from '../../components/Layout';
-import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import Link from 'next/link';
+
+// Carga dinámica sin SSR
+const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
 const getLocalDateStr = (date) => {
   const d = new Date(date);
@@ -27,11 +30,13 @@ export default function CampanaDetalle() {
     if (id) {
       const fetchData = async () => {
         try {
-          const campaignRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${id}`);
-          setCampaign(campaignRes.data);
-          const actionsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions?campaignId=${id}`);
+          const [campRes, actionsRes, groupsRes] = await Promise.all([
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${id}`),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions?campaignId=${id}`),
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups?campaignId=${id}`),
+          ]);
+          setCampaign(campRes.data);
           setActions(actionsRes.data);
-          const groupsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chats-groups?campaignId=${id}`);
           setCampaignGroups(groupsRes.data);
         } catch (error) {
           console.error('Error fetching data', error);
@@ -55,10 +60,9 @@ export default function CampanaDetalle() {
 
   const nearestActionDate = useMemo(() => {
     const now = new Date();
-    const futureActions = actions.filter(a => new Date(a.datetime) > now);
-    if (futureActions.length === 0) return null;
-    const sorted = futureActions.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
-    return new Date(sorted[0].datetime);
+    const future = actions.filter(a => new Date(a.datetime) > now);
+    if (future.length === 0) return null;
+    return new Date(future.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))[0].datetime);
   }, [actions]);
 
   useEffect(() => {
@@ -95,7 +99,11 @@ export default function CampanaDetalle() {
         </div>
         {campaign.imageUrl && (
           <div className="mb-4">
-            <img src={`${process.env.NEXT_PUBLIC_BASE_URL}${campaign.imageUrl}`} alt={campaign.name} className="max-h-64 rounded-lg shadow" />
+            <img
+              src={`${process.env.NEXT_PUBLIC_BASE_URL}${campaign.imageUrl}`}
+              alt={campaign.name}
+              className="max-h-64 rounded-lg shadow"
+            />
           </div>
         )}
         <p className="text-gray-600 mb-8">{campaign.description}</p>
@@ -115,7 +123,9 @@ export default function CampanaDetalle() {
               {actionsOnSelected.length > 0 && (
                 <div className="mt-4">
                   <h3 className="text-sm font-semibold mb-2">
-                    {selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? 'Hoy' : selectedDate.toLocaleDateString()}
+                    {selectedDate.toLocaleDateString() === new Date().toLocaleDateString()
+                      ? 'Hoy'
+                      : selectedDate.toLocaleDateString()}
                   </h3>
                   <ul className="space-y-1 text-sm">
                     {actionsOnSelected.map(action => (

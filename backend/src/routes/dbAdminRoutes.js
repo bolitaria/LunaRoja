@@ -6,15 +6,11 @@ const { isSuperAdmin } = require('../middlewares/authorize');
 
 router.use(authMiddleware, isSuperAdmin);
 
-// Información general
+// Database general info
 router.get('/info', dbAdminController.getDatabaseInfo);
 router.get('/table/:tableName/indexes', dbAdminController.getTableIndexes);
 
-// Índices duplicados
-router.get('/check-duplicates', dbAdminController.checkDuplicates);
-router.post('/clean-duplicates', dbAdminController.cleanDuplicates);
-
-// Backup y migraciones
+// Backup and migrations
 router.get('/backup', dbAdminController.backup);
 router.post('/migrate', dbAdminController.runMigrations);
 

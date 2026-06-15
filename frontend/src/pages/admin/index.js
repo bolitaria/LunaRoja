@@ -3,143 +3,206 @@ import AdminLayout from '../../components/AdminLayout';
 import { withAuth } from '../../lib/auth';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import Link from 'next/link';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell
+} from 'recharts';
+import { FaUsers, FaCalendarAlt, FaNewspaper, FaComments, FaChartLine, FaBell, FaEnvelope, FaFileAlt } from 'react-icons/fa';
 
 function AdminDashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({});
-  const [actionsByCategory, setActionsByCategory] = useState([]);
-  const [recentActions, setRecentActions] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboard = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!user) return;
-
-        if (user.role === 'superadmin') {
-          const [
-            campaignsRes,
-            actionsRes,
-            newsRes,
-            reportsRes,
-            subscribersRes,
-            groupsRes,
-            imagesRes
-          ] = await Promise.all([
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/news`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subscribers`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/chat-groups`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/images`, { headers: { Authorization: `Bearer ${token}` } })
-          ]);
-          setStats({
-            Campañas: campaignsRes.data.length,
-            Acciones: actionsRes.data.length,
-            Noticias: newsRes.data.length,
-            Reportes: reportsRes.data.length,
-            Suscriptores: subscribersRes.data.length,
-            GruposChat: groupsRes.data.length,
-            Imágenes: imagesRes.data.length,
-          });
-
-          // Datos para gráfico de acciones por categoría
-          const categoryCount = actionsRes.data.reduce((acc, action) => {
-            acc[action.category] = (acc[action.category] || 0) + 1;
-            return acc;
-          }, {});
-          const categoryData = Object.entries(categoryCount).map(([cat, count]) => ({
-            name: cat,
-            value: count
-          }));
-          setActionsByCategory(categoryData);
-
-          // Acciones recientes
-          const recent = actionsRes.data.slice(0, 5);
-          setRecentActions(recent);
-        } else if (user.role === 'campaign_admin') {
-          const [campaignsRes, actionsRes] = await Promise.all([
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } })
-          ]);
-          setStats({
-            'Mis campañas': campaignsRes.data.length,
-            'Acciones de mis campañas': actionsRes.data.length,
-          });
-        } else if (user.role === 'action_admin') {
-          const actionsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } });
-          setStats({
-            'Mis acciones': actionsRes.data.length,
-          });
-        }
-      } catch (error) {
-        console.error('Error al cargar estadísticas:', error);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setData(res.data);
+      } catch (err) {
+        console.error(err);
+        setError('No se pudieron cargar los datos del dashboard');
       } finally {
         setLoading(false);
       }
     };
-    fetchStats();
+    if (user && user.role === 'superadmin') {
+      fetchDashboard();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  if (loading) return <AdminLayout title="Dashboard"><p className="text-center py-8">Cargando datos...</p></AdminLayout>;
+  if (error) return <AdminLayout title="Dashboard"><p className="text-center py-8 text-red-600">{error}</p></AdminLayout>;
+  if (!user || user.role !== 'superadmin') return <AdminLayout title="Dashboard"><p className="text-center py-8">No tienes permisos para ver este panel.</p></AdminLayout>;
+
+  const { totals, upcomingActions, recentSubscribers, actionsByMonth, subscribersByMonth, actionsByCategory, topCampaigns, latestNews, upcomingWeekActions } = data;
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
+
+  const metricCards = [
+    { title: 'Campañas', value: totals.campaigns, icon: FaChartLine, color: 'bg-blue-500', link: '/admin/campaigns' },
+    { title: 'Acciones', value: totals.actions, icon: FaCalendarAlt, color: 'bg-green-500', link: '/admin/actions' },
+    { title: 'Noticias', value: totals.noticias, icon: FaNewspaper, color: 'bg-red-500', link: '/admin/news' },
+    { title: 'Reportes', value: totals.reports, icon: FaFileAlt, color: 'bg-yellow-500', link: '/admin/reports' },
+    { title: 'Suscriptores', value: totals.subscribers, icon: FaEnvelope, color: 'bg-purple-500', link: '/admin/subscribers' },
+    { title: 'Grupos Chat', value: totals.chatGroups, icon: FaComments, color: 'bg-indigo-500', link: '/admin/chatGroups' },
+    { title: 'Usuarios', value: totals.users, icon: FaUsers, color: 'bg-gray-600', link: '/admin/users' },
+  ];
 
   return (
     <AdminLayout title="Dashboard">
-      {loading ? (
-        <p className="text-center py-8">Cargando...</p>
-      ) : (
-        <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            {Object.entries(stats).map(([key, value]) => (
-              <div key={key} className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-gray-500 text-sm uppercase mb-2">{key}</h3>
-                <p className="text-3xl font-bold">{value}</p>
+      <div className="space-y-8">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {metricCards.map((card) => (
+            <Link key={card.title} href={card.link} className="block">
+              <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 flex items-center justify-between border-l-4 border-l-red-500">
+                <div>
+                  <p className="text-gray-500 text-sm uppercase tracking-wide">{card.title}</p>
+                  <p className="text-3xl font-bold text-gray-800">{card.value}</p>
+                </div>
+                <div className={`p-3 rounded-full ${card.color} bg-opacity-10`}>
+                  <card.icon className={`w-6 h-6 ${card.color.replace('bg-', 'text-')}`} />
+                </div>
               </div>
-            ))}
+            </Link>
+          ))}
+        </div>
+
+        {/* Upcoming actions this week alert */}
+        {upcomingWeekActions.length > 0 && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow">
+            <div className="flex items-center">
+              <FaBell className="text-yellow-500 mr-2" />
+              <h3 className="font-semibold text-yellow-800">Próximas acciones esta semana</h3>
+            </div>
+            <ul className="mt-2 space-y-1">
+              {upcomingWeekActions.map(action => (
+                <li key={action.id} className="text-sm text-yellow-700">
+                  <strong>{action.title}</strong> - {new Date(action.datetime).toLocaleDateString()} (Campaña: {action.campaign?.name})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Charts: actions per month & subscribers per month */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={actionsByMonth}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="count" stroke="#8884d8" name="Acciones" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Crecimiento de suscriptores</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={subscribersByMonth}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="#82ca9d" name="Nuevos suscriptores" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Categories & top campaigns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Acciones por categoría</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={actionsByCategory}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="count"
+                  nameKey="category"
+                  label={({ category, percent }) => `${category}: ${(percent * 100).toFixed(0)}%`}
+                >
+                  {actionsByCategory.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Campañas con más acciones</h2>
+            <ul className="space-y-3">
+              {topCampaigns.map(campaign => (
+                <li key={campaign.id} className="flex justify-between items-center border-b pb-2">
+                  <span className="font-medium">{campaign.name}</span>
+                  <span className="bg-gray-100 px-3 py-1 rounded-full text-sm">{campaign.actionCount} acciones</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Recent activity lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Próximas acciones</h2>
+            <ul className="space-y-3">
+              {upcomingActions.map(action => (
+                <li key={action.id} className="border-b pb-2">
+                  <p className="font-medium">{action.title}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(action.datetime).toLocaleDateString()} - {action.campaign?.name}
+                  </p>
+                </li>
+              ))}
+              {upcomingActions.length === 0 && <p className="text-gray-500">No hay próximas acciones.</p>}
+            </ul>
           </div>
 
-          {user?.role === 'superadmin' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4">Acciones por categoría</h2>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={actionsByCategory}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {actionsByCategory.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4">Acciones recientes</h2>
-                <ul className="space-y-2">
-                  {recentActions.map(action => (
-                    <li key={action.id} className="border-b pb-2">
-                      <p className="font-medium">{action.title}</p>
-                      <p className="text-sm text-gray-500">{new Date(action.datetime).toLocaleDateString()}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Últimos suscriptores</h2>
+            <ul className="space-y-3">
+              {recentSubscribers.map(sub => (
+                <li key={sub.id} className="flex justify-between items-center border-b pb-2">
+                  <span className="truncate max-w-[150px]">{sub.email}</span>
+                  <span className="text-xs text-gray-400">{new Date(sub.createdAt).toLocaleDateString()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h2 className="text-lg font-semibold mb-4">Últimas noticias</h2>
+            <ul className="space-y-3">
+              {latestNews.map(news => (
+                <li key={news.id} className="border-b pb-2">
+                  <p className="font-medium line-clamp-1">{news.title}</p>
+                  <p className="text-xs text-gray-400">{new Date(news.publishedAt).toLocaleDateString()}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-      )}
+      </div>
     </AdminLayout>
   );
 }

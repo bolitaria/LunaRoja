@@ -8,7 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 function AdminDatabase() {
   const [loading, setLoading] = useState(false);
   const [dbInfo, setDbInfo] = useState({ tables: [], totalSize: '', databaseName: '' });
-  const [selectedTable, setSelectedTable] = useState('InstagramAccounts');
+  const [selectedTable, setSelectedTable] = useState('Campaigns');  
   const [duplicates, setDuplicates] = useState({ duplicates: [], count: 0, total: 0 });
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
@@ -59,7 +59,7 @@ function AdminDatabase() {
       });
       toast.success(res.data.message);
       fetchDuplicates(selectedTable);
-      fetchDatabaseInfo(); // refrescar info de índices
+      fetchDatabaseInfo();
     } catch (error) {
       toast.error('❌ Error al limpiar índices');
     } finally {
@@ -126,7 +126,6 @@ function AdminDatabase() {
         theme="light"
       />
       <div className="space-y-6">
-        {/* Explicación general */}
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
           <h3 className="font-semibold text-blue-800">¿Qué puedes hacer aquí?</h3>
           <ul className="list-disc pl-5 mt-2 text-sm text-blue-700 space-y-1">
@@ -137,7 +136,6 @@ function AdminDatabase() {
           </ul>
         </div>
 
-        {/* Información general de la base de datos */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-2xl font-bold mb-2">Información de la base de datos</h2>
           <p className="text-gray-600 mb-4">Base de datos: <strong>{dbInfo.databaseName}</strong> | Tamaño total: <strong>{dbInfo.totalSize}</strong></p>
@@ -174,7 +172,6 @@ function AdminDatabase() {
           </div>
         </div>
 
-        {/* Herramientas de mantenimiento */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-2xl font-bold mb-4">Herramientas de mantenimiento</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

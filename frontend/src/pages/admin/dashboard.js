@@ -4,11 +4,11 @@ import { withAuth } from '../../lib/auth';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { FaUsers, FaCalendarAlt, FaNewspaper, FaComments, FaInstagram, FaChartLine, FaBell, FaEnvelope, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
+import { FaUsers, FaCalendarAlt, FaNewspaper, FaComments, FaChartLine, FaBell, FaEnvelope, FaFileAlt } from 'react-icons/fa';
 
 function AdminDashboard() {
   const { user } = useAuth();
@@ -42,11 +42,10 @@ function AdminDashboard() {
   if (error) return <AdminLayout title="Dashboard"><p className="text-center py-8 text-red-600">{error}</p></AdminLayout>;
   if (!user || user.role !== 'superadmin') return <AdminLayout title="Dashboard"><p className="text-center py-8">No tienes permisos para ver este panel.</p></AdminLayout>;
 
-  const { totals, upcomingActions, recentSubscribers, actionsByMonth, subscribersByMonth, actionsByCategory, topCampaigns, latestNews, latestInstagramPosts, upcomingWeekActions } = data;
+  const { totals, upcomingActions, recentSubscribers, actionsByMonth, subscribersByMonth, actionsByCategory, topCampaigns, latestNews, upcomingWeekActions } = data;
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
-  // Tarjetas de métricas principales
   const metricCards = [
     { title: 'Campañas', value: totals.campaigns, icon: FaChartLine, color: 'bg-blue-500', link: '/admin/campaigns' },
     { title: 'Acciones', value: totals.actions, icon: FaCalendarAlt, color: 'bg-green-500', link: '/admin/actions' },
@@ -54,14 +53,13 @@ function AdminDashboard() {
     { title: 'Reportes', value: totals.reports, icon: FaFileAlt, color: 'bg-yellow-500', link: '/admin/reports' },
     { title: 'Suscriptores', value: totals.subscribers, icon: FaEnvelope, color: 'bg-purple-500', link: '/admin/subscribers' },
     { title: 'Grupos Chat', value: totals.chatGroups, icon: FaComments, color: 'bg-indigo-500', link: '/admin/chatGroups' },
-    { title: 'Posts Instagram', value: totals.instagramPosts, icon: FaInstagram, color: 'bg-pink-500', link: '/admin/instagram' },
     { title: 'Usuarios', value: totals.users, icon: FaUsers, color: 'bg-gray-600', link: '/admin/users' },
   ];
 
   return (
     <AdminLayout title="Dashboard">
       <div className="space-y-8">
-        {/* Tarjetas de KPIs */}
+        {/* KPI cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {metricCards.map((card) => (
             <Link key={card.title} href={card.link} className="block">
@@ -78,7 +76,7 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {/* Sección de alertas: Acciones de la próxima semana */}
+        {/* Upcoming actions this week alert */}
         {upcomingWeekActions.length > 0 && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow">
             <div className="flex items-center">
@@ -95,7 +93,7 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Gráficos: acciones por mes y suscriptores por mes */}
+        {/* Charts: actions per month and subscribers per month */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>
@@ -125,7 +123,7 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Distribución por categoría y campañas destacadas */}
+        {/* Categories and top campaigns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Acciones por categoría</h2>
@@ -163,7 +161,7 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Listas de actividad reciente */}
+        {/* Recent activity lists */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Próximas acciones</h2>
@@ -204,39 +202,7 @@ function AdminDashboard() {
             </ul>
           </div>
         </div>
-
-        {/* Publicaciones recientes de Instagram */}
-        {latestInstagramPosts.length > 0 && (
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Últimas publicaciones en Instagram</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {latestInstagramPosts.map(post => (
-                <a
-                  key={post.shortcode}
-                  href={`https://www.instagram.com/p/${post.shortcode}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block group"
-                >
-                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                    {post.mediaType === 'video' ? (
-                      <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-xs">
-                        🎥 Video
-                      </div>
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400">
-                        📷 Imagen
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500 line-clamp-2 group-hover:text-red-600">
-                    {post.caption?.substring(0, 60)}...
-                  </p>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Instagram section completely removed */}
       </div>
     </AdminLayout>
   );

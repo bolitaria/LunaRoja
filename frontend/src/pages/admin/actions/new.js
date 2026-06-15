@@ -21,8 +21,10 @@ function NewAction() {
     registrationLink: '',
     recordingUrl: '',
     isLive: true,
-    campaignId: ''
+    campaignId: '',
+    documentLink: '',
   });
+  const [groups, setGroups] = useState([]); // { platform: 'whatsapp', link: '' }
   const [featuredImageFile, setFeaturedImageFile] = useState(null);
   const [featuredImagePreview, setFeaturedImagePreview] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
@@ -34,7 +36,7 @@ function NewAction() {
       try {
         const token = localStorage.getItem('token');
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setCampaigns(res.data);
       } catch (error) {
@@ -54,9 +56,7 @@ function NewAction() {
     if (file) {
       setFeaturedImageFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFeaturedImagePreview(reader.result);
-      };
+      reader.onloadend = () => setFeaturedImagePreview(reader.result);
       reader.readAsDataURL(file);
     }
   };
@@ -65,20 +65,28 @@ function NewAction() {
     const files = Array.from(e.target.files);
     const total = imageFiles.length + files.length;
     if (total > 20) {
-      toast.warning(`Máximo 20 imágenes en total. Ya tienes ${imageFiles.length} seleccionadas.`);
+      toast.warning(`Máximo 20 imágenes. Ya tienes ${imageFiles.length}.`);
       return;
     }
     setImageFiles(prev => [...prev, ...files]);
-    const previews = files.map(file => URL.createObjectURL(file));
-    setImagePreviews(prev => [...prev, ...previews]);
+    setImagePreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
   };
 
-  const removeImage = (index) => {
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
+  const removeImage = (idx) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== idx));
     setImagePreviews(prev => {
-      URL.revokeObjectURL(prev[index]);
-      return prev.filter((_, i) => i !== index);
+      URL.revokeObjectURL(prev[idx]);
+      return prev.filter((_, i) => i !== idx);
     });
+  };
+
+  // Grupos dinámicos
+  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
+  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
+  const updateGroup = (index, field, value) => {
+    const updated = [...groups];
+    updated[index][field] = value;
+    setGroups(updated);
   };
 
   const openGoogleMaps = () => {
@@ -91,13 +99,10 @@ function NewAction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validar que si es online, el enlace de registro sea obligatorio
     if (form.locationType === 'online' && !form.registrationLink.trim()) {
       toast.error('El enlace de registro es obligatorio para eventos online');
       return;
     }
-
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -107,17 +112,12 @@ function NewAction() {
           formData.append(key, form[key]);
         }
       });
-      if (featuredImageFile) {
-        formData.append('featuredImage', featuredImageFile);
-      }
-      imageFiles.forEach(file => {
-        formData.append('images', file);
-      });
+      // Añadir grupos como JSON string
+      formData.append('groups', JSON.stringify(groups));
+      if (featuredImageFile) formData.append('featuredImage', featuredImageFile);
+      imageFiles.forEach(file => formData.append('images', file));
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/actions`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Acción creada');
       router.push('/admin/actions');
@@ -131,37 +131,21 @@ function NewAction() {
   return (
     <AdminLayout title="Nueva Acción">
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md lg:w-2/3">
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Título *</label>
-            <input
-              type="text"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border rounded"
-            />
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-5">
+          {/* Título */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Descripción</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows="3"
-              className="w-full px-3 py-2 border rounded"
-            />
+          {/* Descripción */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Categoría *</label>
-            <select
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-            >
+          {/* Categoría */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
+            <select name="category" value={form.category} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
               <option value="webinar">Webinar</option>
               <option value="talk">Charla</option>
               <option value="protest">Manifestación</option>
@@ -172,39 +156,23 @@ function NewAction() {
               <option value="workshop">Taller</option>
             </select>
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Campaña relacionada</label>
-            <select
-              name="campaignId"
-              value={form.campaignId}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-            >
+          {/* Campaña relacionada */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Campaña relacionada</label>
+            <select name="campaignId" value={form.campaignId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
               <option value="">-- Ninguna --</option>
-              {campaigns.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Fecha y hora *</label>
-            <input
-              type="datetime-local"
-              name="datetime"
-              value={form.datetime}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border rounded"
-            />
+          {/* Fecha y hora */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha y hora *</label>
+            <input type="datetime-local" name="datetime" value={form.datetime} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Tipo de ubicación</label>
-            <select
-              name="locationType"
-              value={form.locationType}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-            >
+          {/* Tipo de ubicación */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de ubicación</label>
+            <select name="locationType" value={form.locationType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
               <option value="online">Online</option>
               <option value="presencial">Presencial</option>
             </select>
@@ -212,163 +180,108 @@ function NewAction() {
 
           {form.locationType === 'online' && (
             <>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">
-                  Enlace de registro <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="url"
-                  name="registrationLink"
-                  value={form.registrationLink}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border rounded"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de registro *</label>
+                <input type="url" name="registrationLink" value={form.registrationLink} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
               </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Enlace online (para acceder)</label>
-                <input
-                  type="url"
-                  name="onlineLink"
-                  value={form.onlineLink}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Enlace online (para acceder)</label>
+                <input type="url" name="onlineLink" value={form.onlineLink} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
               </div>
             </>
           )}
 
           {form.locationType === 'presencial' && (
             <>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Nombre del lugar</label>
-                <input
-                  type="text"
-                  name="placeName"
-                  value={form.placeName}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del lugar</label>
+                <input type="text" name="placeName" value={form.placeName} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
               </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">
-                  Dirección <span className="text-red-500">*</span>
-                </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección *</label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    name="address"
-                    value={form.address}
-                    onChange={handleChange}
-                    required
-                    className="flex-1 px-3 py-2 border rounded"
-                  />
-                  <button
-                    type="button"
-                    onClick={openGoogleMaps}
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                  >
-                    Ver en mapa
-                  </button>
+                  <input type="text" name="address" value={form.address} onChange={handleChange} required className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+                  <button type="button" onClick={openGoogleMaps} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Ver en mapa</button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Puedes buscar la ubicación en Google Maps y copiar la dirección aquí.
-                </p>
               </div>
             </>
           )}
 
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Enlace de registro (opcional, ya cubierto)</label>
-            <input
-              type="url"
-              name="registrationLink"
-              value={form.registrationLink}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-            />
+          {/* URL de grabación */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">URL de grabación</label>
+            <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">URL de grabación</label>
-            <input
-              type="url"
-              name="recordingUrl"
-              value={form.recordingUrl}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-            />
+
+          {/* En vivo */}
+          <div className="flex items-center">
+            <input type="checkbox" name="isLive" checked={form.isLive} onChange={handleChange} className="mr-2" />
+            <span className="text-sm text-gray-700">En vivo (mostrar como próximo)</span>
           </div>
-          <div className="mb-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                name="isLive"
-                checked={form.isLive}
-                onChange={handleChange}
-                className="mr-2"
-              />
-              <span>En vivo (mostrar como próximo)</span>
-            </label>
+
+          {/* Grupos de mensajería */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Grupos de mensajería (WhatsApp, Telegram, Signal)</label>
+            {groups.map((group, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <select
+                  value={group.platform}
+                  onChange={(e) => updateGroup(idx, 'platform', e.target.value)}
+                  className="px-2 py-1 border rounded"
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="signal">Signal</option>
+                </select>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={group.link}
+                  onChange={(e) => updateGroup(idx, 'link', e.target.value)}
+                  className="flex-1 px-3 py-1 border rounded"
+                />
+                <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
+              </div>
+            ))}
+            <button type="button" onClick={addGroup} className="text-blue-600 text-sm hover:underline">+ Añadir grupo</button>
+          </div>
+
+          {/* Documentación */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📁 Enlace a documentación (Dropbox, Drive…)</label>
+            <input type="url" name="documentLink" value={form.documentLink} onChange={handleChange} placeholder="https://drive.google.com/..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" />
           </div>
 
           {/* Imagen destacada */}
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Imagen destacada (opcional)</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFeaturedImageChange}
-              className="w-full px-3 py-2 border rounded"
-            />
-            {featuredImagePreview && (
-              <img src={featuredImagePreview} alt="Preview destacada" className="mt-2 max-h-40 rounded" />
-            )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Imagen destacada (opcional)</label>
+            <input type="file" accept="image/*" onChange={handleFeaturedImageChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            {featuredImagePreview && <img src={featuredImagePreview} alt="Preview" className="mt-2 max-h-40 rounded-lg" />}
           </div>
 
-          {/* Galería de imágenes */}
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Galería (máx. 20, opcional)</label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              className="w-full px-3 py-2 border rounded"
-            />
+          {/* Galería */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Galería (máx. 20, opcional)</label>
+            <input type="file" accept="image/*" multiple onChange={handleImageChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
             {imagePreviews.length > 0 && (
               <div className="mt-4 grid grid-cols-4 gap-4">
                 {imagePreviews.map((src, idx) => (
                   <div key={idx} className="relative">
                     <img src={src} alt={`Preview ${idx}`} className="h-20 w-20 object-cover rounded" />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(idx)}
-                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                    >
-                      ×
-                    </button>
+                    <button type="button" onClick={() => removeImage(idx)} className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">×</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading} className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
             {loading ? 'Guardando...' : 'Crear Acción'}
           </button>
         </form>
 
-        {/* Vista previa */}
         <div className="lg:w-1/3">
-          <ActionPreview
-            form={form}
-            featuredImage={featuredImagePreview}
-            images={imagePreviews}
-          />
+          <ActionPreview form={form} featuredImage={featuredImagePreview} images={imagePreviews} />
         </div>
       </div>
     </AdminLayout>

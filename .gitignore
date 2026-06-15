@@ -2,9 +2,13 @@
 node_modules/
 .pnp
 .pnp.js
+
+# Environment files (protect secrets)
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
 
 # Build outputs
 dist/
@@ -32,9 +36,13 @@ pids
 # Database
 database/postgres-data/
 
-# IDE
+# IDE / Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 .DS_Store
+*~
+
+# Fly.io (local configuration, secrets managed via fly secrets)
+fly.toml
