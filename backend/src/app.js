@@ -20,10 +20,15 @@ const SubscribersReminder = require('./models/SubscribersReminder');
 // Import email service
 const { initEmailService } = require('./services/emailService');
 
+// --------------------- Associations ---------------------
 Campaign.hasMany(Action, { foreignKey: 'campaignId', onDelete: 'SET NULL' });
 Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+
 Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
 ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+
+Action.hasMany(ChatGroup, { foreignKey: 'actionId', as: 'chatGroups' });
+ChatGroup.belongsTo(Action, { foreignKey: 'actionId', as: 'assignedAction' });  // alias único
 
 User.belongsToMany(Campaign, { through: UserCampaign, as: 'campaigns', foreignKey: 'userId' });
 Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 'campaignId' });
@@ -32,7 +37,7 @@ User.belongsToMany(Action, { through: UserAction, as: 'actions', foreignKey: 'us
 Action.belongsToMany(User, { through: UserAction, as: 'admins', foreignKey: 'actionId' });
 
 ChatGroup.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
-Campaign.hasMany(ChatGroup, { foreignKey: 'campaignId', as: 'groups' });
+Campaign.hasMany(ChatGroup, { foreignKey: 'campaignId', as: 'campaignGroups' });
 
 Noticia.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Noticia.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
@@ -49,6 +54,7 @@ SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders', onDelete: 'CASCADE' });
 SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
 
+// --------------------- Routes ---------------------
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const newsRoutes = require('./routes/newsRoutes');
@@ -74,7 +80,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
-// Routes
+// Register routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/news', newsRoutes);

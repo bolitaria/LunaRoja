@@ -13,7 +13,6 @@ export default function GruposChats() {
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const [selectedAction, setSelectedAction] = useState('');
 
-  // Cargar grupos, campañas y acciones
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -22,11 +21,10 @@ export default function GruposChats() {
           axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`),
           axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`),
         ]);
-        const data = groupsRes.data;
-        setGroups(data);
+        setGroups(groupsRes.data);
         setCampaigns(campRes.data);
         setActions(actRes.data);
-        setFilteredGroups(data);
+        setFilteredGroups(groupsRes.data);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -45,20 +43,14 @@ export default function GruposChats() {
     }
 
     if (selectedAction) {
-      // Los grupos no están directamente ligados a acciones, sino a campañas.
-      // Filtramos aquellos grupos cuya campaña coincida con la campaña de la acción seleccionada.
-      const action = actions.find(a => a.id == selectedAction);
-      if (action) {
-        result = result.filter(g => g.campaignId == action.campaignId);
-      } else {
-        result = [];
-      }
+      // Filtra directamente por actionId
+      result = result.filter(g => g.actionId == selectedAction);
     }
 
     setFilteredGroups(result);
-  }, [selectedCampaign, selectedAction, groups, actions]);
+  }, [selectedCampaign, selectedAction, groups]);
 
-  // Agrupar por región los grupos filtrados
+  // Agrupar por región
   useEffect(() => {
     const regionMap = {};
     filteredGroups.forEach(group => {
@@ -72,47 +64,41 @@ export default function GruposChats() {
 
   return (
     <Layout title="Grupos - Voces Palestinas por la Justicia">
-      <div className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-4 text-center">Grupos</h1>
+      <div className="container mx-auto px-4 py-8 pb-16">
+        <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Grupos</h1>
         <p className="text-center text-gray-600 mb-8">
           Únete a la conversación en Telegram, WhatsApp o Signal y colabora con otros miembros de la comunidad.
         </p>
 
-        {/* Filtros */}
         <div className="flex flex-wrap justify-center gap-4 mb-8">
           <select
             value={selectedCampaign}
             onChange={(e) => { setSelectedCampaign(e.target.value); setSelectedAction(''); }}
-            className="border rounded px-3 py-2 text-sm"
+            className="border rounded px-3 py-2 text-sm text-gray-700"
           >
             <option value="">Todas las campañas</option>
-            {campaigns.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+            {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
           <select
             value={selectedAction}
             onChange={(e) => { setSelectedAction(e.target.value); setSelectedCampaign(''); }}
-            className="border rounded px-3 py-2 text-sm"
+            className="border rounded px-3 py-2 text-sm text-gray-700"
           >
             <option value="">Todas las acciones</option>
-            {actions.map(a => (
-              <option key={a.id} value={a.id}>{a.title}</option>
-            ))}
+            {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
           </select>
         </div>
 
-        {/* Contenido */}
         {loading ? (
-          <p className="text-center">Cargando grupos...</p>
+          <p className="text-center text-gray-600">Cargando grupos...</p>
         ) : regions.length === 0 ? (
-          <p className="text-center">No hay grupos disponibles con los filtros seleccionados.</p>
+          <p className="text-center text-gray-600">No hay grupos disponibles con los filtros seleccionados.</p>
         ) : (
           <div>
             {regions.map(region => (
               <div key={region.name} className="mb-10">
-                <h2 className="text-2xl font-semibold mb-4 border-b pb-2">{region.name}</h2>
+                <h2 className="text-2xl font-semibold mb-4 border-b pb-2 text-gray-600">{region.name}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {region.groups.map(group => (
                     <ChatGroupCard key={group.id} group={group} />

@@ -14,20 +14,15 @@ exports.getAllActions = async (req, res) => {
     const { campaignId } = req.query;
     let where = {};
 
-    console.log('=== getAllActions ===');
-    console.log('req.user:', req.user);
-
     if (req.user) {
       if (req.user.role === 'campaign_admin') {
         const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        console.log('campaignIds del usuario (campaign_admin):', campaignIds);
         if (campaignIds.length === 0) return res.json([]);
         where.campaignId = campaignIds;
       } else if (req.user.role === 'action_admin') {
         const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
         const actionIds = userActions.map(ua => ua.actionId);
-        console.log('actionIds del usuario (action_admin):', actionIds);
         if (actionIds.length === 0) return res.json([]);
         where.id = actionIds;
       }
@@ -42,7 +37,6 @@ exports.getAllActions = async (req, res) => {
       order: [['datetime', 'DESC']],
       include: [{ model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }]
     });
-    console.log('Acciones devueltas:', actions.map(a => a.id));
     res.json(actions);
   } catch (error) {
     console.error('Error en getAllActions:', error);
@@ -50,8 +44,6 @@ exports.getAllActions = async (req, res) => {
   }
 };
 
-// ... resto del controlador
-// Obtener una acción por ID
 exports.getActionById = async (req, res) => {
   try {
     const action = await Action.findByPk(req.params.id, {
@@ -65,14 +57,19 @@ exports.getActionById = async (req, res) => {
   }
 };
 
-// Crear una nueva acción
 exports.createAction = async (req, res) => {
   try {
     let {
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
-      registrationLink, recordingUrl, isLive, campaignId
+      registrationLink, recordingUrl, isLive, campaignId,
+      groups, documentLink
     } = req.body;
+
+    // Parse groups if string
+    if (groups && typeof groups === 'string') {
+      try { groups = JSON.parse(groups); } catch (e) { groups = null; }
+    }
 
     // Validar permisos según rol
     if (req.user.role === 'campaign_admin') {
@@ -99,9 +96,16 @@ exports.createAction = async (req, res) => {
     if (latitude !== null && !isNaN(parseFloat(latitude))) latitude = parseFloat(latitude);
     if (longitude !== null && !isNaN(parseFloat(longitude))) longitude = parseFloat(longitude);
 
+    // Manejar featuredImage
     let featuredImage = null;
     if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
       featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
+    }
+
+    // Manejar documento
+    let documentPath = null;
+    if (req.files && req.files.document && req.files.document.length > 0) {
+      documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
 
     const action = await Action.create({
@@ -109,26 +113,25 @@ exports.createAction = async (req, res) => {
       locationType, onlineLink, placeName, address, latitude, longitude,
       registrationLink, recordingUrl, isLive,
       campaignId: campaignId || null,
-      featuredImage
+      featuredImage,
+      groups,
+      documentLink: documentLink || null,
+      document: documentPath
     });
 
-    // Procesar imágenes adicionales (si existen)
+    // Procesar imágenes adicionales
     if (req.files && req.files.images && req.files.images.length > 0) {
       const imagePromises = req.files.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
-        return ActionImage.create({
-          url,
-          actionId: action.id,
-          order: index
-        });
+        return ActionImage.create({ url, actionId: action.id, order: index });
       });
       await Promise.all(imagePromises);
     }
 
-    // --- Notificar a suscriptores activos sobre la nueva acción ---
+    // Notificar a suscriptores
     try {
       const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
-      const campaign = await action.getCampaign(); // obtener la campaña asociada
+      const campaign = await action.getCampaign();
       for (const sub of subscribers) {
         await sendActionNotification(sub.email, action, campaign).catch(err => console.error(`Error email a ${sub.email}:`, err));
       }
@@ -137,14 +140,13 @@ exports.createAction = async (req, res) => {
       console.error('Error al enviar notificaciones de acción:', emailError);
     }
 
-    // --- Crear recordatorios para suscriptores que hayan activado recordatorios ---
+    // Crear recordatorios
     try {
       const reminderSubscribers = await Subscriber.findAll({ where: { status: 'active', sendReminders: true } });
       const actionDate = new Date(datetime);
       const reminderDate = new Date(actionDate);
       reminderDate.setDate(reminderDate.getDate() - 1);
-      reminderDate.setHours(9, 0, 0, 0); // a las 9:00 AM del día anterior
-
+      reminderDate.setHours(9, 0, 0, 0);
       for (const sub of reminderSubscribers) {
         await SubscribersReminder.create({
           actionId: action.id,
@@ -168,7 +170,6 @@ exports.createAction = async (req, res) => {
   }
 };
 
-// Actualizar una acción
 exports.updateAction = async (req, res) => {
   try {
     const action = await Action.findByPk(req.params.id, {
@@ -179,17 +180,17 @@ exports.updateAction = async (req, res) => {
     let {
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
-      registrationLink, recordingUrl, isLive, campaignId
+      registrationLink, recordingUrl, isLive, campaignId,
+      groups, documentLink
     } = req.body;
 
-    // Verificar permisos
+    // Permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
       if (!allowedCampaignIds.includes(action.campaignId)) {
         return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
       }
-      // No puede cambiar la campaña
       campaignId = action.campaignId;
     } else if (req.user.role === 'action_admin') {
       const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
@@ -210,15 +211,29 @@ exports.updateAction = async (req, res) => {
     if (latitude !== null && !isNaN(parseFloat(latitude))) latitude = parseFloat(latitude);
     if (longitude !== null && !isNaN(parseFloat(longitude))) longitude = parseFloat(longitude);
 
+    // Parse groups
+    if (groups && typeof groups === 'string') {
+      try { groups = JSON.parse(groups); } catch (e) { groups = null; }
+    }
+
+    // Imagen destacada
     let featuredImage = action.featuredImage;
     if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
       if (action.featuredImage) {
         const oldPath = path.join(__dirname, '../../uploads/featured', path.basename(action.featuredImage));
-        fs.unlink(oldPath, (err) => {
-          if (err) console.error('Error al eliminar imagen destacada anterior:', err);
-        });
+        fs.unlink(oldPath, (err) => { if (err) console.error('Error al eliminar imagen destacada anterior:', err); });
       }
       featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
+    }
+
+    // Documento
+    let documentPath = action.document;
+    if (req.files && req.files.document && req.files.document.length > 0) {
+      if (action.document) {
+        const oldDocPath = path.join(__dirname, '../../uploads/documents', path.basename(action.document));
+        fs.unlink(oldDocPath, (err) => { if (err) console.error('Error al eliminar documento anterior:', err); });
+      }
+      documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
 
     await action.update({
@@ -226,18 +241,18 @@ exports.updateAction = async (req, res) => {
       locationType, onlineLink, placeName, address, latitude, longitude,
       registrationLink, recordingUrl, isLive,
       campaignId,
-      featuredImage
+      featuredImage,
+      groups,
+      documentLink: documentLink || null,
+      document: documentPath
     });
 
+    // Nuevas imágenes
     if (req.files && req.files.images && req.files.images.length > 0) {
       const currentImageCount = action.images ? action.images.length : 0;
       const imagePromises = req.files.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
-        return ActionImage.create({
-          url,
-          actionId: action.id,
-          order: currentImageCount + index
-        });
+        return ActionImage.create({ url, actionId: action.id, order: currentImageCount + index });
       });
       await Promise.all(imagePromises);
     }
@@ -252,7 +267,7 @@ exports.updateAction = async (req, res) => {
   }
 };
 
-// Eliminar una acción (solo superadmin)
+// deleteAction y deleteActionImage permanecen igual
 exports.deleteAction = async (req, res) => {
   try {
     const action = await Action.findByPk(req.params.id, {
@@ -266,18 +281,19 @@ exports.deleteAction = async (req, res) => {
 
     if (action.featuredImage) {
       const filePath = path.join(__dirname, '../../uploads/featured', path.basename(action.featuredImage));
-      fs.unlink(filePath, (err) => {
-        if (err) console.error('Error al eliminar imagen destacada:', err);
-      });
+      fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar imagen destacada:', err); });
     }
     if (action.images && action.images.length > 0) {
       for (const img of action.images) {
         const filePath = path.join(__dirname, '../../uploads/actions', path.basename(img.url));
-        fs.unlink(filePath, (err) => {
-          if (err) console.error('Error al eliminar imagen:', err);
-        });
+        fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar imagen:', err); });
       }
     }
+    if (action.document) {
+      const docPath = path.join(__dirname, '../../uploads/documents', path.basename(action.document));
+      fs.unlink(docPath, (err) => { if (err) console.error('Error al eliminar documento:', err); });
+    }
+
     await action.destroy();
     res.json({ message: 'Acción eliminada' });
   } catch (error) {
@@ -286,7 +302,6 @@ exports.deleteAction = async (req, res) => {
   }
 };
 
-// Eliminar una imagen específica de una acción
 exports.deleteActionImage = async (req, res) => {
   try {
     const { imageId } = req.params;
@@ -294,9 +309,7 @@ exports.deleteActionImage = async (req, res) => {
     if (!image) return res.status(404).json({ message: 'Imagen no encontrada' });
 
     const filePath = path.join(__dirname, '../../uploads/actions', path.basename(image.url));
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Error al eliminar archivo:', err);
-    });
+    fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar archivo:', err); });
     await image.destroy();
     res.json({ message: 'Imagen eliminada' });
   } catch (error) {
@@ -304,4 +317,3 @@ exports.deleteActionImage = async (req, res) => {
     res.status(500).json({ message: 'Error al eliminar imagen' });
   }
 };
-

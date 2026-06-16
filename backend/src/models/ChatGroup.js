@@ -26,11 +26,23 @@ const ChatGroup = sequelize.define('ChatGroup', {
       isUrl: true,
     },
   },
+  region: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
       model: 'Campaigns',
+      key: 'id',
+    },
+  },
+  actionId: {                     // NUEVO
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Actions',
       key: 'id',
     },
   },

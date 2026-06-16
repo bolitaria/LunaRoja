@@ -5,39 +5,20 @@ const { sendCampaignNotification } = require('../services/emailService');
 const fs = require('fs');
 const path = require('path');
 
-
 exports.getAllCampaigns = async (req, res) => {
   try {
-    console.log('========== getAllCampaigns ==========');
-    console.log('req.user:', req.user);
     let where = {};
-
     if (req.user) {
-      console.log('Usuario autenticado, role:', req.user.role);
       if (req.user.role === 'campaign_admin') {
-        console.log('Es campaign_admin, buscando asignaciones para userId:', req.user.id);
         const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-        console.log('userCampaigns encontradas:', userCampaigns.map(uc => uc.campaignId));
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        if (campaignIds.length === 0) {
-          console.log('No tiene campañas asignadas, devolvemos []');
-          return res.json([]);
-        }
+        if (campaignIds.length === 0) return res.json([]);
         where.id = campaignIds;
       } else if (req.user.role === 'action_admin') {
-        console.log('action_admin - no devuelve campañas');
         return res.json([]);
-      } else {
-        console.log('superadmin - no filtra');
       }
-    } else {
-      console.log('Usuario no autenticado, devolvemos todas las campañas (público)');
     }
-
-    console.log('where final:', where);
     const campaigns = await Campaign.findAll({ where, order: [['name', 'ASC']] });
-    console.log('Campañas devueltas:', campaigns.map(c => ({ id: c.id, name: c.name })));
-    console.log('======================================');
     res.json(campaigns);
   } catch (error) {
     console.error('Error en getAllCampaigns:', error);
@@ -58,15 +39,35 @@ exports.getCampaignById = async (req, res) => {
 
 exports.createCampaign = async (req, res) => {
   try {
-    const { name, description, color } = req.body;
-    let imageUrl = null;
-    if (req.file) {
-      imageUrl = `/uploads/campaigns/${req.file.filename}`;
-    }
+    let { name, description, color, groups, documentLink } = req.body;
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
-    const campaign = await Campaign.create({ name, description, color, imageUrl });
 
-    // --- Notificar a suscriptores activos ---
+    // Parse groups if string
+    if (groups && typeof groups === 'string') {
+      try { groups = JSON.parse(groups); } catch (e) { groups = null; }
+    }
+
+    let imageUrl = null;
+    if (req.files && req.files.image && req.files.image.length > 0) {
+      imageUrl = `/uploads/campaigns/${req.files.image[0].filename}`;
+    }
+
+    let documentPath = null;
+    if (req.files && req.files.document && req.files.document.length > 0) {
+      documentPath = `/uploads/documents/${req.files.document[0].filename}`;
+    }
+
+    const campaign = await Campaign.create({
+      name,
+      description,
+      color,
+      imageUrl,
+      groups,
+      documentLink: documentLink || null,
+      document: documentPath
+    });
+
+    // Notificar a suscriptores
     try {
       const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
       for (const sub of subscribers) {
@@ -75,7 +76,6 @@ exports.createCampaign = async (req, res) => {
       console.log(`Notificaciones de campaña enviadas a ${subscribers.length} suscriptores`);
     } catch (emailError) {
       console.error('Error al enviar notificaciones de campaña:', emailError);
-      // No interrumpimos la creación de la campaña
     }
 
     res.status(201).json(campaign);
@@ -90,6 +90,7 @@ exports.updateCampaign = async (req, res) => {
     const campaign = await Campaign.findByPk(req.params.id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
 
+    // Permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedIds = userCampaigns.map(uc => uc.campaignId);
@@ -100,20 +101,41 @@ exports.updateCampaign = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    const { name, description, color } = req.body;
-    let imageUrl = campaign.imageUrl;
-
-    if (req.file) {
-      if (campaign.imageUrl) {
-        const oldPath = path.join(__dirname, '../../uploads/campaigns', path.basename(campaign.imageUrl));
-        fs.unlink(oldPath, (err) => {
-          if (err) console.error('Error al eliminar imagen anterior:', err);
-        });
-      }
-      imageUrl = `/uploads/campaigns/${req.file.filename}`;
+    let { name, description, color, groups, documentLink } = req.body;
+    if (groups && typeof groups === 'string') {
+      try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
 
-    await campaign.update({ name, description, color, imageUrl });
+    // Imagen
+    let imageUrl = campaign.imageUrl;
+    if (req.files && req.files.image && req.files.image.length > 0) {
+      if (campaign.imageUrl) {
+        const oldPath = path.join(__dirname, '../../uploads/campaigns', path.basename(campaign.imageUrl));
+        fs.unlink(oldPath, (err) => { if (err) console.error('Error al eliminar imagen anterior:', err); });
+      }
+      imageUrl = `/uploads/campaigns/${req.files.image[0].filename}`;
+    }
+
+    // Documento
+    let documentPath = campaign.document;
+    if (req.files && req.files.document && req.files.document.length > 0) {
+      if (campaign.document) {
+        const oldDocPath = path.join(__dirname, '../../uploads/documents', path.basename(campaign.document));
+        fs.unlink(oldDocPath, (err) => { if (err) console.error('Error al eliminar documento anterior:', err); });
+      }
+      documentPath = `/uploads/documents/${req.files.document[0].filename}`;
+    }
+
+    await campaign.update({
+      name,
+      description,
+      color,
+      imageUrl,
+      groups,
+      documentLink: documentLink || null,
+      document: documentPath
+    });
+
     res.json(campaign);
   } catch (error) {
     console.error(error);
@@ -132,9 +154,11 @@ exports.deleteCampaign = async (req, res) => {
 
     if (campaign.imageUrl) {
       const filePath = path.join(__dirname, '../../uploads/campaigns', path.basename(campaign.imageUrl));
-      fs.unlink(filePath, (err) => {
-        if (err) console.error('Error al eliminar imagen:', err);
-      });
+      fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar imagen:', err); });
+    }
+    if (campaign.document) {
+      const docPath = path.join(__dirname, '../../uploads/documents', path.basename(campaign.document));
+      fs.unlink(docPath, (err) => { if (err) console.error('Error al eliminar documento:', err); });
     }
 
     await campaign.destroy();

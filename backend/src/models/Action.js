@@ -66,6 +66,19 @@ const Action = sequelize.define('Action', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  // Nuevos campos
+  groups: {
+    type: DataTypes.JSON,          // array de { platform, link }
+    allowNull: true,
+  },
+  documentLink: {
+    type: DataTypes.STRING,        // enlace externo (opcional)
+    allowNull: true,
+  },
+  document: {
+    type: DataTypes.STRING,        // ruta al archivo subido
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

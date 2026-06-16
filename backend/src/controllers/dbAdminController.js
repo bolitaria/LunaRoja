@@ -1,4 +1,4 @@
-const { sequelize } = require('../config/database');
+const sequelize = require('../config/database');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
