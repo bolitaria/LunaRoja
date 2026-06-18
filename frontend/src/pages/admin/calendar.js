@@ -41,12 +41,10 @@ function AdminCalendar() {
     fetchData();
   }, []);
 
-  // Filtrar eventos por acción seleccionada
   const filteredEvents = selectedActionId === 'all'
     ? events
     : events.filter(e => e.actionId === parseInt(selectedActionId));
 
-  // Las acciones siempre se muestran todas (o podríamos filtrar también si se desea)
   const filteredActions = selectedActionId === 'all'
     ? actions
     : actions.filter(a => a.id === parseInt(selectedActionId));
@@ -89,7 +87,6 @@ function AdminCalendar() {
   const handleActionFilterChange = (e) => {
     const newActionId = e.target.value;
     setSelectedActionId(newActionId);
-    // Actualizar la URL sin recargar la página
     router.push(`/admin/calendar${newActionId !== 'all' ? `?actionId=${newActionId}` : ''}`, undefined, { shallow: true });
   };
 

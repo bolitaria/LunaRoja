@@ -18,6 +18,9 @@ ARG NEXT_PUBLIC_BASE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
 
+# 🛠️ Forzar la copia de src (por si el .dockerignore lo excluye)
+COPY src ./src
+
 # Build
 RUN npm run build
 

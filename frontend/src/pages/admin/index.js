@@ -4,7 +4,7 @@ import { withAuth } from '../../lib/auth';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
@@ -59,7 +59,6 @@ function AdminDashboard() {
   return (
     <AdminLayout title="Dashboard">
       <div className="space-y-8">
-        {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {metricCards.map((card) => (
             <Link key={card.title} href={card.link} className="block">
@@ -76,7 +75,6 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {/* Upcoming actions this week alert */}
         {upcomingWeekActions.length > 0 && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow">
             <div className="flex items-center">
@@ -93,7 +91,6 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>
@@ -123,7 +120,6 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Categories & top campaigns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Acciones por categoría</h2>
@@ -161,7 +157,6 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent activity lists */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Próximas acciones</h2>
@@ -174,7 +169,6 @@ function AdminDashboard() {
                   </p>
                 </li>
               ))}
-              {upcomingActions.length === 0 && <p className="text-gray-500">No hay próximas acciones.</p>}
             </ul>
           </div>
 

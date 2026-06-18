@@ -59,7 +59,6 @@ function AdminDashboard() {
   return (
     <AdminLayout title="Dashboard">
       <div className="space-y-8">
-        {/* KPI cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {metricCards.map((card) => (
             <Link key={card.title} href={card.link} className="block">
@@ -76,7 +75,6 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {/* Upcoming actions this week alert */}
         {upcomingWeekActions.length > 0 && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow">
             <div className="flex items-center">
@@ -93,7 +91,6 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Charts: actions per month and subscribers per month */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>
@@ -123,7 +120,6 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Categories and top campaigns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Acciones por categoría</h2>
@@ -161,7 +157,6 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent activity lists */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Próximas acciones</h2>
@@ -174,10 +169,8 @@ function AdminDashboard() {
                   </p>
                 </li>
               ))}
-              {upcomingActions.length === 0 && <p className="text-gray-500">No hay próximas acciones.</p>}
             </ul>
           </div>
-
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Últimos suscriptores</h2>
             <ul className="space-y-3">
@@ -189,7 +182,6 @@ function AdminDashboard() {
               ))}
             </ul>
           </div>
-
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Últimas noticias</h2>
             <ul className="space-y-3">
@@ -202,7 +194,6 @@ function AdminDashboard() {
             </ul>
           </div>
         </div>
-        {/* Instagram section completely removed */}
       </div>
     </AdminLayout>
   );

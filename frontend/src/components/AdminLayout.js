@@ -26,6 +26,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Reportes', path: '/admin/reports' },
     { name: 'Grupos de Chat', path: '/admin/chatGroups' },
     { name: 'Suscriptores', path: '/admin/subscribers' },
+    { name: 'Documentos', path: '/admin/documents' }, // ← AÑADIDO
     { name: 'Base de Datos', path: '/admin/database' },
   ];
 
@@ -36,12 +37,14 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Imágenes', path: '/admin/images' },
     { name: 'Noticias', path: '/admin/news' },
     { name: 'Grupos de Chat', path: '/admin/chatGroups' },
+    { name: 'Documentos', path: '/admin/documents' }, // ← AÑADIDO
   ];
 
   const actionAdminMenu = [
     { name: 'Acciones', path: '/admin/actions' },
     { name: 'Imágenes', path: '/admin/images' },
     { name: 'Noticias', path: '/admin/news' },
+    { name: 'Documentos', path: '/admin/documents' }, // ← AÑADIDO
   ];
 
   let menu = [...baseMenu];
@@ -106,7 +109,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <aside className="w-64 bg-white shadow-md flex flex-col flex-shrink-0">
-        {/* Cabecera lateral: logo + usuario + salir, misma altura que la central */}
+        {/* Cabecera lateral */}
         <div className="h-16 px-4 py-2 border-b border-gray-200 bg-white flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
@@ -156,7 +159,6 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
 
       {/* Contenido principal */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Cabecera central: mismo alto y padding que la lateral */}
         <header className="h-16 px-4 py-2 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-700">{title}</h1>
           <Link href="/" className="text-sm text-gray-500 hover:text-green-600 transition flex items-center gap-1">
@@ -164,7 +166,6 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
             Ir al sitio público
           </Link>
         </header>
-
         <main className="flex-1 p-6 bg-gray-50">
           {children}
         </main>

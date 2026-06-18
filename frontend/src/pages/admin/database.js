@@ -113,18 +113,7 @@ function AdminDatabase() {
 
   return (
     <AdminLayout title="Administración de Base de Datos">
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" />
       <div className="space-y-6">
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
           <h3 className="font-semibold text-blue-800">¿Qué puedes hacer aquí?</h3>
@@ -178,27 +167,15 @@ function AdminDatabase() {
             <div>
               <h3 className="text-lg font-semibold mb-2">Índices duplicados</h3>
               <div className="flex flex-wrap gap-2 mb-2">
-                <select
-                  value={selectedTable}
-                  onChange={handleTableChange}
-                  className="border rounded px-2 py-1 text-sm"
-                >
+                <select value={selectedTable} onChange={handleTableChange} className="border rounded px-2 py-1 text-sm">
                   {dbInfo.tables.map(t => (
                     <option key={t.tablename} value={t.tablename}>{t.tablename}</option>
                   ))}
                 </select>
-                <button
-                  onClick={checkDuplicates}
-                  disabled={loading}
-                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
-                >
+                <button onClick={checkDuplicates} disabled={loading} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50">
                   Verificar duplicados
                 </button>
-                <button
-                  onClick={cleanDuplicates}
-                  disabled={loading || duplicates.count === 0}
-                  className={`px-3 py-1 rounded disabled:opacity-50 ${duplicates.count > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-400 cursor-not-allowed'} text-white`}
-                >
+                <button onClick={cleanDuplicates} disabled={loading || duplicates.count === 0} className={`px-3 py-1 rounded disabled:opacity-50 ${duplicates.count > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-400 cursor-not-allowed'} text-white`}>
                   Limpiar duplicados
                 </button>
               </div>
@@ -214,18 +191,10 @@ function AdminDatabase() {
             <div>
               <h3 className="text-lg font-semibold mb-2">Backup y migraciones</h3>
               <div className="flex gap-2">
-                <button
-                  onClick={backup}
-                  disabled={loading}
-                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50"
-                >
+                <button onClick={backup} disabled={loading} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50">
                   Descargar backup
                 </button>
-                <button
-                  onClick={runMigrations}
-                  disabled={loading}
-                  className="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 disabled:opacity-50"
-                >
+                <button onClick={runMigrations} disabled={loading} className="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 disabled:opacity-50">
                   Ejecutar migraciones
                 </button>
               </div>
