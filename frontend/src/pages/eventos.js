@@ -33,7 +33,7 @@ export default function Eventos() {
   const past = filtered.filter(a => new Date(a.datetime) <= now || !a.isLive);
 
   const categoryLabels = {
-    protest: 'Manifestación', bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha',
+    protest: 'Concentración', bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha Manifestación',
     solidarity_action: 'Acción Solidaria', workshop: 'Taller', talk: 'Charla', webinar: 'Webinar'
   };
 

@@ -1,58 +1,75 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { getAuthToken, setAuthToken, logout as clearToken } from '../lib/auth';
 import axios from 'axios';
+import { useRouter } from 'next/router';
 
 const AuthContext = createContext();
 
-export const useAuth = () => useContext(AuthContext);
-
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const loadUser = async () => {
-      const token = getAuthToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+    // Cargar usuario desde localStorage
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    if (token && userData) {
       try {
-        // Opcional: validar token con backend (endpoint /me)
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUser(res.data.user);
-      } catch (error) {
-        clearToken();
-      } finally {
-        setLoading(false);
+        const parsedUser = JSON.parse(userData);
+        // Asegurar que el objeto user tenga el campo role
+        if (parsedUser && parsedUser.role) {
+          setUser(parsedUser);
+        } else {
+          // Si no tiene role, borrar datos inválidos
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          setUser(null);
+        }
+      } catch (e) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
       }
-    };
-    loadUser();
+    }
+    setLoading(false);
   }, []);
 
   const login = async (username, password) => {
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, { username, password });
-      const { token, user } = res.data;
-      setAuthToken(token);
-      setUser(user);
-      return { success: true };
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        return { success: false, message: 'Error de configuración. Contacta al administrador.' };
+      }
+      const res = await axios.post(`${apiUrl}/auth/login`, { username, password });
+      if (res.data.token) {
+        // El backend devuelve user con id, username, role, lastLogin
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        setUser(res.data.user);
+        router.push('/admin');
+        return { success: true };
+      }
+      return { success: false, message: 'No se recibió token' };
     } catch (error) {
-      return { success: false, message: error.response?.data?.message || 'Error al iniciar sesión' };
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error al iniciar sesión'
+      };
     }
   };
 
   const logout = () => {
-    clearToken();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     router.push('/admin/login');
   };
 
-  const value = { user, loading, login, logout };
+  const value = { user, login, logout, loading };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}

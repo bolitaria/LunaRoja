@@ -1,44 +1,105 @@
 import React from 'react';
-import { categoryLabels, categoryStyles } from '../utils/categoryConfig';
+import Image from 'next/image';
+import { categoryLabels } from '../utils/categoryConfig';
 
 export default function ActionPreview({ form, featuredImage, images }) {
-  const date = form.datetime ? new Date(form.datetime).toLocaleDateString() : 'Fecha no seleccionada';
-  const time = form.datetime ? new Date(form.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-
-  const style = categoryStyles[form.category] || { backgroundColor: '#f3f4f6', color: '#1f2937', borderColor: '#d1d5db' };
+  const catLabel = categoryLabels[form.category] || form.category;
+  const isOnline = form.locationType === 'online';
+  const hasAddress = form.address || form.placeName;
+  const hasImages = images && images.length > 0;
+  const isUrgent = form.urgent;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
-      <h2 className="text-xl font-semibold mb-4">Vista previa</h2>
-      <div className="border rounded-lg p-4">
-        {featuredImage && (
-          <img src={featuredImage} alt="Destacada" className="w-full h-48 object-cover rounded mb-4" />
-        )}
-        {!featuredImage && images.length > 0 && (
-          <img src={images[0]} alt="Primera imagen" className="w-full h-48 object-cover rounded mb-4" />
-        )}
-        <h3 className="text-2xl font-bold mb-2">{form.title || 'Título de la acción'}</h3>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs px-2 py-1 rounded-full border" style={style}>
-            {categoryLabels[form.category] || form.category}
-          </span>
-          <span className="text-sm text-gray-500">{date} - {time}</span>
-        </div>
-        <p className="text-gray-700 mb-4">{form.description || 'Descripción de la acción...'}</p>
-        {form.locationType === 'online' ? (
-          form.onlineLink ? (
-            <a href={form.onlineLink} target="_blank" rel="noopener" className="text-blue-600 underline">
-              Enlace online
-            </a>
-          ) : (
-            <p className="text-gray-500">Evento online (enlace no definido)</p>
-          )
+    <div className="sticky top-8">
+      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Vista previa</h3>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        {/* Imagen destacada */}
+        {featuredImage ? (
+          <div className="relative w-full aspect-video bg-gray-100">
+            <img src={featuredImage} alt="Preview" className="w-full h-full object-cover" />
+          </div>
         ) : (
-          <div>
-            <p><strong>Lugar:</strong> {form.placeName || 'No especificado'}</p>
-            <p><strong>Dirección:</strong> {form.address || 'No especificada'}</p>
+          <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+            Sin imagen destacada
           </div>
         )}
+
+        <div className="p-4 space-y-3">
+          {/* Título y urgente */}
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="text-lg font-bold text-gray-800 line-clamp-2">{form.title || 'Título de la acción'}</h4>
+            {isUrgent && (
+              <span className="flex-shrink-0 inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                🔥 Urgente
+              </span>
+            )}
+          </div>
+
+          {/* Fecha y categoría */}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {form.datetime && (
+              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md">
+                {new Date(form.datetime).toLocaleDateString()} – {new Date(form.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            <span className="px-2 py-0.5 bg-fuchsia-50 text-fuchsia-700 rounded-full text-xs font-medium border border-fuchsia-200">
+              {catLabel}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${isOnline ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+              {isOnline ? '💻 Online' : '📍 Presencial'}
+            </span>
+          </div>
+
+          {/* Ubicación */}
+          {!isOnline && hasAddress && (
+            <div className="text-sm text-gray-600">
+              {form.placeName && <span className="font-medium">{form.placeName}</span>}
+              {form.placeName && form.address && <span className="mx-1">·</span>}
+              {form.address && <span>{form.address}</span>}
+            </div>
+          )}
+
+          {/* Mini galería */}
+          {hasImages && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Galería ({images.length})</p>
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                {images.slice(0, 4).map((src, idx) => (
+                  <img key={idx} src={src} alt="" className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0" />
+                ))}
+                {images.length > 4 && (
+                  <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-xs text-gray-500 flex-shrink-0">
+                    +{images.length - 4}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Badges adicionales */}
+          <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-100">
+            {form.enableAttendance && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
+                <span>📋</span> Asistencia
+              </span>
+            )}
+            {(form.documentLink || form.documentFile) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">
+                <span>📁</span> Documentos
+              </span>
+            )}
+            {form.groups && form.groups.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-full border border-purple-200">
+                <span>💬</span> Grupos
+              </span>
+            )}
+          </div>
+
+          {/* Descripción (resumida) */}
+          {form.description && (
+            <p className="text-sm text-gray-600 line-clamp-3 mt-1">{form.description}</p>
+          )}
+        </div>
       </div>
     </div>
   );

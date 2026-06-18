@@ -17,14 +17,16 @@ function AdminActions() {
 
   const fetchActions = async () => {
     try {
-      console.log('Token usado para acciones:', token);
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('Acciones recibidas:', res.data);
-      setActions(res.data);
+      const sorted = res.data.sort((a, b) => {
+        if (a.urgent && !b.urgent) return -1;
+        if (!a.urgent && b.urgent) return 1;
+        return new Date(b.datetime) - new Date(a.datetime);
+      });
+      setActions(sorted);
     } catch (error) {
-      console.error('Error al cargar acciones:', error);
       toast.error('Error al cargar acciones');
     }
   };
@@ -58,9 +60,14 @@ function AdminActions() {
   };
 
   const categoryLabels = {
-    webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
-    bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha',
-    solidarity_action: 'Acción Solidaria', workshop: 'Taller'
+    webinar: 'Webinar',
+    talk: 'Charla',
+    protest: 'Manifestación',
+    bds: 'Acción BDS',
+    strike: 'Huelga',
+    march: 'Marcha',
+    solidarity_action: 'Acción Solidaria',
+    workshop: 'Taller'
   };
 
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
@@ -70,88 +77,76 @@ function AdminActions() {
       <ToastContainer />
       {user && (user.role === 'superadmin' || user.role === 'campaign_admin') && (
         <div className="mb-4">
-          <Link href="/admin/actions/new" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          <Link href="/admin/actions/new" className="bg-fuchsia-600 text-white px-4 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors">
             Nueva Acción
           </Link>
         </div>
       )}
 
       {loading ? (
-        <p>Cargando...</p>
+        <p className="text-gray-600">Cargando...</p>
       ) : actions.length === 0 ? (
-        <p>No hay acciones creadas.</p>
+        <p className="text-gray-600">No hay acciones creadas.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full">
-            <thead className="bg-gray-100">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left">Título</th>
-                <th className="px-6 py-3 text-left">Categoría</th>
-                <th className="px-6 py-3 text-left">Fecha/Hora</th>
-                <th className="px-6 py-3 text-left">Ubicación</th>
-                <th className="px-6 py-3 text-left">Campaña</th>
-                <th className="px-6 py-3 text-left">Estado</th>
-                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaña</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {actions.map(action => {
                 const actionDate = new Date(action.datetime);
                 const now = new Date();
                 const isPast = actionDate < now;
                 const campaign = campaignMap[action.campaignId];
-                // Construir URL de la imagen
                 let imageUrl = null;
                 if (action.featuredImage) {
                   imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`;
                 } else if (action.images && action.images.length > 0) {
                   imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`;
                 }
-                if (imageUrl) console.log('URL imagen:', imageUrl);
                 return (
-                  <tr key={action.id} className="border-t">
-                    <td className="px-6 py-4">
+                  <tr key={action.id} className={action.urgent ? 'bg-red-50' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <span className="font-medium">{action.title}</span>
-                        {imageUrl && (
-                          <img
-                            src={imageUrl}
-                            alt={action.title}
-                            className="h-8 w-8 object-cover rounded"
-                            onError={(e) => { 
-                              console.log('Error al cargar imagen:', imageUrl);
-                              e.target.style.display = 'none'; 
-                            }}
-                          />
-                        )}
+                        {imageUrl && <img src={imageUrl} alt="" className="h-8 w-8 object-cover rounded" />}
+                        <span className="font-medium text-gray-900">{action.title}</span>
+                        {action.urgent && <span className="ml-2 inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">🔥 Urgente</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4">{categoryLabels[action.category]}</td>
-                    <td className="px-6 py-4">{actionDate.toLocaleString()}</td>
-                    <td className="px-6 py-4">
-                      {action.locationType === 'online' ? 'Online' : action.placeName || 'Presencial'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{categoryLabels[action.category]}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{actionDate.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {action.locationType === 'online' ? '💻 Online' : (action.placeName || '📍 Presencial')}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {campaign ? (
                         <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: campaign.color }}
-                          />
-                          <span className="font-semibold text-black">{campaign.name}</span>
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: campaign.color }} />
+                          <span className="text-sm font-medium">{campaign.name}</span>
                         </div>
                       ) : '-'}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        isPast ? 'bg-gray-200' : 'bg-green-200 text-green-800'
-                      }`}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${isPast ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-800'}`}>
                         {isPast ? 'Pasado' : 'Próximo'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 space-x-2">
-                      <Link href={`/admin/actions/${action.id}/edit`} className="text-blue-600 hover:underline">Editar</Link>
-                      <button onClick={() => handleDelete(action.id)} className="text-red-600 hover:underline">Eliminar</button>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <Link href={`/admin/actions/${action.id}/edit`} className="text-fuchsia-600 hover:text-fuchsia-800 mr-3">
+                        Editar
+                      </Link>
+                      <button onClick={() => handleDelete(action.id)} className="text-red-600 hover:text-red-800">
+                        Eliminar
+                      </button>
                     </td>
                   </tr>
                 );

@@ -93,7 +93,7 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Charts: actions per month & subscribers per month */}
+        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>

@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const Campaign = require('./models/Campaign');
 const Action = require('./models/Action');
@@ -17,7 +18,6 @@ const UserAction = require('./models/UserAction');
 const Document = require('./models/Document');
 const SubscribersReminder = require('./models/SubscribersReminder');
 
-// Import email service
 const { initEmailService } = require('./services/emailService');
 
 // --------------------- Associations ---------------------
@@ -28,7 +28,7 @@ Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'C
 ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
 Action.hasMany(ChatGroup, { foreignKey: 'actionId', as: 'chatGroups' });
-ChatGroup.belongsTo(Action, { foreignKey: 'actionId', as: 'assignedAction' });  // alias único
+ChatGroup.belongsTo(Action, { foreignKey: 'actionId', as: 'assignedAction' });
 
 User.belongsToMany(Campaign, { through: UserCampaign, as: 'campaigns', foreignKey: 'userId' });
 Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 'campaignId' });
@@ -71,16 +71,20 @@ dotenv.config();
 
 const app = express();
 
-// CORS – allow frontend domain
+// CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://host.docker.internal:3000',
+  ],
   credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
-// Register routes
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/news', newsRoutes);
@@ -99,12 +103,32 @@ app.get('/api', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
+const ensureAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ where: { username: 'admin' } });
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash('admin123', 12);
+      await User.create({
+        username: 'admin',
+        password: hashedPassword,
+        role: 'superadmin',
+      });
+      console.log('✅ Superadmin "admin" creado con contraseña "admin123"');
+    } else {
+      console.log('✅ Superadmin ya existe.');
+    }
+  } catch (err) {
+    console.error('❌ Error al crear superadmin:', err);
+  }
+};
+
 const startServer = async () => {
   try {
-    await initEmailService();   // Ensure email templates are loaded
+    await initEmailService();
     await sequelize.sync({ alter: true });
     console.log('✅ Database synchronized');
-    app.listen(PORT, () => {
+    await ensureAdmin();
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (err) {

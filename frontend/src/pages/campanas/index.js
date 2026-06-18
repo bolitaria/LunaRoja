@@ -22,24 +22,30 @@ export default function Campanas() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
   const [timeFilter, setTimeFilter] = useState('todas');
+  const [error, setError] = useState(null);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [campRes, actionsRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`),
+          axios.get(`${apiUrl}/campaigns`),
+          axios.get(`${apiUrl}/actions`),
         ]);
         setCampaigns(campRes.data);
         setActions(actionsRes.data);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('No se pudieron cargar las campañas.');
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [apiUrl]);
 
   const now = new Date();
   const campaignMap = useMemo(() => campaigns.reduce((m, c) => ({ ...m, [c.id]: c }), {}), [campaigns]);
@@ -54,12 +60,25 @@ export default function Campanas() {
   }, [actions]);
 
   const filteredCampaigns = useMemo(() => {
-    if (!selectedDate) return campaigns;
-    const dateStr = getLocalDateStr(selectedDate);
-    const actionsOnDate = actionsByDate.get(dateStr) || [];
-    const campaignIds = new Set(actionsOnDate.map(a => a.campaignId));
-    return campaigns.filter(c => campaignIds.has(c.id));
-  }, [selectedDate, campaigns, actionsByDate]);
+    let filtered = campaigns;
+    if (selectedDate) {
+      const dateStr = getLocalDateStr(selectedDate);
+      const actionsOnDate = actionsByDate.get(dateStr) || [];
+      const campaignIds = new Set(actionsOnDate.map(a => a.campaignId));
+      filtered = filtered.filter(c => campaignIds.has(c.id));
+    }
+    if (timeFilter === 'futuras' || timeFilter === 'pasadas') {
+      filtered = filtered.filter(campaign => {
+        const campaignActions = actions.filter(a => a.campaignId === campaign.id);
+        if (campaignActions.length === 0) return false;
+        return campaignActions.some(action => {
+          const actionDate = new Date(action.datetime);
+          return timeFilter === 'futuras' ? actionDate > now : actionDate <= now;
+        });
+      });
+    }
+    return filtered;
+  }, [campaigns, selectedDate, actionsByDate, actions, timeFilter, now]);
 
   const tileContent = ({ date, view }) => {
     if (view !== 'month') return null;
@@ -85,14 +104,25 @@ export default function Campanas() {
     return null;
   };
 
+  if (loading) return <Layout><div className="text-center py-20">Cargando...</div></Layout>;
+
   return (
     <Layout title="Campañas - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-8 pb-16">
         <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Campañas</h1>
 
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-semibold text-gray-600">Calendario de Campañas</h2>
-          <div className="flex gap-2">
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-center">
+            {error}
+            <button onClick={() => window.location.reload()} className="ml-2 underline font-medium hover:text-red-900">
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-2">
+          <h2 className="text-2xl font-semibold text-gray-600"></h2>
+          <div className="flex gap-2 flex-wrap">
             <button onClick={() => setTimeFilter('todas')} className={`px-4 py-2 rounded-lg border font-medium text-sm ${timeFilter === 'todas' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>Todas</button>
             <button onClick={() => setTimeFilter('futuras')} className={`px-4 py-2 rounded-lg border font-medium text-sm ${timeFilter === 'futuras' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>Futuras</button>
             <button onClick={() => setTimeFilter('pasadas')} className={`px-4 py-2 rounded-lg border font-medium text-sm ${timeFilter === 'pasadas' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>Pasadas</button>
@@ -108,22 +138,10 @@ export default function Campanas() {
           <div className="lg:w-1/4">
             <div className="p-0 bg-transparent">
               <style jsx>{`
-                .react-calendar__month-view__weekdays abbr {
-                  text-decoration: none !important;
-                }
-                .react-calendar__month-view__weekdays__weekday:first-child abbr {
-                  color: #dc2626 !important;
-                }
-                .react-calendar__navigation__label:hover {
-                  text-decoration: underline;
-                  text-decoration-color: #3b82f6;
-                  text-underline-offset: 4px;
-                }
-                .react-calendar__tile:not(.bg-green-600):hover abbr {
-                  text-decoration: underline;
-                  text-decoration-color: #10b981;
-                  text-underline-offset: 2px;
-                }
+                .react-calendar__month-view__weekdays abbr { text-decoration: none !important; }
+                .react-calendar__month-view__weekdays__weekday:first-child abbr { color: #dc2626 !important; }
+                .react-calendar__navigation__label:hover { text-decoration: underline; text-decoration-color: #3b82f6; text-underline-offset: 4px; }
+                .react-calendar__tile:not(.bg-green-600):hover abbr { text-decoration: underline; text-decoration-color: #10b981; text-underline-offset: 2px; }
               `}</style>
               <Calendar
                 onChange={setSelectedDate}
@@ -141,7 +159,7 @@ export default function Campanas() {
           </div>
 
           <div className="lg:w-3/4">
-            {loading ? <p className="text-gray-600">Cargando...</p> : filteredCampaigns.length === 0 ? (
+            {filteredCampaigns.length === 0 ? (
               <p className="text-gray-600">{selectedDate ? 'Ninguna campaña tiene acciones en esta fecha.' : 'No hay campañas activas.'}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -149,7 +167,7 @@ export default function Campanas() {
                   const dateStr = selectedDate ? getLocalDateStr(selectedDate) : null;
                   const campaignActions = selectedDate
                     ? (actionsByDate.get(dateStr) || []).filter(a => a.campaignId === campaign.id)
-                    : [];
+                    : actions.filter(a => a.campaignId === campaign.id);
                   return (
                     <Link key={campaign.id} href={`/campanas/${campaign.id}`} className="group block">
                       <div
@@ -160,7 +178,13 @@ export default function Campanas() {
                         }}
                       >
                         {campaign.imageUrl && (
-                          <img src={`${process.env.NEXT_PUBLIC_BASE_URL}${campaign.imageUrl}`} alt={campaign.name} className="h-36 w-full object-cover" />
+                          <img
+                            src={`${baseUrl}${campaign.imageUrl}`}
+                            alt={campaign.name}
+                            className="h-36 w-full object-cover"
+                            loading="lazy"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
                         )}
                         <div className="p-4">
                           <h3 className="font-semibold text-gray-700 group-hover:text-red-600 transition-colors mb-2">

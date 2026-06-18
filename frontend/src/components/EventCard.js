@@ -3,10 +3,10 @@ export default function EventCard({ event, type }) {
   const time = new Date(event.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const categoryLabels = {
-      protest: 'Manifestación',
+      protest: 'Concentración',
       bds: 'Acción BDS',
       strike: 'Huelga',
-      march: 'Marcha',
+      march: 'Marcha Manifestación',
       solidarity_action: 'Acción Solidaria',
       workshop: 'Taller',
       talk: 'Charla',

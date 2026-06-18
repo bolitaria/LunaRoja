@@ -1,6 +1,7 @@
 import '../styles/globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import 'react-calendar/dist/Calendar.css';
+import 'react-toastify/dist/ReactToastify.css';
 
 function MyApp({ Component, pageProps }) {
   return (

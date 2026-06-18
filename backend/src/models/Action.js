@@ -50,10 +50,6 @@ const Action = sequelize.define('Action', {
   recordingUrl: {
     type: DataTypes.STRING,
   },
-  isLive: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-  },
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -66,9 +62,8 @@ const Action = sequelize.define('Action', {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  // Nuevos campos
   groups: {
-    type: DataTypes.JSON,          // array de { platform, link }
+    type: DataTypes.JSON,        
     allowNull: true,
   },
   documentLink: {
@@ -79,6 +74,14 @@ const Action = sequelize.define('Action', {
     type: DataTypes.STRING,        // ruta al archivo subido
     allowNull: true,
   },
+  urgent: {
+  type: DataTypes.BOOLEAN,
+  defaultValue: false,
+  },
+  enableAttendance: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  }
 }, {
   timestamps: true,
 });

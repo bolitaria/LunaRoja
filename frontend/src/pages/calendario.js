@@ -46,8 +46,8 @@ export default function Calendario() {
   });
 
   const categoryLabels = {
-    webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
-    bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha',
+    webinar: 'Webinar', talk: 'Charla', protest: 'Concentración',
+    bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha Manifestación',
     solidarity_action: 'Acción Solidaria', workshop: 'Taller'
   };
 
