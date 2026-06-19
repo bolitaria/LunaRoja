@@ -109,7 +109,7 @@ export default function Campanas() {
   return (
     <Layout title="Campañas - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-8 pb-16">
-        <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Campañas</h1>
+        <h1 className="text-4xl font-bold mb-10 text-center text-gray-800">Campañas</h1>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-center">

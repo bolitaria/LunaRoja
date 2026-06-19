@@ -66,7 +66,7 @@ export default function AccionesIndex() {
   return (
     <Layout title="Acciones - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 lg:px-8 py-8">
-        <h1 className="text-4xl font-bold text-gray-600 mb-6 text-center">Acciones</h1>
+        <h1 className="text-4xl font-bold text-gray-800 mb-6 text-center">Acciones</h1>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-center">

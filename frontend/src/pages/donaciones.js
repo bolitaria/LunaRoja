@@ -29,7 +29,7 @@ export default function Donaciones() {
       </Head>
 
       <div className="container mx-auto px-4 py-12 max-w-3xl text-center">
-        <h1 className="text-4xl font-bold mb-8 text-gray-600">Donaciones: próximamente disponibles</h1>
+        <h1 className="text-4xl font-bold mb-8 text-gray-600">Donaciones - próximamente disponibles</h1>
         <p className="text-lg text-gray-700 mb-4">Gracias de corazón por tu interés en apoyar este proyecto.</p>
         <p className="text-gray-700 mb-4">
           En estos momentos, las donaciones no están activadas en nuestra web. Estamos en pleno proceso de constitución formal y, para garantizar la máxima transparencia desde el inicio, hemos decidido no aceptar aportaciones hasta que todo esté legalmente establecido y podamos ofreceros la seguridad que os merecéis.

@@ -30,7 +30,7 @@ export default function Contact() {
     <Layout title="Contacto - Voces Palestinas por la Justicia">
       <ToastContainer position="top-right" autoClose={5000} />
       <div className="container mx-auto px-4 py-12 max-w-3xl">
-        <h1 className="text-4xl font-bold mb-6 text-center text-gray-700">Contacto y suscripción</h1>
+        <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">Contacto y suscripción</h1>
         
         <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
           {/* Información de contacto */}

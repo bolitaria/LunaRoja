@@ -21,7 +21,7 @@ export default function NewsCard({ noticia, campaign, action }) {
   }
 
   return (
-    <div className="bg-green-50 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
       <Link href={`/noticias/${noticia.id}`}>
         {/* Título y fecha en la misma línea */}
         <div className="flex justify-between items-start p-4 pb-2">

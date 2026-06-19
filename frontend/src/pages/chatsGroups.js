@@ -65,7 +65,7 @@ export default function GruposChats() {
   return (
     <Layout title="Grupos - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-8 pb-16">
-        <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Grupos</h1>
+        <h1 className="text-4xl font-bold mb-10 text-center text-gray-800">Grupos</h1>
         <p className="text-center text-gray-600 mb-8">
           Únete a la conversación en Telegram, WhatsApp o Signal y colabora con otros miembros de la comunidad.
         </p>

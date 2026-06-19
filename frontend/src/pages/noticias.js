@@ -48,7 +48,7 @@ export default function Noticias() {
   return (
     <Layout title="Noticias - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-8 pb-16">
-        <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Noticias</h1>
+        <h1 className="text-4xl font-bold mb-10 text-center text-gray-800">Noticias</h1>
         <div className="flex flex-wrap items-center gap-4 mb-8 justify-center">
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={showNewsOnly} onChange={(e) => setShowNewsOnly(e.target.checked)} className="rounded"/>
@@ -59,7 +59,7 @@ export default function Noticias() {
             {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        {loading ? <p className="text-center text-gray-600">Cargando noticias...</p> : filteredNews.length === 0 ? <p className="text-center text-gray-600">No hay noticias que coincidan con los filtros.</p> : (
+        {loading ? <p className="text-center text-gray-800">Cargando noticias...</p> : filteredNews.length === 0 ? <p className="text-center text-gray-600">No hay noticias que coincidan con los filtros.</p> : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredNews.map(noticia => (
               <NewsCard key={noticia.id} noticia={noticia} campaign={campaignMap[noticia.campaignId]} action={actionMap[noticia.actionId]} />
