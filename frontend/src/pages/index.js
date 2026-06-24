@@ -1,21 +1,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
+import api from '../lib/axios';                 // ← instancia con withCredentials
 import Layout from '../components/Layout';
 import NewsCard from '../components/NewsCard';
 import ReportCard from '../components/ReportCard';
 import ActionCard from '../components/ActionCard';
 import GalleryCard from '../components/GalleryCard';
-
-// Datos de prueba para galería (si el endpoint falla)
-const GALLERY_MOCK = [
-  { id: 1, imageUrl: 'https://via.placeholder.com/300x200?text=Palestina+1', title: 'Foto 1' },
-  { id: 2, imageUrl: 'https://via.placeholder.com/300x200?text=Palestina+2', title: 'Foto 2' },
-  { id: 3, imageUrl: 'https://via.placeholder.com/300x200?text=Palestina+3', title: 'Foto 3' },
-  { id: 4, imageUrl: 'https://via.placeholder.com/300x200?text=Palestina+4', title: 'Foto 4' },
-  { id: 5, imageUrl: 'https://via.placeholder.com/300x200?text=Palestina+5', title: 'Foto 5' },
-  { id: 6, imageUrl: 'https://via.placeholder.com/300x200?text=Palestina+6', title: 'Foto 6' },
-];
 
 export default function Home() {
   const [news, setNews] = useState([]);
@@ -23,33 +13,59 @@ export default function Home() {
   const [actions, setActions] = useState([]);
   const [gallery, setGallery] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [newsRes, reportsRes, actionsRes, galleryRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/news`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/gallery`).catch(() => ({ data: GALLERY_MOCK })), // fallback
+        const [newsRes, reportsRes, actionsRes, galleryRes] = await Promise.allSettled([
+          api.get('/news'),
+          api.get('/reports'),
+          api.get('/actions'),
+          api.get('/images'),                  // ← endpoint real de imágenes
         ]);
 
-        const filteredNews = newsRes.data.filter((noticia) => {
-          const isNews = noticia.isNews === true;
-          const isGeneral =
-            (noticia.campaignId == null || noticia.campaignId === '') &&
-            (noticia.actionId == null || noticia.actionId === '');
-          return isNews || isGeneral;
-        });
+        // Noticias
+        if (newsRes.status === 'fulfilled') {
+          const filteredNews = newsRes.value.data.filter((noticia) => {
+            const isNews = noticia.isNews === true;
+            const isGeneral =
+              (noticia.campaignId == null || noticia.campaignId === '') &&
+              (noticia.actionId == null || noticia.actionId === '');
+            return isNews || isGeneral;
+          });
+          setNews(filteredNews.slice(0, 3));
+        } else {
+          setErrors(prev => ({ ...prev, news: 'Error al cargar noticias' }));
+        }
 
-        setNews(filteredNews.slice(0, 3));
-        setReports(reportsRes.data.slice(0, 3));
-        setActions(actionsRes.data.slice(0, 3));
-        setGallery(galleryRes.data.slice(0, 6));
+        // Reportes (ahora son públicos)
+        if (reportsRes.status === 'fulfilled') {
+          setReports(reportsRes.value.data.slice(0, 3));
+        } else {
+          setErrors(prev => ({ ...prev, reports: 'No se pudieron cargar los reportes' }));
+        }
+
+        // Acciones
+        if (actionsRes.status === 'fulfilled') {
+          setActions(actionsRes.value.data.slice(0, 3));
+        } else {
+          setErrors(prev => ({ ...prev, actions: 'Error al cargar acciones' }));
+        }
+
+        // Imágenes (galería) – el backend devuelve objetos con `url`, `relatedTitle`, etc.
+        if (galleryRes.status === 'fulfilled') {
+          const images = galleryRes.value.data.map(img => ({
+            id: img.id,
+            imageUrl: img.url,                 // la propiedad se llama 'url' en el backend
+            title: img.relatedTitle || 'Imagen'
+          }));
+          setGallery(images.slice(0, 6));
+        } else {
+          setErrors(prev => ({ ...prev, gallery: 'Galería no disponible' }));
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
-        // Si hay error, usa el mock para la galería
-        setGallery(GALLERY_MOCK);
+        console.error('Error general al cargar datos:', error);
       } finally {
         setLoading(false);
       }
@@ -78,14 +94,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* GALERÍA PRIMERO */}
+      {/* Galería */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Galería</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando galería...</p>
           ) : gallery.length === 0 ? (
-            <p className="text-center text-gray-600">No hay imágenes disponibles.</p>
+            <p className="text-center text-gray-600">{errors.gallery || 'No hay imágenes disponibles.'}</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {gallery.map((item) => (
@@ -101,14 +117,14 @@ export default function Home() {
         </div>
       </section>
 
-            {/* Últimas Acciones */}
+      {/* Últimas Acciones */}
       <section className="py-16 bg-white border-t border-gray-100">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Últimas Acciones</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando acciones...</p>
           ) : actions.length === 0 ? (
-            <p className="text-center text-gray-600">No hay acciones disponibles.</p>
+            <p className="text-center text-gray-600">{errors.actions || 'No hay acciones disponibles.'}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {actions.map((action) => (
@@ -131,7 +147,7 @@ export default function Home() {
           {loading ? (
             <p className="text-center text-gray-600">Cargando noticias...</p>
           ) : news.length === 0 ? (
-            <p className="text-center text-gray-600">No hay noticias disponibles.</p>
+            <p className="text-center text-gray-600">{errors.news || 'No hay noticias disponibles.'}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {news.map((noticia) => (
@@ -147,14 +163,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Últimos Reportes */}
+      {/* Últimos Reportes (ahora visibles para todos) */}
       <section className="py-16 bg-white border-t border-gray-100">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Reportes recientes</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando reportes...</p>
           ) : reports.length === 0 ? (
-            <p className="text-center text-gray-600">No hay reportes disponibles.</p>
+            <p className="text-center text-gray-600">{errors.reports || 'No hay reportes disponibles.'}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {reports.map((report) => (

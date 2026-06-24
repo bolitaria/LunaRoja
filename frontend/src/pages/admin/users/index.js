@@ -1,6 +1,6 @@
+import api from '../../../lib/axios';
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
-import { withAuth } from '../../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,15 +31,15 @@ function AdminUsers() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   const fetchUsers = async () => {
-    try { const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/users`, { headers: { Authorization: `Bearer ${token}` } }); setUsers(res.data); }
+    try { const res = await api.get('/users'); setUsers(res.data); }
     catch (error) { toast.error('Error al cargar usuarios'); }
   };
   const fetchCampaigns = async () => {
-    try { const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } }); setCampaigns(res.data); }
+    try { const res = await api.get('/campaigns'); setCampaigns(res.data); }
     catch (error) { toast.error('Error al cargar campañas'); }
   };
   const fetchActions = async () => {
-    try { const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } }); setActions(res.data); }
+    try { const res = await api.get('/actions'); setActions(res.data); }
     catch (error) { toast.error('Error al cargar acciones'); }
   };
   useEffect(() => { Promise.all([fetchUsers(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false)); }, []);
@@ -82,7 +82,7 @@ function AdminUsers() {
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     try {
-      await Promise.all(ids.map(id => axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}`, { headers: { Authorization: `Bearer ${token}` } })));
+      await Promise.all(ids.map(id => api.delete('/users/${id}')));
       toast.success(`${ids.length} usuario(s) eliminado(s)`);
       setSelected([]); fetchUsers();
     } catch (error) { toast.error('Error al eliminar'); }
@@ -236,4 +236,4 @@ function AdminUsers() {
   );
 }
 
-export default withAuth(AdminUsers);
+export default AdminUsers;

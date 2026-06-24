@@ -11,7 +11,7 @@ const SubscribersReminder = sequelize.define('SubscribersReminder', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Actions',
+      model: 'Actions', 
       key: 'id',
     },
     onDelete: 'CASCADE',
@@ -20,7 +20,7 @@ const SubscribersReminder = sequelize.define('SubscribersReminder', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Subscribers',
+      model: 'Subscribers', 
       key: 'id',
     },
     onDelete: 'CASCADE',
@@ -35,6 +35,7 @@ const SubscribersReminder = sequelize.define('SubscribersReminder', {
   },
 }, {
   timestamps: true,
+  tableName: 'SubscribersReminders', // opcional si tu tabla tiene ese nombre exacto
 });
 
 module.exports = SubscribersReminder;

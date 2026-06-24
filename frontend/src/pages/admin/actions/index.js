@@ -1,6 +1,6 @@
+import api from '../../../lib/axios';
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
-import { withAuth } from '../../../lib/auth';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -10,7 +10,7 @@ import { downloadCSV } from '../../../utils/exportCsv';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 import ActionPreview from '../../../components/ActionPreview';
-import { FaEdit, FaTrash, FaFileExport, FaSearch, FaPlus, FaEye } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye } from 'react-icons/fa'; // ← Eliminado FaPlus
 
 function AdminActions() {
   const [actions, setActions] = useState([]);
@@ -26,14 +26,13 @@ function AdminActions() {
   const [selected, setSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [previewAction, setPreviewAction] = useState(null); // ← nuevo
+  const [previewAction, setPreviewAction] = useState(null);
   const itemsPerPage = 10;
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
-  // … (fetchActions, fetchCampaigns, handleDelete, executeDelete, etc., iguales) …
   const fetchActions = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/actions');
       const sorted = res.data.sort((a, b) => {
         if (a.urgent && !b.urgent) return -1;
         if (!a.urgent && b.urgent) return 1;
@@ -44,7 +43,7 @@ function AdminActions() {
   };
   const fetchCampaigns = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/campaigns');
       setCampaigns(res.data);
     } catch (error) { toast.error('Error al cargar campañas'); }
   };
@@ -55,7 +54,7 @@ function AdminActions() {
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     try {
-      await Promise.all(ids.map(id => axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/actions/${id}`, { headers: { Authorization: `Bearer ${token}` } })));
+      await Promise.all(ids.map(id => api.delete('/actions/${id}')));
       toast.success(`${ids.length} acción(es) eliminada(s)`);
       setSelected([]); fetchActions();
     } catch (error) { toast.error('Error al eliminar'); }
@@ -118,7 +117,6 @@ function AdminActions() {
   const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginatedActions.map(a => a.id)); else setSelected([]); };
   const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  // Opciones de filtros
   const categoryOptions = Object.entries(categoryLabels).map(([key, label]) => ({ value: key, label }));
   const locationOptions = [
     { value: 'presencial', label: 'Presencial' },
@@ -136,7 +134,6 @@ function AdminActions() {
     { label: 'Urgentes', value: urgentCount, filter: '' },
   ];
 
-  // Función auxiliar para construir URLs de imágenes
   const getImageUrl = (url) => {
     if (!url) return null;
     return url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_BASE_URL}${url}`;
@@ -145,8 +142,13 @@ function AdminActions() {
   return (
     <AdminLayout title="Acciones">
       <ToastContainer />
-      {/* Modal de confirmación de eliminación */}
-      <ConfirmModal isOpen={showDeleteModal} title="Eliminar acción" message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} acciones seleccionadas?` : '¿Eliminar esta acción?')} onConfirm={executeDelete} onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Eliminar acción"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} acciones seleccionadas?` : '¿Eliminar esta acción?')}
+        onConfirm={executeDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
 
       {/* Modal de vista previa */}
       {previewAction && (
@@ -165,7 +167,7 @@ function AdminActions() {
         </div>
       )}
 
-      {/* Tarjeta de métricas compacta */}
+      {/* Métricas */}
       <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
         {metricCards.map((m, i) => (
           <button
@@ -179,12 +181,12 @@ function AdminActions() {
         ))}
       </div>
 
-      {/* Fila de acciones: Nueva Acción (izq), buscar y exportar (der) */}
+      {/* Fila de acciones: Nueva Acción (sin +) */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           {user && (user.role === 'superadmin' || user.role === 'campaign_admin') && (
             <Link href="/admin/actions/new" className="inline-flex items-center gap-1.5 text-sm border border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-              <FaPlus className="w-3.5 h-3.5" /> Nueva Acción
+              Nueva Acción
             </Link>
           )}
           {selected.length > 0 && (
@@ -210,9 +212,8 @@ function AdminActions() {
         </div>
       </div>
 
-      {/* Filtros rápidos (píldoras) */}
+      {/* Filtros rápidos */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        {/* Categoría */}
         <div className="flex flex-wrap gap-1.5">
           <span className="text-xs text-gray-500 mr-1 self-center font-medium">Categoría:</span>
           {categoryOptions.map(opt => (
@@ -232,7 +233,6 @@ function AdminActions() {
 
         <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
-        {/* Ubicación */}
         <div className="flex flex-wrap gap-1.5">
           <span className="text-xs text-gray-500 mr-1 self-center font-medium">Ubicación:</span>
           {locationOptions.map(opt => (
@@ -252,7 +252,6 @@ function AdminActions() {
 
         <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
-        {/* Estado */}
         <div className="flex flex-wrap gap-1.5">
           <span className="text-xs text-gray-500 mr-1 self-center font-medium">Estado:</span>
           {statusOptions.map(opt => (
@@ -270,7 +269,6 @@ function AdminActions() {
           ))}
         </div>
 
-        {/* Campaña */}
         <select
           value={filterCampaignId}
           onChange={(e) => { setFilterCampaignId(e.target.value); setCurrentPage(1); }}
@@ -352,7 +350,6 @@ function AdminActions() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Vista previa */}
                         <button
                           onClick={() => setPreviewAction(action)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -360,11 +357,9 @@ function AdminActions() {
                         >
                           <FaEye className="w-5 h-5" />
                         </button>
-                        {/* Editar */}
                         <Link href={`/admin/actions/${action.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
                           <FaEdit className="w-5 h-5" />
                         </Link>
-                        {/* Eliminar */}
                         <button onClick={() => handleDelete(action.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
                           <FaTrash className="w-5 h-5" />
                         </button>
@@ -382,4 +377,4 @@ function AdminActions() {
   );
 }
 
-export default withAuth(AdminActions);
+export default AdminActions;

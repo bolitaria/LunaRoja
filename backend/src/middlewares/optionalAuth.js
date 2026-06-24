@@ -1,19 +1,19 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-const optionalAuth = (req, res, next) => {
-  const authHeader = req.header('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(); // No hay token, continuar como usuario anónimo
-  }
-  const token = authHeader.split(' ')[1];
+const optionalAuth = async (req, res, next) => {
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
-    next();
+    const authHeader = req.header('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id);
+      if (user) req.user = user;
+    }
   } catch (error) {
-    // Token inválido, continuamos como anónimo
-    next();
+    // Si falla, simplemente no hay usuario autenticado
   }
+  next();
 };
 
 module.exports = optionalAuth;

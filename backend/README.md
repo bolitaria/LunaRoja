@@ -1,65 +1,93 @@
 # Voices for Palestinian Justice - Backend
 
-REST API for the Voices for Palestinian Justice platform.
+Express backend for the Voices for Palestinian Justice platform.
 
-## Technologies
+## Overview
 
-- Node.js + Express
-- Sequelize ORM (Database)
+This backend provides the REST API and server-side logic for the platform, including:
+
+- Authentication and authorization using JWT
+- CRUD operations for campaigns, actions, news, reports, documents, subscribers, users, and chat groups
+- File upload handling for images and documents
+- PostgreSQL persistence via Sequelize
+- Email service integration for notifications and subscriber workflows
+- Database administration endpoints for backups and maintenance
+
+## Technology stack
+
+- Node.js
+- Express
+- Sequelize
 - PostgreSQL
-- JWT for authentication
-- Multer for file uploads
-- Puppeteer for Instagram scraping
+- JSON Web Tokens (JWT)
+- Multer
+- Nodemailer
+- Handlebars
+- dotenv
+- cors
 
-## Project Structure
+## Project structure
 
 ```
-src/
-├── controllers/     # Route handlers and business logic
-├── models/          # Sequelize database models
-├── routes/          # API route definitions
-├── middlewares/     # Authentication and file upload middlewares
-├── services/        # Reusable business logic and external integrations
-├── jobs/            # Scheduled background jobs
-├── config/          # Database and environment configuration
-├── utils/           # Utility functions
-├── templates/       # Email templates
-└── app.js           # Express application setup
+backend/
+└── src/
+    ├── config/          # Database and environment configuration
+    ├── controllers/     # Route handlers and business logic
+    ├── middlewares/     # Auth, uploads, and request handling
+    ├── models/          # Sequelize models and associations
+    ├── routes/          # API route definitions
+    ├── services/        # Business logic and integrations
+    ├── templates/       # Email templates
+    ├── utils/           # Utility helpers
+    └── app.js           # Express application entry point
 ```
 
-## Installation and Setup
+## Installation and setup
 
 ```bash
+cd backend
 npm install
-cp .env.example .env
-# Edit .env with your database credentials and API keys
+cp ../.env .env
 npm run dev
 ```
 
-## Available Scripts
+> Do not commit secrets or environment files to version control.
 
-- `npm run dev` - Start development server with hot reload
-- `npm start` - Start production server
-- `npm run seed` - Populate database with initial admin user
+## Available scripts
 
-## Key Features
+- `npm run dev` — start development server with nodemon
+- `npm start` — start production server
 
-- **User Management:** Registration, login, JWT authentication
-- **Content Management:** Create, read, update, delete videos, reports, and documents
-- **Subscriber Management:** Email subscription system with reminder jobs
-- **Instagram Integration:** Scrape and manage Instagram posts
-- **File Upload:** Support for PDFs and images with Multer
-- **Admin Dashboard:** Backend API for administrative operations
+## Configuration
 
-## API Endpoints
+The backend uses environment variables from `.env`.
 
-See the routes files in `src/routes/` for complete API documentation.
+Key values include:
 
-## Environment Variables
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- `JWT_SECRET`, `JWT_REFRESH_SECRET`
+- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`
+- `FRONTEND_URL`
 
-Create a `.env` file based on `.env.example` with:
-- Database credentials
-- JWT secret
-- Mail service credentials
-- Instagram scraper settings
-- File upload configuration
+## API features
+
+- Authentication: register, login, token refresh, protected routes
+- User management: roles and permissions for admin operations
+- Content management: campaigns, actions, news, reports, documents
+- Subscriber management: create and manage email subscribers
+- File uploads: image and document storage via Multer
+- Database management: backup and maintenance endpoints
+
+## Notes
+
+- The backend synchronizes Sequelize models on startup.
+- It initializes the database and admin users automatically if needed.
+- Use secure credentials and rotate any default or generated secrets.
+
+## Key files
+
+- `src/app.js` — Express application setup
+- `src/config/database.js` — Sequelize database connection
+- `src/routes/authRoutes.js` — authentication endpoints
+- `src/services/emailService.js` — email delivery logic
+- `src/middlewares/auth.js` — JWT auth middleware

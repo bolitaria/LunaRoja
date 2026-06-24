@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import api from '../lib/axios';
 import { useRouter } from 'next/router';
 
 const AuthContext = createContext();
@@ -8,65 +8,48 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const hasCheckedSession = useRef(false);
 
   useEffect(() => {
-    // Cargar usuario desde localStorage
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    if (token && userData) {
+    if (hasCheckedSession.current) return;
+    hasCheckedSession.current = true;
+
+    const checkSession = async () => {
       try {
-        const parsedUser = JSON.parse(userData);
-        // Asegurar que el objeto user tenga el campo role
-        if (parsedUser && parsedUser.role) {
-          setUser(parsedUser);
-        } else {
-          // Si no tiene role, borrar datos inválidos
-          localStorage.removeItem('user');
-          localStorage.removeItem('token');
-          setUser(null);
-        }
-      } catch (e) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        const res = await api.get('/auth/me');
+        setUser(res.data.user);
+      } catch (err) {
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    checkSession();
   }, []);
 
   const login = async (username, password) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!apiUrl) {
-        return { success: false, message: 'Error de configuración. Contacta al administrador.' };
-      }
-      const res = await axios.post(`${apiUrl}/auth/login`, { username, password });
-      if (res.data.token) {
-        // El backend devuelve user con id, username, role, lastLogin
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        setUser(res.data.user);
-        router.push('/admin');
-        return { success: true };
-      }
-      return { success: false, message: 'No se recibió token' };
+      const res = await api.post('/auth/login', { username, password });
+      setUser(res.data.user);
+      router.push('/admin');
+      return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Error al iniciar sesión'
-      };
+      return { success: false, message: error.response?.data?.message || 'Error al iniciar sesión' };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    router.push('/admin/login');
-  };
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.error('Error en logout', err);
+    } finally {
+      setUser(null);
+      router.push('/admin/login');
+    }
+  }, [router]);
 
   const value = { user, login, logout, loading };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

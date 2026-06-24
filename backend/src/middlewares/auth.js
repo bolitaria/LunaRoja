@@ -1,21 +1,42 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-const authMiddleware = (req, res, next) => {
-  // Obtener token del header Authorization
-  const authHeader = req.header('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Acceso denegado. Token no proporcionado' });
-  }
-
-  const token = authHeader.split(' ')[1];
-
+const authMiddleware = async (req, res, next) => {
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified; // { id, username, role, iat, exp }
+    let token = null;
+
+    // 1. Cookie HttpOnly (nuevo sistema)
+    if (req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
+    }
+    // 2. Header Authorization (compatibilidad)
+    else if (req.header('Authorization')?.startsWith('Bearer ')) {
+      token = req.header('Authorization').split(' ')[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ message: 'Acceso denegado. Token no proporcionado' });
+    }
+
+    // Validar que el token no sea literalmente "null" o "undefined"
+    if (token === 'null' || token === 'undefined') {
+      return res.status(401).json({ message: 'Token inválido' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: 'Usuario no encontrado' });
+    }
+
+    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Token inválido' });
+    // Solo registrar advertencia sin stack trace
+    console.warn('Token inválido recibido:', error.message);
+    return res.status(401).json({ message: 'Token inválido o expirado' });
   }
 };
 
 module.exports = authMiddleware;
+module.exports.authMiddleware = authMiddleware;

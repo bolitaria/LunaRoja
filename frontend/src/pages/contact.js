@@ -8,6 +8,9 @@ export default function Contact() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Email de contacto desde variables de entorno
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -30,7 +33,7 @@ export default function Contact() {
     <Layout title="Contacto - Voces Palestinas por la Justicia">
       <ToastContainer position="top-right" autoClose={5000} />
       <div className="container mx-auto px-4 py-12 max-w-3xl">
-        <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">Contacto y suscripción</h1>
+        <h1 className="text-4xl font-bold mb-6 text-center text-red-600">Contacto y suscripción</h1>
         
         <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
           {/* Información de contacto */}
@@ -39,10 +42,10 @@ export default function Contact() {
               Si tienes preguntas, sugerencias o deseas colaborar, escríbenos a:
             </p>
             <a
-              href="mailto:contacto@vocespalestinas.org"
+              href={`mailto:${contactEmail}`}
               className="inline-block text-lg font-semibold text-fuchsia-600 hover:text-fuchsia-800 hover:underline transition"
             >
-              contacto@vocespalestinas.org
+              {contactEmail}
             </a>
             <p className="text-sm text-gray-500 mt-2">
               Respondemos en un plazo máximo de 48 horas.
@@ -64,7 +67,7 @@ export default function Contact() {
                 <input
                   type="email"
                   id="email"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent transition"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -73,11 +76,38 @@ export default function Contact() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-fuchsia-600 text-white py-2.5 rounded-lg font-semibold hover:bg-fuchsia-700 transition disabled:opacity-50"
+                className="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
               >
                 {loading ? 'Enviando...' : 'Suscribirme'}
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* Información adicional opcional */}
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>También puedes seguirnos en nuestras redes sociales para estar al día.</p>
+          <div className="flex justify-center gap-4 mt-2">
+            <a
+              href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-fuchsia-600 transition"
+            >
+              Instagram
+            </a>
+            <a
+              href="#"
+              className="text-gray-400 hover:text-fuchsia-600 transition"
+            >
+              Twitter
+            </a>
+            <a
+              href="#"
+              className="text-gray-400 hover:text-fuchsia-600 transition"
+            >
+              Facebook
+            </a>
           </div>
         </div>
       </div>

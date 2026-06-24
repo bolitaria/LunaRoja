@@ -3,6 +3,8 @@ const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const isValidTableName = (name) => /^[a-zA-Z0-9_]+$/.test(name);
+
 exports.getDatabaseInfo = async (req, res) => {
   try {
     const [tables] = await sequelize.query(`
@@ -21,12 +23,12 @@ exports.getDatabaseInfo = async (req, res) => {
 
     const tablesWithIndexes = [];
     for (const table of tables) {
-      const [indexes] = await sequelize.query(`
-        SELECT indexname, indexdef 
-        FROM pg_indexes 
-        WHERE tablename = '${table.tablename}'
-        ORDER BY indexname
-      `);
+      const tableName = table.tablename;
+      if (!isValidTableName(tableName)) continue;
+      const [indexes] = await sequelize.query(
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = $1 ORDER BY indexname`,
+        { bind: [tableName] }
+      );
       tablesWithIndexes.push({
         ...table,
         indexes
@@ -46,13 +48,14 @@ exports.getDatabaseInfo = async (req, res) => {
 
 exports.getTableIndexes = async (req, res) => {
   const { tableName } = req.params;
+  if (!isValidTableName(tableName)) {
+    return res.status(400).json({ message: 'Nombre de tabla no válido' });
+  }
   try {
-    const [indexes] = await sequelize.query(`
-      SELECT indexname, indexdef 
-      FROM pg_indexes 
-      WHERE tablename = '${tableName}'
-      ORDER BY indexname
-    `);
+    const [indexes] = await sequelize.query(
+      `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = $1 ORDER BY indexname`,
+      { bind: [tableName] }
+    );
     res.json(indexes);
   } catch (error) {
     console.error('Error en getTableIndexes:', error);

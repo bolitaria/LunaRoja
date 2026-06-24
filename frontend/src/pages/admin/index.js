@@ -1,7 +1,6 @@
+import api from '../../lib/axios';
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-import { withAuth } from '../../lib/auth';
-import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import {
@@ -19,13 +18,11 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/dashboard`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // api ya incluye withCredentials; la cookie access_token se envía automáticamente
+        const res = await api.get('/dashboard');
         setData(res.data);
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching dashboard:', err);
         setError('No se pudieron cargar los datos del dashboard');
       } finally {
         setLoading(false);
@@ -40,7 +37,24 @@ function AdminDashboard() {
 
   if (loading) return <AdminLayout title="Dashboard"><p className="text-center py-8">Cargando datos...</p></AdminLayout>;
   if (error) return <AdminLayout title="Dashboard"><p className="text-center py-8 text-red-600">{error}</p></AdminLayout>;
-  if (!user || user.role !== 'superadmin') return <AdminLayout title="Dashboard"><p className="text-center py-8">No tienes permisos para ver este panel.</p></AdminLayout>;
+  if (!user || user.role !== 'superadmin') {
+    return (
+      <AdminLayout title="Dashboard">
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+          <p className="text-yellow-700">No tienes permisos para ver este panel. Solo los superadministradores pueden acceder.</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Validación extra por si la respuesta no incluye la estructura esperada
+  if (!data || !data.totals) {
+    return (
+      <AdminLayout title="Dashboard">
+        <p className="text-center py-8 text-red-600">Los datos del dashboard no están disponibles en este momento.</p>
+      </AdminLayout>
+    );
+  }
 
   const { totals, upcomingActions, recentSubscribers, actionsByMonth, subscribersByMonth, actionsByCategory, topCampaigns, latestNews, upcomingWeekActions } = data;
 
@@ -59,6 +73,7 @@ function AdminDashboard() {
   return (
     <AdminLayout title="Dashboard">
       <div className="space-y-8">
+        {/* Tarjetas de métricas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {metricCards.map((card) => (
             <Link key={card.title} href={card.link} className="block">
@@ -75,7 +90,8 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {upcomingWeekActions.length > 0 && (
+        {/* Alertas de acciones próximas */}
+        {upcomingWeekActions && upcomingWeekActions.length > 0 && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow">
             <div className="flex items-center">
               <FaBell className="text-yellow-500 mr-2" />
@@ -84,13 +100,14 @@ function AdminDashboard() {
             <ul className="mt-2 space-y-1">
               {upcomingWeekActions.map(action => (
                 <li key={action.id} className="text-sm text-yellow-700">
-                  <strong>{action.title}</strong> - {new Date(action.datetime).toLocaleDateString()} (Campaña: {action.campaign?.name})
+                  <strong>{action.title}</strong> - {new Date(action.datetime).toLocaleDateString()} (Campaña: {action.campaign?.name || 'Sin campaña'})
                 </li>
               ))}
             </ul>
           </div>
         )}
 
+        {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>
@@ -147,7 +164,7 @@ function AdminDashboard() {
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Campañas con más acciones</h2>
             <ul className="space-y-3">
-              {topCampaigns.map(campaign => (
+              {topCampaigns && topCampaigns.map(campaign => (
                 <li key={campaign.id} className="flex justify-between items-center border-b pb-2">
                   <span className="font-medium">{campaign.name}</span>
                   <span className="bg-gray-100 px-3 py-1 rounded-full text-sm">{campaign.actionCount} acciones</span>
@@ -161,11 +178,11 @@ function AdminDashboard() {
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Próximas acciones</h2>
             <ul className="space-y-3">
-              {upcomingActions.map(action => (
+              {upcomingActions && upcomingActions.map(action => (
                 <li key={action.id} className="border-b pb-2">
                   <p className="font-medium">{action.title}</p>
                   <p className="text-sm text-gray-500">
-                    {new Date(action.datetime).toLocaleDateString()} - {action.campaign?.name}
+                    {new Date(action.datetime).toLocaleDateString()} - {action.campaign?.name || 'Sin campaña'}
                   </p>
                 </li>
               ))}
@@ -175,7 +192,7 @@ function AdminDashboard() {
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Últimos suscriptores</h2>
             <ul className="space-y-3">
-              {recentSubscribers.map(sub => (
+              {recentSubscribers && recentSubscribers.map(sub => (
                 <li key={sub.id} className="flex justify-between items-center border-b pb-2">
                   <span className="truncate max-w-[150px]">{sub.email}</span>
                   <span className="text-xs text-gray-400">{new Date(sub.createdAt).toLocaleDateString()}</span>
@@ -187,7 +204,7 @@ function AdminDashboard() {
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-lg font-semibold mb-4">Últimas noticias</h2>
             <ul className="space-y-3">
-              {latestNews.map(news => (
+              {latestNews && latestNews.map(news => (
                 <li key={news.id} className="border-b pb-2">
                   <p className="font-medium line-clamp-1">{news.title}</p>
                   <p className="text-xs text-gray-400">{new Date(news.publishedAt).toLocaleDateString()}</p>
@@ -196,9 +213,26 @@ function AdminDashboard() {
             </ul>
           </div>
         </div>
+
+        {/* Espacio para integración con Metabase */}
+        <div className="bg-white p-6 rounded-xl shadow border border-gray-200">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <span className="text-fuchsia-600">📊</span> Panel de Metabase
+          </h2>
+          <div className="bg-gray-100 rounded-lg p-8 text-center text-gray-500">
+            <p className="mb-2">Aquí puedes incrustar un panel de Metabase.</p>
+            <p className="text-sm">Ejemplo de iframe:</p>
+            <code className="text-xs bg-gray-200 px-2 py-1 rounded">
+              &lt;iframe src="https://tu-metabase.com/public/dashboard/xxx" width="100%" height="500" /&gt;
+            </code>
+            <div className="mt-4 p-4 border-2 border-dashed border-gray-300 rounded-lg">
+              <p className="text-sm text-gray-400">📈 Panel de Metabase aparecerá aquí</p>
+            </div>
+          </div>
+        </div>
       </div>
     </AdminLayout>
   );
 }
 
-export default withAuth(AdminDashboard);
+export default AdminDashboard;

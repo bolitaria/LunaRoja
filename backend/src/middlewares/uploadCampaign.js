@@ -49,6 +49,7 @@ const uploadCampaign = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
+// ✅ EXPORTA LA FUNCIÓN MIDDLEWARE DIRECTAMENTE
 module.exports = uploadCampaign.fields([
   { name: 'image', maxCount: 1 },
   { name: 'document', maxCount: 1 }

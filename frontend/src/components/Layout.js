@@ -51,6 +51,7 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
             <nav className="hidden md:flex space-x-6 justify-center flex-1 mx-4">
               <Link href="/acciones" className="text-gray-600 hover:text-red-700 transition">Acciones</Link>
               <Link href="/campanas" className="text-gray-600 hover:text-red-700 transition">Campañas</Link>
+              <Link href="/bds" className="text-gray-600 hover:text-red-700 transition">BDS</Link>
               <Link href="/noticias" className="text-gray-600 hover:text-red-700 transition">Noticias</Link>
               <Link href="/reports" className="text-gray-600 hover:text-red-700 transition">Reportes</Link>
               <Link href="/galeria" className="text-gray-600 hover:text-red-700 transition">Galería</Link>
@@ -86,6 +87,7 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
           <div className="md:hidden px-4 pb-3 flex flex-wrap gap-2 justify-center">
             <Link href="/acciones" className="text-gray-600 hover:text-red-700 text-sm">Acciones</Link>
             <Link href="/campanas" className="text-gray-600 hover:text-red-700 text-sm">Campañas</Link>
+            <Link href="/bds" className="text-gray-600 hover:text-red-700 transition">BDS</Link>
             <Link href="/noticias" className="text-gray-600 hover:text-red-700 text-sm">Noticias</Link>
             <Link href="/reports" className="text-gray-600 hover:text-red-700 text-sm">Reportes</Link>
             <Link href="/galeria" className="text-gray-600 hover:text-red-700 text-sm">Galería</Link>

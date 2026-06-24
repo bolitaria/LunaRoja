@@ -1,5 +1,5 @@
-// frontend/src/components/ChatGroupCard.js
-import { ReactComponent as SignalLogo } from '../assets/icons/Signal-Logo.svg';
+// ✅ Eliminamos la importación de SVG y usamos un icono inline
+// (puedes reemplazar con un icono de react-icons si lo prefieres)
 
 const platformConfig = {
   telegram: {
@@ -32,7 +32,12 @@ const platformConfig = {
     borderColor: 'border-purple-200',
     badgeBg: 'bg-purple-100',
     badgeText: 'text-purple-800',
-    icon: <SignalLogo className="w-5 h-5" />,  //  ← ahora usa el SVG real
+    icon: (
+      // ✅ Icono inline de Signal (puedes usar un SVG real o un icono de react-icons)
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm.203 18.37l-.796-.405c-.313-.16-.438-.49-.272-.78.166-.29.542-.396.857-.233l.478.243c.313.16.438.49.272.78-.166.29-.542.396-.857.233l.318-.165zm-.203 1.63c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2zm0-6c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2zm0-6c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z" />
+      </svg>
+    ),
   },
 };
 

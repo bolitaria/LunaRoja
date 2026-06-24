@@ -1,17 +1,34 @@
-FROM node:18-slim
+# Stage 1: Dependencies
+FROM node:18-slim AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund && npm cache clean --force
 
+# Stage 2: Builder (copiar dependencias completas)
+FROM node:18-slim AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Asegurar que el código fuente no tenga problemas de permisos
+RUN chown -R node:node /app
+
+# Stage 3: Production runner (solo copia lo necesario)
+FROM node:18-slim AS runner
 WORKDIR /app
 
-# Install Node.js dependencies (production only)
-COPY package*.json ./
-RUN npm install --omit=dev
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy the rest of the application code
-COPY . .
+# Crear usuario no root para seguridad
+RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
 
-# Create necessary upload directories
-RUN mkdir -p uploads/reports uploads/actions uploads/featured uploads/campaigns
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/uploads ./uploads
+# NO copiar .env; usar variables de entorno en docker-compose o -e
+
+USER nodejs
 
 EXPOSE 5000
-
-CMD ["npm", "start"]
+CMD ["node", "src/app.js"]

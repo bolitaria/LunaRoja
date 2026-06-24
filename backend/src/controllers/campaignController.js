@@ -2,8 +2,11 @@ const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
 const Subscriber = require('../models/Subscriber');
 const { sendCampaignNotification } = require('../services/emailService');
-const fs = require('fs');
+const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
+
+const CAMPAIGNS_BASE = path.join(__dirname, '../../uploads/campaigns');
+const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
 exports.getAllCampaigns = async (req, res) => {
   try {
@@ -28,11 +31,15 @@ exports.getAllCampaigns = async (req, res) => {
 
 exports.getCampaignById = async (req, res) => {
   try {
-    const campaign = await Campaign.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const campaign = await Campaign.findByPk(id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
     res.json(campaign);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getCampaignById:', error);
     res.status(500).json({ message: 'Error al obtener campaña' });
   }
 };
@@ -59,10 +66,10 @@ exports.createCampaign = async (req, res) => {
 
     const campaign = await Campaign.create({
       name,
-      description,
-      color,
+      description: description || '',
+      color: color || '#E53E3E',
       imageUrl,
-      groups,
+      groups: groups || [],
       documentLink: documentLink || null,
       document: documentPath
     });
@@ -80,14 +87,18 @@ exports.createCampaign = async (req, res) => {
 
     res.status(201).json(campaign);
   } catch (error) {
-    console.error(error);
+    console.error('Error en createCampaign:', error);
     res.status(500).json({ message: 'Error al crear campaña' });
   }
 };
 
 exports.updateCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const campaign = await Campaign.findByPk(id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
 
     // Permisos
@@ -110,8 +121,7 @@ exports.updateCampaign = async (req, res) => {
     let imageUrl = campaign.imageUrl;
     if (req.files && req.files.image && req.files.image.length > 0) {
       if (campaign.imageUrl) {
-        const oldPath = path.join(__dirname, '../../uploads/campaigns', path.basename(campaign.imageUrl));
-        fs.unlink(oldPath, (err) => { if (err) console.error('Error al eliminar imagen anterior:', err); });
+        deleteFileSafe(campaign.imageUrl, CAMPAIGNS_BASE);
       }
       imageUrl = `/uploads/campaigns/${req.files.image[0].filename}`;
     }
@@ -120,32 +130,35 @@ exports.updateCampaign = async (req, res) => {
     let documentPath = campaign.document;
     if (req.files && req.files.document && req.files.document.length > 0) {
       if (campaign.document) {
-        const oldDocPath = path.join(__dirname, '../../uploads/documents', path.basename(campaign.document));
-        fs.unlink(oldDocPath, (err) => { if (err) console.error('Error al eliminar documento anterior:', err); });
+        deleteFileSafe(campaign.document, DOCUMENTS_BASE);
       }
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
 
     await campaign.update({
-      name,
-      description,
-      color,
+      name: name || campaign.name,
+      description: description !== undefined ? description : campaign.description,
+      color: color || campaign.color,
       imageUrl,
-      groups,
-      documentLink: documentLink || null,
+      groups: groups || [],
+      documentLink: documentLink !== undefined ? documentLink : campaign.documentLink,
       document: documentPath
     });
 
     res.json(campaign);
   } catch (error) {
-    console.error(error);
+    console.error('Error en updateCampaign:', error);
     res.status(500).json({ message: 'Error al actualizar campaña' });
   }
 };
 
 exports.deleteCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const campaign = await Campaign.findByPk(id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
 
     if (req.user.role !== 'superadmin') {
@@ -153,18 +166,16 @@ exports.deleteCampaign = async (req, res) => {
     }
 
     if (campaign.imageUrl) {
-      const filePath = path.join(__dirname, '../../uploads/campaigns', path.basename(campaign.imageUrl));
-      fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar imagen:', err); });
+      deleteFileSafe(campaign.imageUrl, CAMPAIGNS_BASE);
     }
     if (campaign.document) {
-      const docPath = path.join(__dirname, '../../uploads/documents', path.basename(campaign.document));
-      fs.unlink(docPath, (err) => { if (err) console.error('Error al eliminar documento:', err); });
+      deleteFileSafe(campaign.document, DOCUMENTS_BASE);
     }
 
     await campaign.destroy();
     res.json({ message: 'Campaña eliminada' });
   } catch (error) {
-    console.error(error);
+    console.error('Error en deleteCampaign:', error);
     res.status(500).json({ message: 'Error al eliminar campaña' });
   }
 };

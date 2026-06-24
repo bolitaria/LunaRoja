@@ -1,6 +1,8 @@
+// backend/src/models/User.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const User = sequelize.define('User', {
   id: {
@@ -9,24 +11,20 @@ const User = sequelize.define('User', {
     primaryKey: true,
   },
   username: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false,
     unique: true,
-    validate: {
-      len: [3, 30],
-      is: /^[a-zA-Z0-9_]+$/i,
-    },
   },
   password: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM('superadmin', 'campaign_admin', 'action_admin'),
+    type: DataTypes.STRING(50),
     defaultValue: 'action_admin',
   },
   refreshToken: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   lastLogin: {
@@ -43,33 +41,26 @@ const User = sequelize.define('User', {
   },
 }, {
   timestamps: true,
-  hooks: {
-    beforeCreate: async (user) => {
-      if (user.password) {
-        const salt = await bcrypt.genSalt(12);
-        user.password = await bcrypt.hash(user.password, salt);
-      }
-    },
-    beforeUpdate: async (user) => {
-      if (user.changed('password')) {
-        const salt = await bcrypt.genSalt(12);
-        user.password = await bcrypt.hash(user.password, salt);
-      }
-    },
-  },
-  indexes: [
-    { unique: true, fields: ['username'] },
-    { fields: ['role'] },
-  ],
+  tableName: 'Users',
 });
 
-User.prototype.comparePassword = async function(candidatePassword) {
-  if (!candidatePassword) return false;
-  return await bcrypt.compare(candidatePassword, this.password);
+User.beforeCreate(async (user) => {
+  const salt = await bcrypt.genSalt(12);
+  user.password = await bcrypt.hash(user.password, salt);
+});
+
+User.beforeUpdate(async (user) => {
+  if (user.changed('password')) {
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(user.password, salt);
+  }
+});
+
+User.prototype.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-User.prototype.generateJWT = function() {
-  const jwt = require('jsonwebtoken');
+User.prototype.generateJWT = function () {
   return jwt.sign(
     { id: this.id, username: this.username, role: this.role },
     process.env.JWT_SECRET,
@@ -77,8 +68,7 @@ User.prototype.generateJWT = function() {
   );
 };
 
-User.prototype.generateRefreshToken = function() {
-  const jwt = require('jsonwebtoken');
+User.prototype.generateRefreshToken = function () {
   return jwt.sign(
     { id: this.id },
     process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,

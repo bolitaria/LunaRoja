@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import AdminLayout from '../../components/AdminLayout';
-import { withAuth } from '../../lib/auth';
+import api from '../../../lib/axios';
+// pages/admin/calendar/index.js
+import { useState, useEffect, useMemo } from 'react';
+import AdminLayout from '../../../components/AdminLayout';
 import axios from 'axios';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
@@ -23,31 +24,38 @@ function AdminCalendar() {
     const fetchData = async () => {
       try {
         const [actionsRes, eventsRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/events`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+          api.get('/actions'),
+          api.get('/events')
         ]);
-        setActions(actionsRes.data);
-        setEvents(eventsRes.data);
+        setActions(actionsRes.data || []);
+        setEvents(eventsRes.data || []);
       } catch (error) {
-        console.error('Error fetching data', error);
+        console.error('Error fetching calendar data:', error);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [token]);
 
-  const filteredEvents = selectedActionId === 'all'
-    ? events
-    : events.filter(e => e.actionId === parseInt(selectedActionId));
+  // Sincronizar el filtro con la URL
+  useEffect(() => {
+    if (queryActionId) {
+      setSelectedActionId(queryActionId);
+    }
+  }, [queryActionId]);
 
-  const filteredActions = selectedActionId === 'all'
-    ? actions
-    : actions.filter(a => a.id === parseInt(selectedActionId));
+  const filteredEvents = useMemo(() => {
+    return selectedActionId === 'all'
+      ? events
+      : events.filter(e => e.actionId === parseInt(selectedActionId));
+  }, [events, selectedActionId]);
+
+  const filteredActions = useMemo(() => {
+    return selectedActionId === 'all'
+      ? actions
+      : actions.filter(a => a.id === parseInt(selectedActionId));
+  }, [actions, selectedActionId]);
 
   const tileContent = ({ date, view }) => {
     if (view === 'month') {
@@ -77,7 +85,9 @@ function AdminCalendar() {
     return null;
   };
 
-  const selectedDateStr = selectedDate.toISOString().split('T')[0];
+  // Asegurar que selectedDate es un objeto Date válido
+  const safeSelectedDate = selectedDate instanceof Date && !isNaN(selectedDate) ? selectedDate : new Date();
+  const selectedDateStr = safeSelectedDate.toISOString().split('T')[0];
   const actionsOnSelected = filteredActions.filter(a => a.date === selectedDateStr);
   const eventsOnSelected = filteredEvents.filter(e => {
     const eventDate = new Date(e.datetime).toISOString().split('T')[0];
@@ -92,13 +102,13 @@ function AdminCalendar() {
 
   return (
     <AdminLayout title="Calendario de Acciones y Eventos">
-      <div className="mb-4 flex items-center gap-4">
-        <label htmlFor="actionFilter" className="font-semibold">Filtrar por acción:</label>
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <label htmlFor="actionFilter" className="font-semibold text-gray-700">Filtrar por acción:</label>
         <select
           id="actionFilter"
           value={selectedActionId}
           onChange={handleActionFilterChange}
-          className="border rounded px-3 py-2"
+          className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-fuchsia-500 bg-white"
         >
           <option value="all">Todas las acciones</option>
           {actions.map(action => (
@@ -109,36 +119,39 @@ function AdminCalendar() {
         </select>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/2">
-          <Calendar
-            onChange={setSelectedDate}
-            value={selectedDate}
-            tileContent={tileContent}
-            className="rounded-lg shadow"
-          />
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="lg:w-1/2">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <Calendar
+              onChange={setSelectedDate}
+              value={safeSelectedDate}
+              tileContent={tileContent}
+              className="w-full"
+            />
+          </div>
         </div>
-        <div className="md:w-1/2">
-          <h2 className="text-xl font-semibold mb-4">
-            {selectedDate.toLocaleDateString()}
+        <div className="lg:w-1/2">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            {safeSelectedDate.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </h2>
           {loading ? (
-            <p>Cargando...</p>
+            <p className="text-gray-500">Cargando...</p>
           ) : (
             <>
               {actionsOnSelected.length === 0 && eventsOnSelected.length === 0 ? (
-                <p>No hay actividades en este día.</p>
+                <p className="text-gray-500">No hay actividades en este día.</p>
               ) : (
                 <>
                   {actionsOnSelected.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="font-semibold text-blue-700">Acciones</h3>
-                      <ul className="list-disc pl-5">
+                    <div className="mb-6">
+                      <h3 className="font-semibold text-blue-700 mb-2">Acciones</h3>
+                      <ul className="space-y-2">
                         {actionsOnSelected.map(a => (
-                          <li key={a.id}>
-                            <Link href={`/admin/actions?edit=${a.id}`} className="text-blue-600 hover:underline">
-                              {a.title} ({a.actionType === 'concrete' ? 'Concreta' : 'Permanente'})
+                          <li key={a.id} className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <Link href={`/admin/actions?edit=${a.id}`} className="text-blue-600 hover:underline font-medium">
+                              {a.title}
                             </Link>
+                            <span className="text-xs text-gray-500 ml-2">({a.actionType === 'concrete' ? 'Concreta' : 'Permanente'})</span>
                           </li>
                         ))}
                       </ul>
@@ -146,13 +159,14 @@ function AdminCalendar() {
                   )}
                   {eventsOnSelected.length > 0 && (
                     <div>
-                      <h3 className="font-semibold text-green-700">Acciones y Eventos</h3>
-                      <ul className="list-disc pl-5">
+                      <h3 className="font-semibold text-green-700 mb-2">Eventos</h3>
+                      <ul className="space-y-2">
                         {eventsOnSelected.map(e => (
-                          <li key={e.id}>
-                            <Link href={`/admin/events?edit=${e.id}`} className="text-green-600 hover:underline">
-                              {e.title} ({e.category})
+                          <li key={e.id} className="bg-green-50 p-3 rounded-lg border border-green-100">
+                            <Link href={`/admin/events?edit=${e.id}`} className="text-green-600 hover:underline font-medium">
+                              {e.title}
                             </Link>
+                            <span className="text-xs text-gray-500 ml-2">({e.category})</span>
                           </li>
                         ))}
                       </ul>
@@ -168,4 +182,4 @@ function AdminCalendar() {
   );
 }
 
-export default withAuth(AdminCalendar);
+export default AdminCalendar;

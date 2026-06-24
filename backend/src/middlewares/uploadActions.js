@@ -29,7 +29,6 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   if (file.fieldname === 'document') {
-    // Permitir documentos
     const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt/;
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedTypes.test(ext)) {
@@ -38,7 +37,6 @@ const fileFilter = (req, file, cb) => {
       cb(new Error('Tipo de documento no permitido'), false);
     }
   } else {
-    // Solo imágenes para el resto
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
@@ -50,9 +48,10 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+  limits: { fileSize: 20 * 1024 * 1024 }
 });
 
+// ✅ EXPORTA LA FUNCIÓN MIDDLEWARE DIRECTAMENTE
 module.exports = upload.fields([
   { name: 'featuredImage', maxCount: 1 },
   { name: 'images', maxCount: 20 },

@@ -1,14 +1,17 @@
-// backend/src/controllers/chatGroupController.js
 const ChatGroup = require('../models/ChatGroup');
 const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
+const { toInt, isValidId } = require('../utils/helpers');
 
 exports.getAllGroups = async (req, res) => {
   try {
     let where = {};
-    const { campaignId, actionId } = req.query;   // permitir filtros desde el frontend
+    const { campaignId, actionId } = req.query;
+
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
 
     if (req.user && req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
@@ -22,40 +25,41 @@ exports.getAllGroups = async (req, res) => {
       where.actionId = actionIds;
     }
 
-    // filtros públicos (si no está autenticado, se aplican directamente)
     if (!req.user) {
-      if (campaignId) where.campaignId = campaignId;
-      if (actionId) where.actionId = actionId;
+      if (parsedCampaignId) where.campaignId = parsedCampaignId;
+      if (parsedActionId) where.actionId = parsedActionId;
     }
 
     const groups = await ChatGroup.findAll({
       where,
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: Action, as: 'action', attributes: ['id', 'title'] },
+        { model: Action, as: 'assignedAction', attributes: ['id', 'title'] },
       ],
       order: [['createdAt', 'DESC']]
     });
 
     res.json(groups);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getAllGroups:', error);
     res.status(500).json({ message: 'Error al obtener grupos de chat' });
   }
 };
 
 exports.getGroupById = async (req, res) => {
   try {
-    const group = await ChatGroup.findByPk(req.params.id, {
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
+    const group = await ChatGroup.findByPk(id, {
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: Action, as: 'action', attributes: ['id', 'title'] },
+        { model: Action, as: 'assignedAction', attributes: ['id', 'title'] },
       ]
     });
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
     res.json(group);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getGroupById:', error);
     res.status(500).json({ message: 'Error al obtener grupo' });
   }
 };
@@ -63,98 +67,87 @@ exports.getGroupById = async (req, res) => {
 exports.createGroup = async (req, res) => {
   try {
     const { name, description, platform, link, region, campaignId, actionId, isActive } = req.body;
-    if (!name || !platform || !link) {
-      return res.status(400).json({ message: 'Nombre, plataforma y enlace son requeridos' });
-    }
+    if (!name || !platform || !link) return res.status(400).json({ message: 'Nombre, plataforma y enlace son requeridos' });
 
-    // validación de permisos similar a la anterior, añadiendo actionId
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
+
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (campaignId && !allowedCampaignIds.includes(parseInt(campaignId))) {
-        return res.status(403).json({ message: 'No tienes permiso para asociar este grupo a esa campaña' });
-      }
+      const allowedIds = userCampaigns.map(uc => uc.campaignId);
+      if (parsedCampaignId && !allowedIds.includes(parsedCampaignId)) return res.status(403).json({ message: 'No tienes permiso para asociar este grupo a esa campaña' });
     } else if (req.user.role === 'action_admin') {
       const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-      const allowedActionIds = userActions.map(ua => ua.actionId);
-      if (actionId && !allowedActionIds.includes(parseInt(actionId))) {
-        return res.status(403).json({ message: 'No tienes permiso para asociar este grupo a esa acción' });
-      }
+      const allowedIds = userActions.map(ua => ua.actionId);
+      if (parsedActionId && !allowedIds.includes(parsedActionId)) return res.status(403).json({ message: 'No tienes permiso para asociar este grupo a esa acción' });
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'No tienes permiso para crear grupos' });
     }
 
     const group = await ChatGroup.create({
-      name,
-      description,
-      platform,
-      link,
-      region: region || null,
-      campaignId: campaignId || null,
-      actionId: actionId || null,
+      name, description: description || null, platform, link,
+      region: region || null, campaignId: parsedCampaignId, actionId: parsedActionId,
       isActive: isActive !== undefined ? isActive : true,
     });
     res.status(201).json(group);
   } catch (error) {
-    console.error(error);
+    console.error('Error en createGroup:', error);
     res.status(500).json({ message: 'Error al crear grupo' });
   }
 };
 
 exports.updateGroup = async (req, res) => {
   try {
-    const group = await ChatGroup.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
+    const group = await ChatGroup.findByPk(id);
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
     const { name, description, platform, link, region, campaignId, actionId, isActive } = req.body;
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
 
-    // validación de permisos (similar, comprobando tanto campaña como acción)
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (group.campaignId && !allowedCampaignIds.includes(group.campaignId)) {
-        return res.status(403).json({ message: 'No tienes permiso para editar este grupo' });
-      }
+      const allowedIds = userCampaigns.map(uc => uc.campaignId);
+      if (group.campaignId && !allowedIds.includes(group.campaignId)) return res.status(403).json({ message: 'No tienes permiso para editar este grupo' });
     } else if (req.user.role === 'action_admin') {
       const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-      const allowedActionIds = userActions.map(ua => ua.actionId);
-      if (group.actionId && !allowedActionIds.includes(group.actionId)) {
-        return res.status(403).json({ message: 'No tienes permiso para editar este grupo' });
-      }
+      const allowedIds = userActions.map(ua => ua.actionId);
+      if (group.actionId && !allowedIds.includes(group.actionId)) return res.status(403).json({ message: 'No tienes permiso para editar este grupo' });
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'No tienes permiso para editar grupos' });
     }
 
     await group.update({
-      name,
-      description,
-      platform,
-      link,
-      region: region || null,
-      campaignId: campaignId || null,
-      actionId: actionId || null,
-      isActive,
+      name: name || group.name,
+      description: description !== undefined ? description : group.description,
+      platform: platform || group.platform,
+      link: link || group.link,
+      region: region !== undefined ? region : group.region,
+      campaignId: parsedCampaignId,
+      actionId: parsedActionId,
+      isActive: isActive !== undefined ? isActive : group.isActive,
     });
     res.json(group);
   } catch (error) {
-    console.error(error);
+    console.error('Error en updateGroup:', error);
     res.status(500).json({ message: 'Error al actualizar grupo' });
   }
 };
 
 exports.deleteGroup = async (req, res) => {
   try {
-    const group = await ChatGroup.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
+    const group = await ChatGroup.findByPk(id);
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
-    if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'No tienes permiso para eliminar grupos' });
-    }
-
+    if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'No tienes permiso para eliminar grupos' });
     await group.destroy();
     res.json({ message: 'Grupo eliminado' });
   } catch (error) {
-    console.error(error);
+    console.error('Error en deleteGroup:', error);
     res.status(500).json({ message: 'Error al eliminar grupo' });
   }
 };

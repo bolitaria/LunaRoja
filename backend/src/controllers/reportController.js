@@ -1,41 +1,49 @@
 const Report = require('../models/Report');
-const fs = require('fs');
+const { isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
 
-// Obtener todos los reportes (público)
+const REPORTS_BASE = path.join(__dirname, '../../uploads/reports');
+
 exports.getAllReports = async (req, res) => {
   try {
-    if (req.user && req.user.role !== 'superadmin') {
-      return res.json([]); // o res.status(403).json({ message: 'No autorizado' });
-    }
+    // La ruta ya exige auth y superadmin, así que no repetimos la verificación
     const reports = await Report.findAll({ order: [['publishedAt', 'DESC']] });
     res.json(reports);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getAllReports:', error);
     res.status(500).json({ message: 'Error al obtener reportes' });
   }
 };
 
-// Obtener un reporte por ID (público)
 exports.getReportById = async (req, res) => {
   try {
-    const report = await Report.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const report = await Report.findByPk(id);
     if (!report) {
       return res.status(404).json({ message: 'Reporte no encontrado' });
     }
     res.json(report);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getReportById:', error);
     res.status(500).json({ message: 'Error al obtener reporte' });
   }
 };
 
-// Crear un nuevo reporte (admin) con subida de archivo
 exports.createReport = async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, content } = req.body;
     if (!title) {
       return res.status(400).json({ message: 'Título es requerido' });
+    }
+
+    // Al menos uno de los dos: archivo o contenido enriquecido
+    if (!req.file && !content) {
+      return res.status(400).json({
+        message: 'Debes adjuntar un archivo o escribir el contenido del reporte'
+      });
     }
 
     let fileUrl = null;
@@ -43,18 +51,26 @@ exports.createReport = async (req, res) => {
       fileUrl = `/uploads/reports/${req.file.filename}`;
     }
 
-    const report = await Report.create({ title, description, fileUrl });
+    const report = await Report.create({
+      title,
+      description: description || '',
+      content: content || '',
+      fileUrl,
+    });
     res.status(201).json(report);
   } catch (error) {
-    console.error(error);
+    console.error('Error en createReport:', error);
     res.status(500).json({ message: 'Error al crear reporte' });
   }
 };
 
-// Actualizar un reporte (admin)
 exports.updateReport = async (req, res) => {
   try {
-    const report = await Report.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const report = await Report.findByPk(id);
     if (!report) {
       return res.status(404).json({ message: 'Reporte no encontrado' });
     }
@@ -62,45 +78,44 @@ exports.updateReport = async (req, res) => {
     const { title, description } = req.body;
     let fileUrl = report.fileUrl;
 
-    // Si se sube un nuevo archivo, eliminar el anterior y actualizar URL
     if (req.file) {
       if (report.fileUrl) {
-        const oldPath = path.join(__dirname, '../../uploads/reports', path.basename(report.fileUrl));
-        fs.unlink(oldPath, (err) => {
-          if (err) console.error('Error al eliminar archivo anterior:', err);
-        });
+        deleteFileSafe(report.fileUrl, REPORTS_BASE);
       }
       fileUrl = `/uploads/reports/${req.file.filename}`;
     }
 
-    await report.update({ title, description, fileUrl });
+    await report.update({
+      title: title || report.title,
+      description: description !== undefined ? description : report.description,
+      fileUrl,
+    });
     res.json(report);
   } catch (error) {
-    console.error(error);
+    console.error('Error en updateReport:', error);
     res.status(500).json({ message: 'Error al actualizar reporte' });
   }
 };
 
-// Eliminar un reporte (admin)
 exports.deleteReport = async (req, res) => {
   try {
-    const report = await Report.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const report = await Report.findByPk(id);
     if (!report) {
       return res.status(404).json({ message: 'Reporte no encontrado' });
     }
 
-    // Eliminar archivo físico si existe
     if (report.fileUrl) {
-      const filePath = path.join(__dirname, '../../uploads/reports', path.basename(report.fileUrl));
-      fs.unlink(filePath, (err) => {
-        if (err) console.error('Error al eliminar archivo:', err);
-      });
+      deleteFileSafe(report.fileUrl, REPORTS_BASE);
     }
 
     await report.destroy();
     res.json({ message: 'Reporte eliminado correctamente' });
   } catch (error) {
-    console.error(error);
+    console.error('Error en deleteReport:', error);
     res.status(500).json({ message: 'Error al eliminar reporte' });
   }
 };

@@ -3,11 +3,14 @@ const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
+const { toInt, isValidId } = require('../utils/helpers');
 
 exports.getAllNews = async (req, res) => {
   try {
     const { campaignId, actionId } = req.query;
     let where = {};
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
 
     if (req.user) {
       if (req.user.role === 'campaign_admin') {
@@ -23,8 +26,8 @@ exports.getAllNews = async (req, res) => {
       }
     }
 
-    if (campaignId) where.campaignId = campaignId;
-    if (actionId) where.actionId = actionId;
+    if (parsedCampaignId) where.campaignId = parsedCampaignId;
+    if (parsedActionId) where.actionId = parsedActionId;
 
     const news = await News.findAll({
       where,
@@ -53,18 +56,22 @@ exports.getAllNews = async (req, res) => {
 
     res.json(formattedNews);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getAllNews:', error);
     res.status(500).json({ message: 'Error al obtener noticias' });
   }
 };
 
 exports.getNewsById = async (req, res) => {
   try {
-    const news = await News.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const news = await News.findByPk(id);
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
     res.json(news);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getNewsById:', error);
     res.status(500).json({ message: 'Error al obtener noticia' });
   }
 };
@@ -72,46 +79,51 @@ exports.getNewsById = async (req, res) => {
 exports.createNews = async (req, res) => {
   try {
     const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
+
+    if (!title || !youtubeUrl) {
+      return res.status(400).json({ message: 'Título y URL de YouTube son requeridos' });
+    }
 
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (!campaignId || !allowedCampaignIds.includes(parseInt(campaignId))) {
+      if (!parsedCampaignId || !allowedCampaignIds.includes(parsedCampaignId)) {
         return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
       }
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'No tienes permiso para crear noticias' });
     }
 
-    if (!title || !youtubeUrl) {
-      return res.status(400).json({ message: 'Título y URL de YouTube son requeridos' });
-    }
-
-    const finalCampaignId = campaignId ? parseInt(campaignId) : null;
-    const finalActionId = actionId ? parseInt(actionId) : null;
-
-    const news = await News.create({ 
-      title, 
-      description, 
-      youtubeUrl, 
-      thumbnail, 
+    const news = await News.create({
+      title,
+      description: description || '',
+      youtubeUrl,
+      thumbnail: thumbnail || '',
       isNews: isNews || false,
-      campaignId: finalCampaignId,
-      actionId: finalActionId
+      campaignId: parsedCampaignId,
+      actionId: parsedActionId
     });
     res.status(201).json(news);
   } catch (error) {
-    console.error(error);
+    console.error('Error en createNews:', error);
     res.status(500).json({ message: 'Error al crear noticia' });
   }
 };
 
 exports.updateNews = async (req, res) => {
   try {
-    const news = await News.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const news = await News.findByPk(id);
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
     const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
 
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
@@ -129,28 +141,29 @@ exports.updateNews = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    const finalCampaignId = campaignId ? parseInt(campaignId) : null;
-    const finalActionId = actionId ? parseInt(actionId) : null;
-
-    await news.update({ 
-      title, 
-      description, 
-      youtubeUrl, 
-      thumbnail, 
-      isNews, 
-      campaignId: finalCampaignId, 
-      actionId: finalActionId 
+    await news.update({
+      title: title || news.title,
+      description: description !== undefined ? description : news.description,
+      youtubeUrl: youtubeUrl || news.youtubeUrl,
+      thumbnail: thumbnail !== undefined ? thumbnail : news.thumbnail,
+      isNews: isNews !== undefined ? isNews : news.isNews,
+      campaignId: parsedCampaignId,
+      actionId: parsedActionId
     });
     res.json(news);
   } catch (error) {
-    console.error(error);
+    console.error('Error en updateNews:', error);
     res.status(500).json({ message: 'Error al actualizar noticia' });
   }
 };
 
 exports.deleteNews = async (req, res) => {
   try {
-    const news = await News.findByPk(req.params.id);
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const news = await News.findByPk(id);
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
     if (req.user.role !== 'superadmin') {
@@ -160,7 +173,7 @@ exports.deleteNews = async (req, res) => {
     await news.destroy();
     res.json({ message: 'Noticia eliminada' });
   } catch (error) {
-    console.error(error);
+    console.error('Error en deleteNews:', error);
     res.status(500).json({ message: 'Error al eliminar noticia' });
   }
 };

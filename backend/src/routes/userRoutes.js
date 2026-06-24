@@ -1,19 +1,17 @@
 const express = require('express');
-const {
-  getAllUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  changeMyPassword,
-} = require('../controllers/userController');
-const authMiddleware = require('../middlewares/auth');
 const router = express.Router();
+const userController = require('../controllers/userController');
+const authMiddleware = require('../middlewares/auth');
+const { isSuperAdmin } = require('../middlewares/authorize');
 
-// Todas las rutas requieren autenticación, la autorización se maneja en el controlador
-router.get('/', authMiddleware, getAllUsers);
-router.post('/', authMiddleware, createUser);
-router.put('/:id', authMiddleware, updateUser);
-router.delete('/:id', authMiddleware, deleteUser);
-router.put('/me/password', authMiddleware, changeMyPassword);
+// Ruta del usuario autenticado (requiere authMiddleware)
+router.get('/me', authMiddleware, userController.getMe);
+router.put('/me/password', authMiddleware, userController.changeMyPassword);
+
+// Rutas de administración (solo superadmin)
+router.get('/', authMiddleware, isSuperAdmin, userController.getAllUsers);
+router.post('/', authMiddleware, isSuperAdmin, userController.createUser);
+router.put('/:id', authMiddleware, isSuperAdmin, userController.updateUser);
+router.delete('/:id', authMiddleware, isSuperAdmin, userController.deleteUser);
 
 module.exports = router;

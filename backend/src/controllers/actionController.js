@@ -1,18 +1,24 @@
 const Action = require('../models/Action');
 const ActionImage = require('../models/ActionImage');
+const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
 const Subscriber = require('../models/Subscriber');
 const SubscribersReminder = require('../models/SubscribersReminder');
 const { sendActionNotification } = require('../services/emailService');
-const fs = require('fs');
+const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
 
+const FEATURED_BASE = path.join(__dirname, '../../uploads/featured');
+const ACTIONS_BASE = path.join(__dirname, '../../uploads/actions');
+const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
+// ========== GET ALL ACTIONS ==========
 exports.getAllActions = async (req, res) => {
   try {
     const { campaignId } = req.query;
     let where = {};
+    const parsedCampaignId = toInt(campaignId);
 
     if (req.user) {
       if (req.user.role === 'campaign_admin') {
@@ -28,15 +34,19 @@ exports.getAllActions = async (req, res) => {
       }
     }
 
-    if (campaignId) {
-      where.campaignId = campaignId;
+    if (parsedCampaignId) {
+      where.campaignId = parsedCampaignId;
     }
 
     const actions = await Action.findAll({
       where,
       order: [['datetime', 'DESC']],
-      include: [{ model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }]
+      include: [
+        { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
+        { model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }
+      ]
     });
+
     res.json(actions);
   } catch (error) {
     console.error('Error en getAllActions:', error);
@@ -44,19 +54,28 @@ exports.getAllActions = async (req, res) => {
   }
 };
 
+// ========== GET ACTION BY ID ==========
 exports.getActionById = async (req, res) => {
   try {
-    const action = await Action.findByPk(req.params.id, {
-      include: [{ model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }]
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const action = await Action.findByPk(id, {
+      include: [
+        { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
+        { model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }
+      ]
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
     res.json(action);
   } catch (error) {
-    console.error(error);
+    console.error('Error en getActionById:', error);
     res.status(500).json({ message: 'Error al obtener acción' });
   }
 };
 
+// ========== CREATE ACTION ==========
 exports.createAction = async (req, res) => {
   try {
     let {
@@ -66,20 +85,9 @@ exports.createAction = async (req, res) => {
       groups, documentLink
     } = req.body;
 
-    // Parse groups if string
+    const parsedCampaignId = toInt(campaignId);
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
-    }
-
-    // Validar permisos según rol
-    if (req.user.role === 'campaign_admin') {
-      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (!campaignId || !allowedCampaignIds.includes(parseInt(campaignId))) {
-        return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
-      }
-    } else if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'No tienes permiso para crear acciones' });
     }
 
     if (!title || !datetime) {
@@ -90,31 +98,50 @@ exports.createAction = async (req, res) => {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
 
-    // Sanitizar coordenadas
-    if (!latitude && latitude !== 0) latitude = null;
-    if (!longitude && longitude !== 0) longitude = null;
-    if (latitude !== null && !isNaN(parseFloat(latitude))) latitude = parseFloat(latitude);
-    if (longitude !== null && !isNaN(parseFloat(longitude))) longitude = parseFloat(longitude);
+    // Validar permisos según rol
+    if (req.user.role === 'campaign_admin') {
+      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
+      if (!parsedCampaignId || !allowedCampaignIds.includes(parsedCampaignId)) {
+        return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'No tienes permiso para crear acciones' });
+    }
 
-    // Manejar featuredImage
+    // Sanitizar coordenadas
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      latitude = parseFloat(latitude);
+      if (isNaN(latitude)) latitude = null;
+    } else latitude = null;
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      longitude = parseFloat(longitude);
+      if (isNaN(longitude)) longitude = null;
+    } else longitude = null;
+
     let featuredImage = null;
     if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
       featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
     }
 
-    // Manejar documento
     let documentPath = null;
     if (req.files && req.files.document && req.files.document.length > 0) {
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
 
     const action = await Action.create({
-      title, description, category, datetime,
-      locationType, onlineLink, placeName, address, latitude, longitude,
-      registrationLink, recordingUrl, isLive,
-      campaignId: campaignId || null,
+      title, description: description || '', category, datetime,
+      locationType: locationType || 'presencial',
+      onlineLink: onlineLink || '',
+      placeName: placeName || '',
+      address: address || '',
+      latitude, longitude,
+      registrationLink: registrationLink || '',
+      recordingUrl: recordingUrl || '',
+      isLive: isLive !== undefined ? isLive : true,
+      campaignId: parsedCampaignId,
       featuredImage,
-      groups,
+      groups: groups || [],
       documentLink: documentLink || null,
       document: documentPath
     });
@@ -128,14 +155,19 @@ exports.createAction = async (req, res) => {
       await Promise.all(imagePromises);
     }
 
-    // Notificar a suscriptores
+    // Notificar a suscriptores (con manejo robusto de campaña)
     try {
       const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
-      const campaign = await action.getCampaign();
-      for (const sub of subscribers) {
-        await sendActionNotification(sub.email, action, campaign).catch(err => console.error(`Error email a ${sub.email}:`, err));
+      const campaign = await action.getCampaign().catch(() => null);
+      if (campaign) {
+        for (const sub of subscribers) {
+          await sendActionNotification(sub.email, action, campaign)
+            .catch(err => console.error(`Error email a ${sub.email}:`, err));
+        }
+        console.log(`Notificaciones de acción enviadas a ${subscribers.length} suscriptores`);
+      } else {
+        console.warn('No se encontró campaña asociada a la acción, omitiendo notificaciones');
       }
-      console.log(`Notificaciones de acción enviadas a ${subscribers.length} suscriptores`);
     } catch (emailError) {
       console.error('Error al enviar notificaciones de acción:', emailError);
     }
@@ -160,19 +192,25 @@ exports.createAction = async (req, res) => {
       console.error('Error al crear recordatorios:', reminderError);
     }
 
+    // Devolver con imágenes
     const actionWithImages = await Action.findByPk(action.id, {
       include: [{ model: ActionImage, as: 'images' }]
     });
     res.status(201).json(actionWithImages);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al crear acción', error: error.message });
+    console.error('Error en createAction:', error);
+    res.status(500).json({ message: 'Error al crear acción' });
   }
 };
 
+// ========== UPDATE ACTION ==========
 exports.updateAction = async (req, res) => {
   try {
-    const action = await Action.findByPk(req.params.id, {
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const action = await Action.findByPk(id, {
       include: [{ model: ActionImage, as: 'images' }]
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
@@ -184,6 +222,8 @@ exports.updateAction = async (req, res) => {
       groups, documentLink
     } = req.body;
 
+    let parsedCampaignId = toInt(campaignId);
+
     // Permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
@@ -191,7 +231,7 @@ exports.updateAction = async (req, res) => {
       if (!allowedCampaignIds.includes(action.campaignId)) {
         return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
       }
-      campaignId = action.campaignId;
+      parsedCampaignId = action.campaignId; // Forzar mantener la campaña original
     } else if (req.user.role === 'action_admin') {
       const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
       const allowedActionIds = userActions.map(ua => ua.actionId);
@@ -206,48 +246,57 @@ exports.updateAction = async (req, res) => {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
 
-    if (!latitude && latitude !== 0) latitude = null;
-    if (!longitude && longitude !== 0) longitude = null;
-    if (latitude !== null && !isNaN(parseFloat(latitude))) latitude = parseFloat(latitude);
-    if (longitude !== null && !isNaN(parseFloat(longitude))) longitude = parseFloat(longitude);
+    // Sanitizar coordenadas
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      latitude = parseFloat(latitude);
+      if (isNaN(latitude)) latitude = null;
+    } else latitude = null;
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      longitude = parseFloat(longitude);
+      if (isNaN(longitude)) longitude = null;
+    } else longitude = null;
 
-    // Parse groups
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
 
-    // Imagen destacada
     let featuredImage = action.featuredImage;
     if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
       if (action.featuredImage) {
-        const oldPath = path.join(__dirname, '../../uploads/featured', path.basename(action.featuredImage));
-        fs.unlink(oldPath, (err) => { if (err) console.error('Error al eliminar imagen destacada anterior:', err); });
+        deleteFileSafe(action.featuredImage, FEATURED_BASE);
       }
       featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
     }
 
-    // Documento
     let documentPath = action.document;
     if (req.files && req.files.document && req.files.document.length > 0) {
       if (action.document) {
-        const oldDocPath = path.join(__dirname, '../../uploads/documents', path.basename(action.document));
-        fs.unlink(oldDocPath, (err) => { if (err) console.error('Error al eliminar documento anterior:', err); });
+        deleteFileSafe(action.document, DOCUMENTS_BASE);
       }
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
 
     await action.update({
-      title, description, category, datetime,
-      locationType, onlineLink, placeName, address, latitude, longitude,
-      registrationLink, recordingUrl, isLive,
-      campaignId,
+      title: title || action.title,
+      description: description !== undefined ? description : action.description,
+      category: category || action.category,
+      datetime: datetime || action.datetime,
+      locationType: locationType || action.locationType,
+      onlineLink: onlineLink !== undefined ? onlineLink : action.onlineLink,
+      placeName: placeName !== undefined ? placeName : action.placeName,
+      address: address !== undefined ? address : action.address,
+      latitude,
+      longitude,
+      registrationLink: registrationLink !== undefined ? registrationLink : action.registrationLink,
+      recordingUrl: recordingUrl !== undefined ? recordingUrl : action.recordingUrl,
+      isLive: isLive !== undefined ? isLive : action.isLive,
+      campaignId: parsedCampaignId,
       featuredImage,
-      groups,
-      documentLink: documentLink || null,
+      groups: groups || [],
+      documentLink: documentLink !== undefined ? documentLink : action.documentLink,
       document: documentPath
     });
 
-    // Nuevas imágenes
     if (req.files && req.files.images && req.files.images.length > 0) {
       const currentImageCount = action.images ? action.images.length : 0;
       const imagePromises = req.files.images.map((file, index) => {
@@ -262,15 +311,19 @@ exports.updateAction = async (req, res) => {
     });
     res.json(updatedAction);
   } catch (error) {
-    console.error(error);
+    console.error('Error en updateAction:', error);
     res.status(500).json({ message: 'Error al actualizar acción' });
   }
 };
 
-// deleteAction y deleteActionImage permanecen igual
+// ========== DELETE ACTION ==========
 exports.deleteAction = async (req, res) => {
   try {
-    const action = await Action.findByPk(req.params.id, {
+    const { id } = req.params;
+    if (!isValidId(id)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+    const action = await Action.findByPk(id, {
       include: [{ model: ActionImage, as: 'images' }]
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
@@ -280,40 +333,44 @@ exports.deleteAction = async (req, res) => {
     }
 
     if (action.featuredImage) {
-      const filePath = path.join(__dirname, '../../uploads/featured', path.basename(action.featuredImage));
-      fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar imagen destacada:', err); });
+      deleteFileSafe(action.featuredImage, FEATURED_BASE);
     }
     if (action.images && action.images.length > 0) {
       for (const img of action.images) {
-        const filePath = path.join(__dirname, '../../uploads/actions', path.basename(img.url));
-        fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar imagen:', err); });
+        deleteFileSafe(img.url, ACTIONS_BASE);
       }
     }
     if (action.document) {
-      const docPath = path.join(__dirname, '../../uploads/documents', path.basename(action.document));
-      fs.unlink(docPath, (err) => { if (err) console.error('Error al eliminar documento:', err); });
+      deleteFileSafe(action.document, DOCUMENTS_BASE);
     }
 
     await action.destroy();
     res.json({ message: 'Acción eliminada' });
   } catch (error) {
-    console.error(error);
+    console.error('Error en deleteAction:', error);
     res.status(500).json({ message: 'Error al eliminar acción' });
   }
 };
 
+// ========== DELETE ACTION IMAGE ==========
 exports.deleteActionImage = async (req, res) => {
   try {
     const { imageId } = req.params;
+    if (!isValidId(imageId)) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
     const image = await ActionImage.findByPk(imageId);
     if (!image) return res.status(404).json({ message: 'Imagen no encontrada' });
 
-    const filePath = path.join(__dirname, '../../uploads/actions', path.basename(image.url));
-    fs.unlink(filePath, (err) => { if (err) console.error('Error al eliminar archivo:', err); });
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'No tienes permiso para eliminar esta imagen' });
+    }
+
+    deleteFileSafe(image.url, ACTIONS_BASE);
     await image.destroy();
     res.json({ message: 'Imagen eliminada' });
   } catch (error) {
-    console.error(error);
+    console.error('Error en deleteActionImage:', error);
     res.status(500).json({ message: 'Error al eliminar imagen' });
   }
 };
