@@ -1,7 +1,6 @@
 import api from '../../../../lib/axios';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import AdminLayout from '../../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ActionPreview from '../../../../components/ActionPreview';
@@ -45,7 +44,6 @@ function EditAction() {
   const markerRef = useRef(null);
   const scriptLoadingRef = useRef(false);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
 
   const loadLeaflet = () => {
@@ -79,8 +77,8 @@ function EditAction() {
     const fetchData = async () => {
       try {
         const [actionRes, campaignsRes] = await Promise.all([
-          api.get('/actions/${id}'),
-          api.get('/campaigns'),
+          api.get(`/actions/${id}`),
+          api.get('/campaigns'),               // ← usa instancia api
         ]);
         const action = actionRes.data;
         setForm({
@@ -113,14 +111,20 @@ function EditAction() {
         }
         setCampaigns(campaignsRes.data);
       } catch (error) {
-        toast.error('Error al cargar datos');
+        // Si falla la carga de campañas, las dejamos vacías sin toast
+        if (error.response?.config?.url?.includes('/campaigns')) {
+          console.warn('No se pudieron cargar campañas', error);
+          setCampaigns([]);
+        } else {
+          toast.error('Error al cargar datos');
+        }
       }
     };
     fetchData();
     loadLeaflet();
-  }, [id, apiUrl, baseUrl]);
+  }, [id]);
 
-  // Funciones de mapa (idénticas a new)
+  // Funciones de mapa (idénticas a new, sin cambios)
   const searchAddress = async () => {
     if (!form.address.trim()) {
       toast.warning('Escribe una dirección para buscar.');
@@ -264,7 +268,7 @@ function EditAction() {
   const handleDeleteImage = async (imageId) => {
     if (!confirm('¿Eliminar esta imagen?')) return;
     try {
-      await api.delete('/actions/images/${imageId}');
+      await api.delete(`/actions/images/${imageId}`);
       toast.success('Imagen eliminada');
       setExistingImages(prev => prev.filter(img => img.id !== imageId));
     } catch (error) {
@@ -272,7 +276,6 @@ function EditAction() {
     }
   };
 
-  // Documentos (sin checkbox)
   const addPublicDocument = (name, file) => {
     setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
   };
@@ -283,7 +286,7 @@ function EditAction() {
   const handleDeleteDocument = async (docId) => {
     if (!confirm('¿Eliminar este documento?')) return;
     try {
-      await api.delete('/actions/documents/${docId}');
+      await api.delete(`/actions/documents/${docId}`);
       toast.success('Documento eliminado');
       setDocuments(prev => prev.filter(doc => doc.id !== docId));
     } catch (error) {
@@ -336,8 +339,8 @@ function EditAction() {
         }
       });
 
-      await axios.put(`${apiUrl}/actions/${id}`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      await api.put(`/actions/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Acción actualizada');
       router.push('/admin/actions');
@@ -355,11 +358,6 @@ function EditAction() {
     }
     return 'https://www.openstreetmap.org';
   };
-
-  const allPreviewImages = [
-    ...(featuredImagePreview ? [featuredImagePreview] : []),
-    ...newImagePreviews,
-  ];
 
   return (
     <AdminLayout title="Editar Acción">

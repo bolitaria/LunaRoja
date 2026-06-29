@@ -17,7 +17,7 @@ const UserBDS = sequelize.define('UserBDS', {
   },
 }, {
   timestamps: true,
-  tableName: 'UserBDS',   // por claridad
+  tableName: 'UserBDS',
 });
 
 module.exports = UserBDS;

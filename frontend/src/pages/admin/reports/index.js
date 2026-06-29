@@ -5,7 +5,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { downloadCSV } from '../../../utils/exportCsv';
+import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 import { FaEdit, FaTrash, FaFileExport, FaSearch } from 'react-icons/fa';
@@ -19,6 +19,7 @@ function AdminReports() {
   const [selected, setSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exportFormat, setExportFormat] = useState('csv');
   const itemsPerPage = 10;
 
   const fetchReports = async () => {
@@ -32,9 +33,7 @@ function AdminReports() {
     }
   };
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  useEffect(() => { fetchReports(); }, []);
 
   const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
@@ -58,12 +57,10 @@ function AdminReports() {
       publishedAt: new Date(r.publishedAt).toLocaleDateString(),
       fileUrl: r.fileUrl || 'Sin archivo'
     }));
-    downloadCSV(data, headers, 'reportes_seleccionados.csv');
+    exportInfo(data, headers, 'reportes_seleccionados', exportFormat);
   };
 
-  const filtered = reports.filter(r =>
-    r.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = reports.filter(r => r.title.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -78,7 +75,7 @@ function AdminReports() {
       publishedAt: new Date(r.publishedAt).toLocaleDateString(),
       fileUrl: r.fileUrl || 'Sin archivo'
     }));
-    downloadCSV(data, headers, 'reportes.csv');
+    exportInfo(data, headers, 'reportes', exportFormat);
   };
 
   const isSuperAdmin = user && user.role === 'superadmin';
@@ -94,23 +91,17 @@ function AdminReports() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      {/* Métricas */}
       <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
           <span className="font-bold text-gray-800">{reports.length}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Con archivo</span>
-          <span className="font-bold text-gray-800">{reports.filter(r => r.fileUrl).length}</span>
-        </div>
       </div>
 
-      {/* Fila de acciones: Nuevo Reporte (misma posición que en acciones) */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
-            <Link href="/admin/reports/new" className="inline-flex items-center gap-1.5 text-sm border border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
+            <Link href="/admin/reports/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
               Nuevo Reporte
             </Link>
           )}
@@ -136,7 +127,12 @@ function AdminReports() {
               className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
             />
           </div>
-          <button onClick={exportToCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar CSV">
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="txt">Texto</option>
+          </select>
+          <button onClick={exportToCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
             <FaFileExport className="w-4 h-4" />
           </button>
         </div>
@@ -152,8 +148,8 @@ function AdminReports() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+          <table className="min-w-full divide-y divide-purple-100 text-sm">
+            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
                 <th className="px-6 py-3 text-left w-10">
                   <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} className="rounded border-gray-300" />
@@ -165,7 +161,7 @@ function AdminReports() {
                 <th className="px-6 py-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-purple-100">
               {paginated.map(report => (
                 <tr key={report.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">

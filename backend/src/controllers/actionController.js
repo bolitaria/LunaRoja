@@ -1,11 +1,14 @@
 const Action = require('../models/Action');
 const ActionImage = require('../models/ActionImage');
 const Campaign = require('../models/Campaign');
+const BDS = require('../models/BDS');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
+const UserBDS = require('../models/UserBDS');
 const Subscriber = require('../models/Subscriber');
 const SubscribersReminder = require('../models/SubscribersReminder');
 const { sendActionNotification } = require('../services/emailService');
+const { sendNotificationToSubscribers } = require('../utils/emailHelper'); // ← único import, sin duplicar
 const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
 
@@ -16,9 +19,10 @@ const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 // ========== GET ALL ACTIONS ==========
 exports.getAllActions = async (req, res) => {
   try {
-    const { campaignId } = req.query;
+    const { campaignId, bdsId } = req.query;
     let where = {};
     const parsedCampaignId = toInt(campaignId);
+    const parsedBdsId = toInt(bdsId);
 
     if (req.user) {
       if (req.user.role === 'campaign_admin') {
@@ -26,6 +30,11 @@ exports.getAllActions = async (req, res) => {
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
         if (campaignIds.length === 0) return res.json([]);
         where.campaignId = campaignIds;
+      } else if (req.user.role === 'bds_admin') {
+        const userBDS = await UserBDS.findAll({ where: { userId: req.user.id } });
+        const bdsIds = userBDS.map(ub => ub.bdsId);
+        if (bdsIds.length === 0) return res.json([]);
+        where.bdsId = bdsIds;
       } else if (req.user.role === 'action_admin') {
         const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
         const actionIds = userActions.map(ua => ua.actionId);
@@ -37,14 +46,18 @@ exports.getAllActions = async (req, res) => {
     if (parsedCampaignId) {
       where.campaignId = parsedCampaignId;
     }
+    if (parsedBdsId) {
+      where.bdsId = parsedBdsId;
+    }
 
     const actions = await Action.findAll({
       where,
       order: [['datetime', 'DESC']],
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }
-      ]
+        { model: BDS, as: 'bds', attributes: ['id', 'name', 'color'] },
+        { model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] },
+      ],
     });
 
     res.json(actions);
@@ -64,8 +77,9 @@ exports.getActionById = async (req, res) => {
     const action = await Action.findByPk(id, {
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] }
-      ]
+        { model: BDS, as: 'bds', attributes: ['id', 'name', 'color'] },
+        { model: ActionImage, as: 'images', attributes: ['id', 'url', 'order'] },
+      ],
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
     res.json(action);
@@ -81,11 +95,13 @@ exports.createAction = async (req, res) => {
     let {
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
-      registrationLink, recordingUrl, isLive, campaignId,
-      groups, documentLink
+      registrationLink, recordingUrl, isLive, campaignId, bdsId,
+      groups, documentLink,
     } = req.body;
 
     const parsedCampaignId = toInt(campaignId);
+    const parsedBdsId = toInt(bdsId);
+
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
@@ -105,8 +121,20 @@ exports.createAction = async (req, res) => {
       if (!parsedCampaignId || !allowedCampaignIds.includes(parsedCampaignId)) {
         return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
       }
+    } else if (req.user.role === 'bds_admin') {
+      const userBDS = await UserBDS.findAll({ where: { userId: req.user.id } });
+      const allowedBdsIds = userBDS.map(ub => ub.bdsId);
+      if (!parsedBdsId || !allowedBdsIds.includes(parsedBdsId)) {
+        return res.status(403).json({ message: 'Debes seleccionar una campaña BDS de las que administras' });
+      }
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'No tienes permiso para crear acciones' });
+    }
+
+    // Validar existencia de BDS si se asigna
+    if (parsedBdsId) {
+      const bdsExists = await BDS.findByPk(parsedBdsId);
+      if (!bdsExists) return res.status(400).json({ message: 'La Campaña BDS indicada no existe' });
     }
 
     // Sanitizar coordenadas
@@ -130,20 +158,25 @@ exports.createAction = async (req, res) => {
     }
 
     const action = await Action.create({
-      title, description: description || '', category, datetime,
+      title,
+      description: description || '',
+      category,
+      datetime,
       locationType: locationType || 'presencial',
       onlineLink: onlineLink || '',
       placeName: placeName || '',
       address: address || '',
-      latitude, longitude,
+      latitude,
+      longitude,
       registrationLink: registrationLink || '',
       recordingUrl: recordingUrl || '',
       isLive: isLive !== undefined ? isLive : true,
       campaignId: parsedCampaignId,
+      bdsId: parsedBdsId,
       featuredImage,
       groups: groups || [],
       documentLink: documentLink || null,
-      document: documentPath
+      document: documentPath,
     });
 
     // Procesar imágenes adicionales
@@ -155,22 +188,30 @@ exports.createAction = async (req, res) => {
       await Promise.all(imagePromises);
     }
 
-    // Notificar a suscriptores (con manejo robusto de campaña)
+    // ─── NOTIFICACIONES (plantilla + fallback) ─────────────────
     try {
-      const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
       const campaign = await action.getCampaign().catch(() => null);
       if (campaign) {
-        for (const sub of subscribers) {
-          await sendActionNotification(sub.email, action, campaign)
-            .catch(err => console.error(`Error email a ${sub.email}:`, err));
+        // 1. Intentar usar la plantilla asociada a 'action_created'
+        const sent = await sendNotificationToSubscribers('action_created', { action, campaign });
+        if (!sent) {
+          // 2. Fallback: método antiguo si no hay plantilla activa
+          const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
+          for (const sub of subscribers) {
+            await sendActionNotification(sub.email, action, campaign)
+              .catch(err => console.error(`Error email a ${sub.email}:`, err));
+          }
+          console.log(`Notificaciones de acción enviadas (método antiguo) a ${subscribers.length} suscriptores`);
+        } else {
+          console.log(`Notificaciones de acción enviadas usando plantilla 'action_created'`);
         }
-        console.log(`Notificaciones de acción enviadas a ${subscribers.length} suscriptores`);
       } else {
         console.warn('No se encontró campaña asociada a la acción, omitiendo notificaciones');
       }
     } catch (emailError) {
       console.error('Error al enviar notificaciones de acción:', emailError);
     }
+    // ─────────────────────────────────────────────────────────
 
     // Crear recordatorios
     try {
@@ -192,9 +233,8 @@ exports.createAction = async (req, res) => {
       console.error('Error al crear recordatorios:', reminderError);
     }
 
-    // Devolver con imágenes
     const actionWithImages = await Action.findByPk(action.id, {
-      include: [{ model: ActionImage, as: 'images' }]
+      include: [{ model: ActionImage, as: 'images' }],
     });
     res.status(201).json(actionWithImages);
   } catch (error) {
@@ -211,18 +251,19 @@ exports.updateAction = async (req, res) => {
       return res.status(400).json({ message: 'ID inválido' });
     }
     const action = await Action.findByPk(id, {
-      include: [{ model: ActionImage, as: 'images' }]
+      include: [{ model: ActionImage, as: 'images' }],
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
 
     let {
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
-      registrationLink, recordingUrl, isLive, campaignId,
-      groups, documentLink
+      registrationLink, recordingUrl, isLive, campaignId, bdsId,
+      groups, documentLink,
     } = req.body;
 
     let parsedCampaignId = toInt(campaignId);
+    let parsedBdsId = toInt(bdsId);
 
     // Permisos
     if (req.user.role === 'campaign_admin') {
@@ -232,6 +273,13 @@ exports.updateAction = async (req, res) => {
         return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
       }
       parsedCampaignId = action.campaignId; // Forzar mantener la campaña original
+    } else if (req.user.role === 'bds_admin') {
+      const userBDS = await UserBDS.findAll({ where: { userId: req.user.id } });
+      const allowedBdsIds = userBDS.map(ub => ub.bdsId);
+      if (!allowedBdsIds.includes(action.bdsId)) {
+        return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
+      }
+      parsedBdsId = action.bdsId; // Forzar mantener la BDS original
     } else if (req.user.role === 'action_admin') {
       const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
       const allowedActionIds = userActions.map(ua => ua.actionId);
@@ -246,7 +294,16 @@ exports.updateAction = async (req, res) => {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
 
-    // Sanitizar coordenadas
+    // Validar BDS si se cambia (solo superadmin puede cambiar realmente)
+    if (parsedBdsId && parsedBdsId !== action.bdsId && req.user.role === 'superadmin') {
+      const bdsExists = await BDS.findByPk(parsedBdsId);
+      if (!bdsExists) return res.status(400).json({ message: 'La Campaña BDS indicada no existe' });
+    } else if (parsedBdsId && parsedBdsId !== action.bdsId && req.user.role !== 'superadmin') {
+      // No se permite cambiar la BDS a otro rol
+      parsedBdsId = action.bdsId;
+    }
+
+    // Sanitizar coordenadas (igual que en create)
     if (latitude !== undefined && latitude !== null && latitude !== '') {
       latitude = parseFloat(latitude);
       if (isNaN(latitude)) latitude = null;
@@ -291,10 +348,11 @@ exports.updateAction = async (req, res) => {
       recordingUrl: recordingUrl !== undefined ? recordingUrl : action.recordingUrl,
       isLive: isLive !== undefined ? isLive : action.isLive,
       campaignId: parsedCampaignId,
+      bdsId: parsedBdsId,
       featuredImage,
       groups: groups || [],
       documentLink: documentLink !== undefined ? documentLink : action.documentLink,
-      document: documentPath
+      document: documentPath,
     });
 
     if (req.files && req.files.images && req.files.images.length > 0) {
@@ -307,7 +365,7 @@ exports.updateAction = async (req, res) => {
     }
 
     const updatedAction = await Action.findByPk(action.id, {
-      include: [{ model: ActionImage, as: 'images' }]
+      include: [{ model: ActionImage, as: 'images' }],
     });
     res.json(updatedAction);
   } catch (error) {
@@ -324,7 +382,7 @@ exports.deleteAction = async (req, res) => {
       return res.status(400).json({ message: 'ID inválido' });
     }
     const action = await Action.findByPk(id, {
-      include: [{ model: ActionImage, as: 'images' }]
+      include: [{ model: ActionImage, as: 'images' }],
     });
     if (!action) return res.status(404).json({ message: 'Acción no encontrada' });
 

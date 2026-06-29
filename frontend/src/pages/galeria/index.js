@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import axios from 'axios';
-import Layout from '../components/Layout';
+import Layout from '../../components/Layout';
 
 export default function Galeria() {
-  const [filtroTipo, setFiltroTipo] = useState('todas');       // 'todas', 'campana', 'accion'
-  const [filtroTiempo, setFiltroTiempo] = useState('todas');   // 'todas', 'futuras', 'pasadas'
+  const [filtroTipo, setFiltroTipo] = useState('todas');
+  const [filtroTiempo, setFiltroTiempo] = useState('todas');
   const [campanas, setCampanas] = useState([]);
   const [acciones, setAcciones] = useState([]);
   const [imagenes, setImagenes] = useState([]);
@@ -15,7 +15,6 @@ export default function Galeria() {
   const [selectedAccion, setSelectedAccion] = useState('');
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
-  // Cargar listas de campañas y acciones
   useEffect(() => {
     const fetchLists = async () => {
       try {
@@ -32,7 +31,6 @@ export default function Galeria() {
     fetchLists();
   }, []);
 
-  // Cargar todas las imágenes una vez
   useEffect(() => {
     const fetchAllImages = async () => {
       setLoading(true);
@@ -49,7 +47,6 @@ export default function Galeria() {
     fetchAllImages();
   }, []);
 
-  // Aplicar filtros combinados (tipo + tiempo)
   useEffect(() => {
     let resultado = [...todasLasImagenes];
 
@@ -94,9 +91,7 @@ export default function Galeria() {
       <div className="container mx-auto px-4 py-8 pb-16">
         <h1 className="text-4xl font-bold mb-10 text-center text-gray-800">Galería Multimedia</h1>
 
-        {/* Filtros: selectores sin borde + botones de tiempo con borde */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6 mb-8">
-          {/* Selector de tipo (Todas / Campañas / Acciones) sin borde */}
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <span className="text-gray-700 font-medium">Filtrar por:</span>
             <div className="relative inline-block">
@@ -115,7 +110,6 @@ export default function Galeria() {
             </div>
           </div>
 
-          {/* Selección de campaña o acción (sin borde) */}
           {(filtroTipo === 'campana' || filtroTipo === 'accion') && (
             <div className="flex items-center gap-4 flex-wrap">
               <div className="relative inline-block">
@@ -137,7 +131,6 @@ export default function Galeria() {
                 </svg>
               </div>
 
-              {/* Filtros de tiempo (con borde, estilo original, fucsia cuando activos) */}
               {filtroTipo === 'accion' && selectedAccion && (
                 <div className="flex gap-2">
                   <button
@@ -170,7 +163,6 @@ export default function Galeria() {
           )}
         </div>
 
-        {/* Grid de imágenes */}
         {loading ? (
           <p className="text-center text-gray-600 py-12">Cargando imágenes...</p>
         ) : imagenes.length === 0 ? (
@@ -211,7 +203,6 @@ export default function Galeria() {
           </div>
         )}
 
-        {/* Lightbox */}
         {lightboxIndex !== null && (
           <div
             className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"

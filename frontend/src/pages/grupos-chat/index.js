@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import Layout from '../components/Layout';
-import ChatGroupCard from '../components/ChatGroupCard';
+import Layout from '../../components/Layout';                 
+import ChatGroupCard from '../../components/ChatGroupCard';   
 
 export default function GruposChats() {
   const [groups, setGroups] = useState([]);
@@ -34,23 +34,17 @@ export default function GruposChats() {
     fetchData();
   }, []);
 
-  // Aplicar filtros
   useEffect(() => {
     let result = [...groups];
-
     if (selectedCampaign) {
       result = result.filter(g => g.campaignId == selectedCampaign);
     }
-
     if (selectedAction) {
-      // Filtra directamente por actionId
       result = result.filter(g => g.actionId == selectedAction);
     }
-
     setFilteredGroups(result);
   }, [selectedCampaign, selectedAction, groups]);
 
-  // Agrupar por región
   useEffect(() => {
     const regionMap = {};
     filteredGroups.forEach(group => {
@@ -77,7 +71,9 @@ export default function GruposChats() {
             className="border rounded px-3 py-2 text-sm text-gray-700"
           >
             <option value="">Todas las campañas</option>
-            {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {campaigns.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
           </select>
 
           <select
@@ -86,7 +82,9 @@ export default function GruposChats() {
             className="border rounded px-3 py-2 text-sm text-gray-700"
           >
             <option value="">Todas las acciones</option>
-            {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+            {actions.map(a => (
+              <option key={a.id} value={a.id}>{a.title}</option>
+            ))}
           </select>
         </div>
 

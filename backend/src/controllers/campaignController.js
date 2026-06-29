@@ -1,7 +1,9 @@
+const jwt = require('jsonwebtoken');
 const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
 const Subscriber = require('../models/Subscriber');
 const { sendCampaignNotification } = require('../services/emailService');
+const { sendNotificationToSubscribers } = require('../utils/emailHelper'); // ← AÑADIDO
 const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
 
@@ -10,18 +12,35 @@ const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
 exports.getAllCampaigns = async (req, res) => {
   try {
+    let userRole = null;
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userRole = decoded.role;
+        userId = decoded.id;
+      } catch (err) { /* token inválido, ignorar */ }
+    }
+
     let where = {};
-    if (req.user) {
-      if (req.user.role === 'campaign_admin') {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
+    if (userRole) {
+      if (userRole === 'campaign_admin') {
+        const userCampaigns = await UserCampaign.findAll({ where: { userId } });
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
         if (campaignIds.length === 0) return res.json([]);
         where.id = campaignIds;
-      } else if (req.user.role === 'action_admin') {
+      } else if (userRole === 'action_admin') {
         return res.json([]);
       }
     }
-    const campaigns = await Campaign.findAll({ where, order: [['name', 'ASC']] });
+
+    const campaigns = await Campaign.findAll({
+      where,
+      attributes: ['id', 'name', 'color'],
+      order: [['name', 'ASC']],
+    });
     res.json(campaigns);
   } catch (error) {
     console.error('Error en getAllCampaigns:', error);
@@ -32,9 +51,7 @@ exports.getAllCampaigns = async (req, res) => {
 exports.getCampaignById = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
     const campaign = await Campaign.findByPk(id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
     res.json(campaign);
@@ -48,22 +65,17 @@ exports.createCampaign = async (req, res) => {
   try {
     let { name, description, color, groups, documentLink } = req.body;
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
-
-    // Parse groups if string
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
-
     let imageUrl = null;
     if (req.files && req.files.image && req.files.image.length > 0) {
       imageUrl = `/uploads/campaigns/${req.files.image[0].filename}`;
     }
-
     let documentPath = null;
     if (req.files && req.files.document && req.files.document.length > 0) {
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
-
     const campaign = await Campaign.create({
       name,
       description: description || '',
@@ -71,19 +83,27 @@ exports.createCampaign = async (req, res) => {
       imageUrl,
       groups: groups || [],
       documentLink: documentLink || null,
-      document: documentPath
+      document: documentPath,
     });
 
-    // Notificar a suscriptores
+    // ─── NOTIFICACIONES (plantilla + fallback) ─────────────────
     try {
-      const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
-      for (const sub of subscribers) {
-        await sendCampaignNotification(sub.email, campaign).catch(err => console.error(`Error email a ${sub.email}:`, err));
+      const sent = await sendNotificationToSubscribers('campaign_created', { campaign });
+      if (!sent) {
+        // Fallback: método antiguo
+        const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
+        for (const sub of subscribers) {
+          await sendCampaignNotification(sub.email, campaign)
+            .catch(err => console.error(`Error email a ${sub.email}:`, err));
+        }
+        console.log(`Notificaciones de campaña enviadas (método antiguo) a ${subscribers.length} suscriptores`);
+      } else {
+        console.log(`Notificaciones de campaña enviadas usando plantilla 'campaign_created'`);
       }
-      console.log(`Notificaciones de campaña enviadas a ${subscribers.length} suscriptores`);
     } catch (emailError) {
       console.error('Error al enviar notificaciones de campaña:', emailError);
     }
+    // ─────────────────────────────────────────────────────────
 
     res.status(201).json(campaign);
   } catch (error) {
@@ -95,13 +115,9 @@ exports.createCampaign = async (req, res) => {
 exports.updateCampaign = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
     const campaign = await Campaign.findByPk(id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
-
-    // Permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedIds = userCampaigns.map(uc => uc.campaignId);
@@ -111,30 +127,20 @@ exports.updateCampaign = async (req, res) => {
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
-
     let { name, description, color, groups, documentLink } = req.body;
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
-
-    // Imagen
     let imageUrl = campaign.imageUrl;
     if (req.files && req.files.image && req.files.image.length > 0) {
-      if (campaign.imageUrl) {
-        deleteFileSafe(campaign.imageUrl, CAMPAIGNS_BASE);
-      }
+      if (campaign.imageUrl) deleteFileSafe(campaign.imageUrl, CAMPAIGNS_BASE);
       imageUrl = `/uploads/campaigns/${req.files.image[0].filename}`;
     }
-
-    // Documento
     let documentPath = campaign.document;
     if (req.files && req.files.document && req.files.document.length > 0) {
-      if (campaign.document) {
-        deleteFileSafe(campaign.document, DOCUMENTS_BASE);
-      }
+      if (campaign.document) deleteFileSafe(campaign.document, DOCUMENTS_BASE);
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
-
     await campaign.update({
       name: name || campaign.name,
       description: description !== undefined ? description : campaign.description,
@@ -142,9 +148,8 @@ exports.updateCampaign = async (req, res) => {
       imageUrl,
       groups: groups || [],
       documentLink: documentLink !== undefined ? documentLink : campaign.documentLink,
-      document: documentPath
+      document: documentPath,
     });
-
     res.json(campaign);
   } catch (error) {
     console.error('Error en updateCampaign:', error);
@@ -155,23 +160,14 @@ exports.updateCampaign = async (req, res) => {
 exports.deleteCampaign = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
     const campaign = await Campaign.findByPk(id);
     if (!campaign) return res.status(404).json({ message: 'Campaña no encontrada' });
-
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'No tienes permiso para eliminar campañas' });
     }
-
-    if (campaign.imageUrl) {
-      deleteFileSafe(campaign.imageUrl, CAMPAIGNS_BASE);
-    }
-    if (campaign.document) {
-      deleteFileSafe(campaign.document, DOCUMENTS_BASE);
-    }
-
+    if (campaign.imageUrl) deleteFileSafe(campaign.imageUrl, CAMPAIGNS_BASE);
+    if (campaign.document) deleteFileSafe(campaign.document, DOCUMENTS_BASE);
     await campaign.destroy();
     res.json({ message: 'Campaña eliminada' });
   } catch (error) {

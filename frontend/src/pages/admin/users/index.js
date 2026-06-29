@@ -1,13 +1,12 @@
 import api from '../../../lib/axios';
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
-import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash, FaEdit, FaTrash, FaFileExport, FaSearch, FaPlus } from 'react-icons/fa';
 import { useAuth } from '../../../context/AuthContext';
-import { downloadCSV } from '../../../utils/exportCsv';
+import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 
@@ -27,8 +26,8 @@ function AdminUsers() {
   const [selected, setSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exportFormat, setExportFormat] = useState('csv');
   const itemsPerPage = 10;
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   const fetchUsers = async () => {
     try { const res = await api.get('/users'); setUsers(res.data); }
@@ -45,7 +44,7 @@ function AdminUsers() {
   useEffect(() => { Promise.all([fetchUsers(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false)); }, []);
 
   const canCreate = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'campaign_admin');
-  const availableRoles = currentUser?.role === 'superadmin' ? ['superadmin', 'campaign_admin', 'action_admin'] : ['action_admin'];
+  const availableRoles = currentUser?.role === 'superadmin' ? ['superadmin', 'campaign_admin', 'action_admin', 'bds_admin'] : ['action_admin'];
   const showCampaignSelect = currentUser?.role === 'superadmin';
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -58,11 +57,11 @@ function AdminUsers() {
     setSubmitting(true);
     try {
       if (editingId) {
-        const response = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/users/${editingId}`, form, { headers: { Authorization: `Bearer ${token}` } });
+        const response = await api.put(`/users/${editingId}`, form);
         setUsers(prev => prev.map(u => u.id === editingId ? response.data : u));
         toast.success('Usuario actualizado');
       } else {
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/users`, form, { headers: { Authorization: `Bearer ${token}` } });
+        const response = await api.post('/users', form);
         setUsers(prev => [...prev, response.data]);
         toast.success('Usuario creado');
       }
@@ -82,14 +81,14 @@ function AdminUsers() {
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     try {
-      await Promise.all(ids.map(id => api.delete('/users/${id}')));
+      await Promise.all(ids.map(id => api.delete(`/users/${id}`)));
       toast.success(`${ids.length} usuario(s) eliminado(s)`);
       setSelected([]); fetchUsers();
     } catch (error) { toast.error('Error al eliminar'); }
     finally { setShowDeleteModal(false); setDeleteTarget(null); }
   };
 
-  const roleLabels = { superadmin: 'Superadministrador', campaign_admin: 'Adm. de campaña', action_admin: 'Adm. de evento' };
+  const roleLabels = { superadmin: 'Superadministrador', campaign_admin: 'Adm. de campaña', action_admin: 'Adm. de evento', bds_admin: 'Adm. BDS' };
   const campaignOptions = campaigns.map(c => ({ value: c.id, label: c.name }));
   const actionOptions = actions.map(a => ({ value: a.id, label: a.title }));
 
@@ -105,7 +104,7 @@ function AdminUsers() {
   const exportCSV = () => {
     const headers = ['username', 'role', 'assignments'];
     const data = filtered.map(u => ({ username: u.username, role: roleLabels[u.role] || u.role, assignments: u.campaigns?.map(c => c.name).join(', ') || u.actions?.map(a => a.title).join(', ') || '' }));
-    downloadCSV(data, headers, 'usuarios.csv');
+    exportInfo(data, headers, 'usuarios', exportFormat);
   };
 
   const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginated.map(u => u.id)); else setSelected([]); };
@@ -130,10 +129,12 @@ function AdminUsers() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      {/* Encabezado y botón de crear usuario */}
+      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
+        <h2 className="text-2xl font-bold text-gray-800">Usuarios</h2>
         <div className="flex items-center gap-2">
           {canCreate && (
-            <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 text-sm border border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors">
+            <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
               <FaPlus className="w-3.5 h-3.5" /> Crear usuario
             </button>
           )}
@@ -143,15 +144,22 @@ function AdminUsers() {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48" />
-          </div>
-          <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors">
-            <FaFileExport className="w-3.5 h-3.5" /> Exportar
-          </button>
+      </div>
+
+      {/* Búsqueda y exportación */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-full" />
         </div>
+        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+          <option value="csv">CSV</option>
+          <option value="xlsx">Excel</option>
+          <option value="txt">Texto</option>
+        </select>
+        <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors">
+          <FaFileExport className="w-3.5 h-3.5" /> Exportar
+        </button>
       </div>
 
       {showForm && canCreate && (
@@ -161,7 +169,7 @@ function AdminUsers() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Rol *</label>
               <select name="role" value={form.role} onChange={handleChange} disabled={currentUser?.role !== 'superadmin'} className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-fuchsia-500">
-                {availableRoles.map(role => <option key={role} value={role}>{roleLabels[role]}</option>)}
+                {availableRoles.map(role => <option key={role} value={role}>{roleLabels[role] || role}</option>)}
               </select>
             </div>
             <div>
@@ -196,9 +204,9 @@ function AdminUsers() {
       )}
 
       {loading ? <p className="text-gray-500 text-sm">Cargando...</p> : filtered.length === 0 ? <p className="text-gray-500 text-sm">No se encontraron usuarios.</p> : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+        <div className="card overflow-hidden">
+          <table className="min-w-full divide-y divide-purple-100 text-sm">
+            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
                 <th className="px-6 py-3 text-left w-10"><input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} /></th>
                 <th className="px-6 py-3 text-left">Usuario</th>
@@ -207,14 +215,14 @@ function AdminUsers() {
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-purple-100">
               {paginated.map(user => {
                 const canEdit = currentUser?.role === 'superadmin' || (currentUser?.role === 'campaign_admin' && user.role === 'action_admin');
                 return (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(user.id)} onChange={() => toggleOne(user.id)} /></td>
                     <td className="px-6 py-4 font-medium text-gray-900">{user.username}</td>
-                    <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{roleLabels[user.role]}</td>
+                    <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{roleLabels[user.role] || user.role}</td>
                     <td className="px-6 py-4 hidden md:table-cell text-gray-500">{user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}{user.role === 'action_admin' && user.actions?.map(a => a.title).join(', ')}{user.role === 'superadmin' && '-'}</td>
                     <td className="px-6 py-4">
                       {canEdit && (

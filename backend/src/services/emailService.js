@@ -42,7 +42,7 @@ handlebars.registerHelper('formatDate', function(date) {
 });
 
 async function loadTemplates() {
-  const templateNames = ['welcome', 'goodbye', 'campaign', 'action', 'reminder'];
+  const templateNames = ['welcome', 'goodbye', 'campaign', 'action', 'reminder', 'passwordReset'];
   const templatesDir = path.join(__dirname, '../templates/emails');
 
   for (const name of templateNames) {
@@ -68,6 +68,35 @@ const initEmailService = async () => {
 const sendEmail = async (to, subject, templateName, context = {}) => {
   if (!templatesLoaded) {
     await initEmailService();
+  }
+
+  // Si no es una plantilla predefinida y viene un body HTML directo
+  if (templateName === 'custom' && context.body) {
+    const data = {
+      ...context,
+      unsubscribeLink: getUnsubscribeLink(to),
+      preferencesLink: getPreferencesLink(to),
+    };
+
+    if (!transporter) {
+      console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}, Template: custom`);
+      console.log(`[MOCK EMAIL] HTML: ${context.body.substring(0, 200)}...`);
+      return;
+    }
+
+    try {
+      await transporter.sendMail({
+        from: `"Voces Palestinas por la Justicia" <${process.env.EMAIL_FROM}>`,
+        to,
+        subject,
+        html: context.body,
+      });
+      console.log(`✅ Email sent to ${to} (${subject})`);
+      return;
+    } catch (err) {
+      console.error(`❌ Failed to send email to ${to}:`, err);
+      return;
+    }
   }
 
   const data = {
@@ -118,6 +147,12 @@ const sendActionNotification = (email, action, campaign) =>
 const sendReminderEmail = (email, action, campaign) =>
   sendEmail(email, `Recordatorio: ${action.title} es mañana`, 'reminder', { action, campaign });
 
+const sendPasswordResetEmail = (email, resetUrl) =>
+  sendEmail(email, 'Restablecer tu contraseña', 'passwordReset', { resetUrl });
+
+const sendCustomEmail = (email, subject, htmlBody) =>
+  sendEmail(email, subject, 'custom', { body: htmlBody });
+
 module.exports = {
   initEmailService,
   sendWelcomeEmail,
@@ -125,4 +160,6 @@ module.exports = {
   sendCampaignNotification,
   sendActionNotification,
   sendReminderEmail,
+  sendPasswordResetEmail,
+  sendCustomEmail,
 };

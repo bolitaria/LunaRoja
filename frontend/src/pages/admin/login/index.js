@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from '../../../context/AuthContext';
+import PasswordField from '../../../components/PasswordField';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function AdminLogin() {
     try {
       await login(username, password);
       toast.success('Inicio de sesión exitoso');
-      router.push('/admin');
+      router.push('/admin/dashboard');
     } catch (error) {
       const msg = error.response?.data?.message || 'Credenciales inválidas';
       toast.error(msg);
@@ -33,47 +33,55 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-amber-50/80">
       <ToastContainer position="top-right" autoClose={5000} />
-      <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full border border-gray-200">
-        <div className="text-center mb-6">
-          <img src="/logo.svg" alt="Logo" className="h-16 mx-auto mb-2" />
-          <h1 className="text-2xl font-bold text-gray-800">Panel de Administración</h1>
-          <p className="text-sm text-gray-500">Inicia sesión para continuar</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Usuario</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent"
-              placeholder="admin"
-              required
-            />
+      <div className="max-w-sm w-full mx-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-semibold text-gray-700">Panel de Administración</h1>
+            <p className="text-gray-500 text-sm mt-1">Voces Palestinas por la Justicia</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Contraseña</label>
-            <input
-              type="password"
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input-field focus:ring-0 focus:border-gray-300"
+                placeholder="Nombre de usuario"
+                autoFocus
+                required
+              />
+            </div>
+
+            <PasswordField
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent"
-              placeholder="••••••••"
-              required
+              required={true}
+              label="Contraseña"
+              placeholder="Contraseña"
             />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-xs text-gray-400 space-y-1">
+            <Link href="/" className="hover:text-emerald-600 transition-colors block">
+              ← Volver al sitio público
+            </Link>
+            <Link href="/admin/login/recuperar" className="hover:text-emerald-600 transition-colors block">
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-          </button>
-        </form>
-        <div className="mt-4 text-center text-xs text-gray-400">
-          <Link href="/" className="hover:text-fuchsia-600">← Volver al sitio público</Link>
         </div>
       </div>
     </div>

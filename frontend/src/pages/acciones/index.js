@@ -189,7 +189,7 @@ export default function AccionesIndex() {
                     )}
                     <div className="p-3 flex flex-col flex-1">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 flex-1">
+                        <h3 className="text-sm font-semibold text-gray-600 line-clamp-2 flex-1">
                           {action.title}
                         </h3>
                         {action.urgent && (

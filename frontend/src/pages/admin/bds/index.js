@@ -5,10 +5,10 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { downloadCSV } from '../../../utils/exportCsv';
+import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
-import { FaEdit, FaTrash, FaFileExport, FaSearch } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye } from 'react-icons/fa';
 
 function AdminBDS() {
   const [bdsList, setBdsList] = useState([]);
@@ -19,6 +19,7 @@ function AdminBDS() {
   const [selected, setSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exportFormat, setExportFormat] = useState('csv');
   const itemsPerPage = 10;
 
   const fetchBDS = async () => {
@@ -40,7 +41,7 @@ function AdminBDS() {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     try {
       await Promise.all(ids.map(id => api.delete(`/bds/${id}`)));
-      toast.success(`${ids.length} BDS eliminada(s)`);
+      toast.success(`${ids.length} campaña(s) BDS eliminada(s)`);
       setSelected([]); fetchBDS();
     } catch (error) { toast.error('Error al eliminar'); }
     finally { setShowDeleteModal(false); setDeleteTarget(null); }
@@ -50,15 +51,27 @@ function AdminBDS() {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  const exportCSV = () => {
+    const headers = ['name', 'description'];
+    const data = filtered.map(b => ({ name: b.name, description: b.description || '' }));
+    exportInfo(data, headers, 'bds', exportFormat);
+  };
+
   const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginated.map(b => b.id)); else setSelected([]); };
   const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const isSuperAdmin = user && user.role === 'superadmin';
 
   return (
-    <AdminLayout title="BDS">
+    <AdminLayout title="Campañas BDS">
       <ToastContainer />
-      <ConfirmModal isOpen={showDeleteModal} title="Eliminar BDS" message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} BDS seleccionadas?` : '¿Eliminar esta BDS?')} onConfirm={executeDelete} onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Eliminar Campaña BDS"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} campañas?` : '¿Eliminar esta campaña?')}
+        onConfirm={executeDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
       <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
@@ -68,8 +81,8 @@ function AdminBDS() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
-            <Link href="/admin/bds/new" className="inline-flex items-center gap-1.5 text-sm border border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-              Nueva BDS
+            <Link href="/admin/bds/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
+              Nueva Campaña
             </Link>
           )}
           {selected.length > 0 && (
@@ -83,15 +96,22 @@ function AdminBDS() {
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input type="text" placeholder="Buscar…" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48" />
           </div>
-          <button onClick={() => downloadCSV(filtered.map(b => ({ name: b.name, description: b.description || '' })), ['name', 'description'], 'bds.csv')} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar CSV">
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="txt">Texto</option>
+          </select>
+          <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
             <FaFileExport className="w-4 h-4" />
           </button>
         </div>
       </div>
-      {loading ? <p className="text-gray-500 text-sm">Cargando…</p> : filtered.length === 0 ? <div className="text-center py-12 text-gray-400"><p className="text-lg mb-2">No se encontraron BDS</p><p className="text-sm">Crea una nueva BDS.</p></div> : (
+      {loading ? <p className="text-gray-500 text-sm">Cargando…</p> : filtered.length === 0 ? (
+        <div className="text-center py-12 text-gray-400"><p className="text-lg mb-2">No se encontraron campañas BDS</p><p className="text-sm">Crea una nueva.</p></div>
+      ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+          <table className="min-w-full divide-y divide-purple-100 text-sm">
+            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
                 <th className="px-6 py-3 text-left w-10"><input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} className="rounded border-gray-300" /></th>
                 <th className="px-6 py-3 text-left">Nombre</th>
@@ -99,7 +119,7 @@ function AdminBDS() {
                 <th className="px-6 py-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-purple-100">
               {paginated.map(bds => (
                 <tr key={bds.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(bds.id)} onChange={() => toggleOne(bds.id)} className="rounded border-gray-300" /></td>
@@ -107,7 +127,10 @@ function AdminBDS() {
                   <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{bds.description?.substring(0, 80)}{bds.description?.length > 80 ? '...' : ''}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Link href={`/admin/bds/${bds.id}`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
+                      <Link href={`/admin/bds/${bds.id}`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Ver campaña y acciones">
+                        <FaEye className="w-5 h-5" />
+                      </Link>
+                      <Link href={`/admin/bds/${bds.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar campaña">
                         <FaEdit className="w-5 h-5" />
                       </Link>
                       {isSuperAdmin && (

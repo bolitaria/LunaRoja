@@ -5,6 +5,7 @@ const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
 const { toInt, isValidId } = require('../utils/helpers');
 
+// ========== GET ALL NEWS ==========
 exports.getAllNews = async (req, res) => {
   try {
     const { campaignId, actionId } = req.query;
@@ -61,6 +62,7 @@ exports.getAllNews = async (req, res) => {
   }
 };
 
+// ========== GET NEWS BY ID ==========
 exports.getNewsById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -76,6 +78,7 @@ exports.getNewsById = async (req, res) => {
   }
 };
 
+// ========== CREATE NEWS ==========
 exports.createNews = async (req, res) => {
   try {
     const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
@@ -112,6 +115,7 @@ exports.createNews = async (req, res) => {
   }
 };
 
+// ========== UPDATE NEWS ==========
 exports.updateNews = async (req, res) => {
   try {
     const { id } = req.params;
@@ -157,6 +161,7 @@ exports.updateNews = async (req, res) => {
   }
 };
 
+// ========== DELETE NEWS ==========
 exports.deleteNews = async (req, res) => {
   try {
     const { id } = req.params;

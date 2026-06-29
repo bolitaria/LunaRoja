@@ -36,6 +36,7 @@ app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(hpp());
+app.use('/api/email-templates', require('./routes/emailTemplateRoutes'));
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())

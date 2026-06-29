@@ -1,7 +1,6 @@
 import api from '../../../lib/axios';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ActionPreview from '../../../components/ActionPreview';
@@ -42,8 +41,6 @@ function NewAction() {
   const markerRef = useRef(null);
   const scriptLoadingRef = useRef(false);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
   const loadLeaflet = () => {
     if (typeof window === 'undefined') return;
     if (window.L) {
@@ -75,19 +72,19 @@ function NewAction() {
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const res = await axios.get(`${apiUrl}/campaigns`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get('/campaigns');   // ← usa la instancia api (token incluido)
         setCampaigns(res.data);
       } catch (error) {
-        toast.error('Error al cargar campañas');
+        // Fallo silencioso: el selector simplemente aparecerá vacío
+        console.warn('No se pudieron cargar campañas', error);
+        setCampaigns([]);
       }
     };
     fetchCampaigns();
     loadLeaflet();
-  }, [apiUrl]);
+  }, []);
 
-  // Funciones de mapa (idénticas al original)
+  // Funciones de mapa (idénticas al original, sin cambios)
   const searchAddress = async () => {
     if (!form.address.trim()) {
       toast.warning('Escribe una dirección para buscar.');
@@ -230,7 +227,6 @@ function NewAction() {
     });
   };
 
-  // Documentos: públicos y privados (sin checkbox)
   const addPublicDocument = (name, file) => {
     setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
   };
@@ -256,7 +252,6 @@ function NewAction() {
     setLoading(true);
     try {
       const formData = new FormData();
-      // Públicos
       formData.append('title', form.title);
       formData.append('description', form.description || '');
       formData.append('category', form.category);
@@ -272,7 +267,6 @@ function NewAction() {
       formData.append('urgent', form.urgent);
       formData.append('enableAttendance', form.enableAttendance);
       formData.append('campaignId', form.campaignId || '');
-      // Privados
       formData.append('privateLink', form.privateLink || '');
       formData.append('groups', JSON.stringify(groups));
       if (featuredImageFile) formData.append('featuredImage', featuredImageFile);
@@ -284,8 +278,8 @@ function NewAction() {
         formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
       });
 
-      await axios.post(`${apiUrl}/actions`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      await api.post('/actions', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Acción creada');
       router.push('/admin/actions');
@@ -574,7 +568,7 @@ function NewAction() {
             </div>
           </div>
 
-          {/* ZONA PRIVADA / ADMINISTRACIÓN */}
+          {/* ZONA PRIVADA */}
           <div className="border-l-2 border-rose-400 pl-4 mt-8 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-rose-400"></span>
             <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-4">

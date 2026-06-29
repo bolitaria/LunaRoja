@@ -4,13 +4,13 @@ const authMiddleware = require('../middlewares/auth');
 const { isSuperAdmin } = require('../middlewares/authorize');
 const bdsController = require('../controllers/bdsController');
 
-router.use(authMiddleware);
-router.use(isSuperAdmin);   // solo superadmin por ahora (ajusta según necesidad)
+// 📌 Lectura: cualquier usuario autenticado (el controlador filtra según el rol)
+router.get('/', authMiddleware, bdsController.getAllBDS);
+router.get('/:id', authMiddleware, bdsController.getBDSById);
 
-router.get('/', bdsController.getAllBDS);
-router.get('/:id', bdsController.getBDSById);
-router.post('/', bdsController.createBDS);
-router.put('/:id', bdsController.updateBDS);
-router.delete('/:id', bdsController.deleteBDS);
+// 📌 Escritura: solo superadmin
+router.post('/', authMiddleware, isSuperAdmin, bdsController.createBDS);
+router.put('/:id', authMiddleware, isSuperAdmin, bdsController.updateBDS);
+router.delete('/:id', authMiddleware, isSuperAdmin, bdsController.deleteBDS);
 
 module.exports = router;

@@ -1,100 +1,69 @@
-const Sequelize = require('sequelize');
 const sequelize = require('../config/database');
-
-// Importar modelos
 const User = require('./User');
 const Campaign = require('./Campaign');
 const Action = require('./Action');
 const ActionImage = require('./ActionImage');
-const Noticia = require('./News');
-const Report = require('./Report');
-const Subscriber = require('./Subscriber');
-const ChatGroup = require('./ChatGroup');
+const BDS = require('./BDS');
 const UserCampaign = require('./UserCampaign');
 const UserAction = require('./UserAction');
-const Document = require('./Document');
-const SubscribersReminder = require('./SubscribersReminder');
-const BDS = require('./BDS');
 const UserBDS = require('./UserBDS');
+const Subscriber = require('./Subscriber');
+const SubscribersReminder = require('./SubscribersReminder');
+const ChatGroup = require('./ChatGroup');
+const News = require('./News');                     // ← Nombre correcto del modelo
 
-// ============================
-// ASOCIACIONES
-// ============================
+// Campaign <-> Action
+Campaign.hasMany(Action, { foreignKey: 'campaignId', as: 'campaignActions' });
+Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 
-// Campaign - Action
-Campaign.hasMany(Action, { foreignKey: 'campaignId', as: 'actions', onDelete: 'SET NULL' });
-Action.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign', onDelete: 'SET NULL' });
+// BDS <-> Action
+BDS.hasMany(Action, { foreignKey: 'bdsId', as: 'bdsActions' });
+Action.belongsTo(BDS, { foreignKey: 'bdsId', as: 'bds' });
 
-// Action - ActionImage
-Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images', onDelete: 'CASCADE' });
-ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action', onDelete: 'CASCADE' });
+// Action <-> ActionImage
+Action.hasMany(ActionImage, { foreignKey: 'actionId', as: 'images' });
+ActionImage.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
-// Action - ChatGroup
-Action.hasMany(ChatGroup, { foreignKey: 'actionId', as: 'chatGroups', onDelete: 'CASCADE' });
-ChatGroup.belongsTo(Action, { foreignKey: 'actionId', as: 'assignedAction', onDelete: 'CASCADE' });
+// User <-> Campaign
+User.belongsToMany(Campaign, { through: UserCampaign, foreignKey: 'userId', otherKey: 'campaignId', as: 'campaigns' });
+Campaign.belongsToMany(User, { through: UserCampaign, foreignKey: 'campaignId', otherKey: 'userId', as: 'users' });
 
-// User - Campaign (many-to-many)
-User.belongsToMany(Campaign, { through: UserCampaign, as: 'campaigns', foreignKey: 'userId', onDelete: 'CASCADE' });
-Campaign.belongsToMany(User, { through: UserCampaign, as: 'admins', foreignKey: 'campaignId', onDelete: 'CASCADE' });
+// User <-> Action
+User.belongsToMany(Action, { through: UserAction, foreignKey: 'userId', otherKey: 'actionId', as: 'assignedActions' });
+Action.belongsToMany(User, { through: UserAction, foreignKey: 'actionId', otherKey: 'userId', as: 'assignedUsers' });
 
-// User - Action (many-to-many)
-User.belongsToMany(Action, { through: UserAction, as: 'actions', foreignKey: 'userId', onDelete: 'CASCADE' });
-Action.belongsToMany(User, { through: UserAction, as: 'admins', foreignKey: 'actionId', onDelete: 'CASCADE' });
+// User <-> BDS (para bds_admin)
+User.belongsToMany(BDS, { through: UserBDS, foreignKey: 'userId', otherKey: 'bdsId', as: 'bdsCampaigns' });
+BDS.belongsToMany(User, { through: UserBDS, foreignKey: 'bdsId', otherKey: 'userId', as: 'users' });
 
-// BDS - Action
-BDS.hasMany(Action, { foreignKey: 'bdsId', as: 'actions', onDelete: 'SET NULL' });
-Action.belongsTo(BDS, { foreignKey: 'bdsId', as: 'bds', onDelete: 'SET NULL' });
+// Campaign <-> ChatGroup
+Campaign.hasMany(ChatGroup, { foreignKey: 'campaignId', as: 'chatGroups' });
+ChatGroup.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 
-// ❌ Comentada: BDS - ChatGroup (no existe la columna bdsId en ChatGroups)
-// BDS.hasMany(ChatGroup, { foreignKey: 'bdsId', as: 'chatGroups', onDelete: 'SET NULL' });
-// ChatGroup.belongsTo(BDS, { foreignKey: 'bdsId', as: 'assignedBDS', onDelete: 'SET NULL' });
+// Action <-> ChatGroup
+Action.hasMany(ChatGroup, { foreignKey: 'actionId', as: 'chatGroups' });
+ChatGroup.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
-// BDS - User (many-to-many)
-User.belongsToMany(BDS, { through: UserBDS, as: 'bdsCampaigns', foreignKey: 'userId', onDelete: 'CASCADE' });
-BDS.belongsToMany(User, { through: UserBDS, as: 'admins', foreignKey: 'bdsId', onDelete: 'CASCADE' });
+// Campaign <-> News
+Campaign.hasMany(News, { foreignKey: 'campaignId', as: 'news' });
+News.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 
-// ChatGroup - Campaign
-ChatGroup.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign', onDelete: 'SET NULL' });
-Campaign.hasMany(ChatGroup, { foreignKey: 'campaignId', as: 'campaignGroups', onDelete: 'SET NULL' });
+// Action <-> News
+Action.hasMany(News, { foreignKey: 'actionId', as: 'news' });
+News.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
-// Noticia - Campaign & Action
-Noticia.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign', onDelete: 'SET NULL' });
-Noticia.belongsTo(Action, { foreignKey: 'actionId', as: 'action', onDelete: 'SET NULL' });
-Campaign.hasMany(Noticia, { foreignKey: 'campaignId', as: 'noticias', onDelete: 'SET NULL' });
-Action.hasMany(Noticia, { foreignKey: 'actionId', as: 'noticias', onDelete: 'SET NULL' });
-
-// Document - Campaign & Action
-Document.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign', onDelete: 'SET NULL' });
-Document.belongsTo(Action, { foreignKey: 'actionId', as: 'action', onDelete: 'SET NULL' });
-Campaign.hasMany(Document, { foreignKey: 'campaignId', as: 'documents', onDelete: 'SET NULL' });
-Action.hasMany(Document, { foreignKey: 'actionId', as: 'documents', onDelete: 'SET NULL' });
-
-// Action - SubscribersReminder
-Action.hasMany(SubscribersReminder, { foreignKey: 'actionId', as: 'reminders', onDelete: 'CASCADE' });
-SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action', onDelete: 'CASCADE' });
-
-// Subscriber - SubscribersReminder
-Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders', onDelete: 'CASCADE' });
-SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber', onDelete: 'CASCADE' });
-
-// Exportar modelos y sequelize
-const db = {
+module.exports = {
   sequelize,
-  Sequelize,
   User,
   Campaign,
   Action,
   ActionImage,
-  Noticia,
-  Report,
-  Subscriber,
-  ChatGroup,
+  BDS,
   UserCampaign,
   UserAction,
-  Document,
-  SubscribersReminder,
-  BDS,
   UserBDS,
+  Subscriber,
+  SubscribersReminder,
+  ChatGroup,
+  News,
 };
-
-module.exports = db;

@@ -7,17 +7,16 @@ const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const { toInt, isValidId } = require('../utils/helpers');
 
-// Atributos que NUNCA deben enviarse al cliente
 const safeAttributes = { exclude: ['password', 'refreshToken'] };
 
-// ========================= GET ME (para el perfil) =========================
+// ========================= GET ME =========================
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
       attributes: safeAttributes,
       include: [
         { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
-        { model: Action, as: 'actions', attributes: ['id', 'title'], through: { attributes: [] } }
+        { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
       ]
     });
     if (!user) {
@@ -37,11 +36,11 @@ exports.getAllUsers = async (req, res) => {
     let where = {};
     let include = [
       { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
-      { model: Action, as: 'actions', attributes: ['id', 'title'], through: { attributes: [] } }
+      { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
     ];
 
     if (currentUser.role === 'superadmin') {
-      // Superadmin ve todos
+      // Ve todos
     } else if (currentUser.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: currentUser.id } });
       const campaignIds = userCampaigns.map(uc => uc.campaignId);
@@ -59,13 +58,14 @@ exports.getAllUsers = async (req, res) => {
         role: 'action_admin',
         id: { [Op.in]: userIds }
       };
-    } else if (currentUser.role === 'action_admin') {
+    } else if (currentUser.role === 'action_admin' || currentUser.role === 'bds_admin') {
+      // Estos roles no pueden listar usuarios
       return res.json([]);
     }
 
     const users = await User.findAll({
       where,
-      attributes: safeAttributes,   // ← ahora excluye password Y refreshToken
+      attributes: safeAttributes,
       include
     });
     res.json(users);
@@ -86,7 +86,7 @@ exports.createUser = async (req, res) => {
       await t.rollback();
       return res.status(400).json({ message: 'Faltan campos requeridos' });
     }
-    if (!['superadmin', 'campaign_admin', 'action_admin'].includes(role)) {
+    if (!['superadmin', 'campaign_admin', 'action_admin', 'bds_admin'].includes(role)) {
       await t.rollback();
       return res.status(400).json({ message: 'Rol inválido' });
     }
@@ -154,10 +154,10 @@ exports.createUser = async (req, res) => {
     await t.commit();
 
     const createdUser = await User.findByPk(user.id, {
-      attributes: safeAttributes,  // ← excluye password y refreshToken
+      attributes: safeAttributes,
       include: [
         { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
-        { model: Action, as: 'actions', attributes: ['id', 'title'], through: { attributes: [] } }
+        { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
       ]
     });
     res.status(201).json(createdUser);
@@ -265,10 +265,10 @@ exports.updateUser = async (req, res) => {
     await t.commit();
 
     const updatedUser = await User.findByPk(userId, {
-      attributes: safeAttributes,  // ← excluye password y refreshToken
+      attributes: safeAttributes,
       include: [
         { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
-        { model: Action, as: 'actions', attributes: ['id', 'title'], through: { attributes: [] } }
+        { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
       ]
     });
     res.json(updatedUser);

@@ -12,18 +12,11 @@ const { isSuperAdmin, canAccessCampaign } = require('../middlewares/authorize');
 const uploadCampaign = require('../middlewares/uploadCampaign');
 const router = express.Router();
 
-// ✅ Verificación temporal (para depurar)
-console.log('🔍 Verificando middlewares de campaña:');
-console.log('  authMiddleware:', typeof authMiddleware);
-console.log('  isSuperAdmin:', typeof isSuperAdmin);
-console.log('  uploadCampaign:', typeof uploadCampaign);
-console.log('  createCampaign:', typeof createCampaign);
-
-// Rutas públicas con autenticación opcional
+// 📌 Lectura: acceso público opcional, pero si hay token se usa para filtrar por rol
 router.get('/', optionalAuth, getAllCampaigns);
 router.get('/:id', optionalAuth, getCampaignById);
 
-// Rutas protegidas
+// 📌 Escritura: siempre requieren token y permisos específicos
 router.post('/', authMiddleware, isSuperAdmin, uploadCampaign, createCampaign);
 router.put('/:id', authMiddleware, canAccessCampaign, uploadCampaign, updateCampaign);
 router.delete('/:id', authMiddleware, isSuperAdmin, deleteCampaign);

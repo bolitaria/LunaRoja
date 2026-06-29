@@ -30,15 +30,10 @@ export default function NewNews() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [campRes, actRes] = await Promise.all([
-          api.get('/campaigns'),
-          api.get('/actions')
-        ]);
+        const [campRes, actRes] = await Promise.all([api.get('/campaigns'), api.get('/actions')]);
         setCampaigns(campRes.data);
         setActions(actRes.data);
-      } catch (error) {
-        toast.error('Error al cargar datos auxiliares');
-      }
+      } catch (error) { toast.error('Error al cargar datos auxiliares'); }
     };
     fetchData();
   }, []);
@@ -58,14 +53,8 @@ export default function NewNews() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) {
-      toast.warning('El título es obligatorio');
-      return;
-    }
-    if (!form.youtubeUrl.trim()) {
-      toast.warning('La URL de YouTube es obligatoria');
-      return;
-    }
+    if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
+    if (!form.youtubeUrl.trim()) { toast.warning('La URL de YouTube es obligatoria'); return; }
     setLoading(true);
     try {
       await api.post('/news', {
@@ -77,82 +66,71 @@ export default function NewNews() {
       router.push('/admin/news');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al crear noticia');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Construir objeto de previsualización para NewsCard
   const previewNoticia = {
     title: form.title,
     description: form.description,
     youtubeUrl: form.youtubeUrl,
     thumbnail: form.thumbnail,
     isNews: form.isNews,
-    publishedAt: new Date().toISOString(), // solo para la preview
+    publishedAt: new Date().toISOString(),
   };
-  const previewCampaign = form.campaignId
-    ? campaigns.find(c => c.id === Number(form.campaignId))
-    : null;
-  const previewAction = form.actionId
-    ? actions.find(a => a.id === Number(form.actionId))
-    : null;
+  const previewCampaign = form.campaignId ? campaigns.find(c => c.id === Number(form.campaignId)) : null;
+  const previewAction = form.actionId ? actions.find(a => a.id === Number(form.actionId)) : null;
 
   return (
     <AdminLayout title="Nueva Noticia">
       <ToastContainer />
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Formulario (izquierda) */}
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
+        {/* Formulario a la izquierda */}
+        <form onSubmit={handleSubmit} className="card lg:w-2/3 space-y-6">
           <h2 className="text-xl font-semibold text-gray-700">Crear Noticia</h2>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-              <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+              <input type="text" name="title" value={form.title} onChange={handleChange} required className="input-field" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+              <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="input-field" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">URL de YouTube *</label>
-              <input type="url" name="youtubeUrl" value={form.youtubeUrl} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+              <input type="url" name="youtubeUrl" value={form.youtubeUrl} onChange={handleChange} required className="input-field" />
             </div>
             <div className="flex items-center">
-              <input type="checkbox" name="isNews" checked={form.isNews} onChange={handleChange} className="mr-2 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500" />
+              <input type="checkbox" name="isNews" checked={form.isNews} onChange={handleChange} className="mr-2 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
               <label className="text-sm text-gray-700">Es noticia destacada</label>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Campaña</label>
-                <select name="campaignId" value={form.campaignId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                <select name="campaignId" value={form.campaignId} onChange={handleChange} className="input-field">
                   <option value="">-- Ninguna --</option>
                   {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Acción</label>
-                <select name="actionId" value={form.actionId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                <select name="actionId" value={form.actionId} onChange={handleChange} className="input-field">
                   <option value="">-- Ninguna --</option>
                   {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
                 </select>
               </div>
             </div>
           </div>
-          <button type="submit" disabled={loading} className="inline-flex items-center gap-1 text-sm bg-fuchsia-600 text-white px-4 py-2 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors">
+          <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Creando...' : 'Crear Noticia'}
           </button>
         </form>
 
-        {/* Vista previa (derecha) */}
+        {/* Vista previa a la derecha */}
         <div className="lg:w-1/3">
           <div className="sticky top-6">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Vista previa</h3>
-            <NewsCard
-              noticia={previewNoticia}
-              campaign={previewCampaign}
-              action={previewAction}
-            />
+            <NewsCard noticia={previewNoticia} campaign={previewCampaign} action={previewAction} />
           </div>
         </div>
       </div>

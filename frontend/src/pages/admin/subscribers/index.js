@@ -1,26 +1,24 @@
 import api from '../../../lib/axios';
-// pages/admin/subscribers/index.js
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
-import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { downloadCSV } from '../../../utils/exportCsv';
+import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
-import { FaTrash, FaFileExport, FaSearch, FaEnvelope } from 'react-icons/fa';
+import { FaTrash, FaFileExport, FaSearch } from 'react-icons/fa';
 
 function AdminSubscribers() {
   const [subscribers, setSubscribers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState(''); // '', 'active', 'unsubscribed'
+  const [filterStatus, setFilterStatus] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exportFormat, setExportFormat] = useState('csv');
   const itemsPerPage = 10;
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   const fetchSubscribers = async () => {
     try {
@@ -33,38 +31,19 @@ function AdminSubscribers() {
     }
   };
 
-  useEffect(() => {
-    fetchSubscribers();
-  }, []);
+  useEffect(() => { fetchSubscribers(); }, []);
 
-  const handleDelete = (id) => {
-    setDeleteTarget(id);
-    setShowDeleteModal(true);
-  };
-
-  const handleDeleteSelected = () => {
-    if (selected.length === 0) return;
-    setDeleteTarget(selected);
-    setShowDeleteModal(true);
-  };
-
+  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
+  const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     try {
-      await Promise.all(
-        ids.map(id =>
-          api.delete('/subscribers/${id}')
-        )
-      );
+      await Promise.all(ids.map(id => api.delete(`/subscribers/${id}`)));
       toast.success(`${ids.length} suscriptor(es) eliminado(s)`);
       setSelected([]);
       fetchSubscribers();
-    } catch (error) {
-      toast.error('Error al eliminar');
-    } finally {
-      setShowDeleteModal(false);
-      setDeleteTarget(null);
-    }
+    } catch (error) { toast.error('Error al eliminar'); }
+    finally { setShowDeleteModal(false); setDeleteTarget(null); }
   };
 
   const filtered = subscribers.filter(sub => {
@@ -80,7 +59,6 @@ function AdminSubscribers() {
   const activeCount = subscribers.filter(s => s.status === 'active').length;
   const unsubscribedCount = total - activeCount;
 
-  // Métricas clickeables
   const metricCards = [
     { label: 'Total', value: total, filter: '' },
     { label: 'Activos', value: activeCount, filter: 'active' },
@@ -94,15 +72,14 @@ function AdminSubscribers() {
       status: s.status === 'active' ? 'Activo' : 'Desuscrito',
       subscribedAt: new Date(s.subscribedAt).toLocaleDateString()
     }));
-    downloadCSV(data, headers, 'suscriptores.csv');
+    exportInfo(data, headers, 'suscriptores', exportFormat);
   };
 
   const toggleSelectAll = (e) => {
     if (e.target.checked) setSelected(paginated.map(s => s.id));
     else setSelected([]);
   };
-  const toggleOne = (id) =>
-    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   return (
     <AdminLayout title="Suscriptores">
@@ -115,8 +92,8 @@ function AdminSubscribers() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      {/* Métricas clickeables */}
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
+      {/* Métricas */}
+      <div className="bg-amber-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-amber-100">
         {metricCards.map((m, i) => (
           <button
             key={i}
@@ -129,35 +106,38 @@ function AdminSubscribers() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      {/* Encabezado */}
+      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
+        <h2 className="text-2xl font-bold text-gray-800">Suscriptores</h2>
         <div className="flex items-center gap-2">
           {selected.length > 0 && (
-            <button
-              onClick={handleDeleteSelected}
-              className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors"
-            >
+            <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
               <FaTrash /> Eliminar ({selected.length})
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar email..."
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
-            />
-          </div>
-          <button
-            onClick={exportCSV}
-            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            <FaFileExport className="w-3.5 h-3.5" /> Exportar
-          </button>
+      </div>
+
+      {/* Búsqueda y exportación */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Buscar email..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-full"
+          />
         </div>
+        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+          <option value="csv">CSV</option>
+          <option value="xlsx">Excel</option>
+          <option value="txt">Texto</option>
+        </select>
+        <button onClick={exportCSV} className="text-sm text-gray-500 hover:text-gray-700">
+          <FaFileExport className="w-4 h-4" />
+        </button>
       </div>
 
       {loading ? (
@@ -165,17 +145,12 @@ function AdminSubscribers() {
       ) : filtered.length === 0 ? (
         <p className="text-gray-500 text-sm">No se encontraron suscriptores.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+        <div className="card overflow-hidden">
+          <table className="min-w-full divide-y divide-purple-100 text-sm">
+            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
                 <th className="px-6 py-3 text-left w-10">
-                  <input
-                    type="checkbox"
-                    onChange={toggleSelectAll}
-                    checked={paginated.length > 0 && selected.length === paginated.length}
-                    className="rounded border-gray-300"
-                  />
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} className="rounded border-gray-300" />
                 </th>
                 <th className="px-6 py-3 text-left">Email</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Estado</th>
@@ -183,33 +158,19 @@ function AdminSubscribers() {
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-purple-100">
               {paginated.map(sub => (
                 <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(sub.id)}
-                      onChange={() => toggleOne(sub.id)}
-                      className="rounded border-gray-300"
-                    />
-                  </td>
+                  <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(sub.id)} onChange={() => toggleOne(sub.id)} className="rounded border-gray-300" /></td>
                   <td className="px-6 py-4 font-medium text-gray-900">{sub.email}</td>
                   <td className="px-6 py-4 hidden sm:table-cell">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${sub.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                       {sub.status === 'active' ? 'Activo' : 'Desuscrito'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">
-                    {new Date(sub.subscribedAt).toLocaleDateString()}
-                  </td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{new Date(sub.subscribedAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleDelete(sub.id)}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
-                    >
-                      <FaTrash />
-                    </button>
+                    <button onClick={() => handleDelete(sub.id)} className="text-gray-400 hover:text-red-600 transition-colors"><FaTrash /></button>
                   </td>
                 </tr>
               ))}

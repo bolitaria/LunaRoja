@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import api from '../../lib/axios';          // usa la instancia con cookies (sin token)
+import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import Link from 'next/link';
 import 'react-calendar/dist/Calendar.css';
@@ -23,14 +23,17 @@ export default function BDSList() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [timeFilter, setTimeFilter] = useState('todas');
   const [filterLocation, setFilterLocation] = useState('todos');
+  const [filterCategory, setFilterCategory] = useState('todas');
   const [error, setError] = useState(null);
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [bdsRes, actionsRes] = await Promise.all([
           api.get('/bds'),
-          api.get('/actions'),
+          api.get('/actions?bdsId=any'), // si tu backend lo soporta; si no, trae todas y filtra en el front
         ]);
         setBdsList(bdsRes.data);
         setActions(actionsRes.data);
@@ -48,6 +51,7 @@ export default function BDSList() {
   const now = new Date();
   const bdsMap = useMemo(() => bdsList.reduce((m, b) => ({ ...m, [b.id]: b }), {}), [bdsList]);
 
+  // Agrupar acciones por fecha para el calendario
   const actionsByDate = useMemo(() => {
     const map = new Map();
     actions.forEach(action => {
@@ -58,9 +62,55 @@ export default function BDSList() {
     return map;
   }, [actions]);
 
-  // ... resto de la lógica de filtrado (igual que en campanas/index.js pero con bds)
+  // Filtrado de acciones según los filtros activos
+  const filteredActions = useMemo(() => {
+    return actions.filter(action => {
+      const actionDate = new Date(action.datetime);
+      if (timeFilter === 'futuras' && actionDate <= now) return false;
+      if (timeFilter === 'pasadas' && actionDate > now) return false;
+      if (filterLocation === 'online' && action.locationType !== 'online') return false;
+      if (filterLocation === 'presencial' && action.locationType !== 'presencial') return false;
+      if (filterCategory !== 'todas' && action.category !== filterCategory) return false;
+      if (selectedDate) {
+        const actionDateStr = getLocalDateStr(action.datetime);
+        if (actionDateStr !== selectedDate) return false;
+      }
+      return true;
+    });
+  }, [actions, timeFilter, filterLocation, filterCategory, selectedDate, now]);
 
-  if (loading) return <Layout><div className="text-center py-20">Cargando...</div></Layout>;
+  // Filtrar solo acciones BDS (con bdsId) para mostrarlas bajo cada campaña BDS
+  const bdsActions = useMemo(() => actions.filter(a => a.bdsId), [actions]);
+
+  const tileContent = ({ date, view }) => {
+    if (view !== 'month') return null;
+    const dateStr = getLocalDateStr(date);
+    const dayActions = actionsByDate.get(dateStr);
+    if (!dayActions) return null;
+    return (
+      <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+        {dayActions.slice(0, 3).map((_, i) => (
+          <span key={i} className="w-1.5 h-1.5 rounded-full bg-red-500" />
+        ))}
+      </div>
+    );
+  };
+
+  const toggleLocation = (value) => {
+    setFilterLocation(prev => prev === value ? 'todos' : value);
+  };
+
+  const CATEGORIES = [
+    'todas', 'protest', 'march', 'bds', 'solidarity_action', 'workshop', 'webinar', 'talk', 'strike'
+  ];
+
+  if (loading) {
+    return (
+      <Layout title="Campañas BDS - Voces Palestinas por la Justicia">
+        <div className="text-center py-20 text-gray-600">Cargando campañas BDS...</div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Campañas BDS - Voces Palestinas por la Justicia">
@@ -74,9 +124,178 @@ export default function BDSList() {
           </div>
         )}
 
-        {/* Filtros, calendario y lista de tarjetas (copia exacta del código de campanas/index.js) */}
-        {/* ... */}
+        {/* Filtros de categoría */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setFilterCategory(cat)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                filterCategory === cat
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {cat === 'todas' ? 'Todas' : (categoryLabels[cat] || cat)}
+            </button>
+          ))}
+        </div>
 
+        {/* Filtros de tiempo y ubicación */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
+          <div className="flex gap-2">
+            <button onClick={() => setTimeFilter('todas')} className={`px-4 py-2 rounded-lg text-sm font-medium ${timeFilter === 'todas' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Todas</button>
+            <button onClick={() => setTimeFilter('futuras')} className={`px-4 py-2 rounded-lg text-sm font-medium ${timeFilter === 'futuras' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Futuras</button>
+            <button onClick={() => setTimeFilter('pasadas')} className={`px-4 py-2 rounded-lg text-sm font-medium ${timeFilter === 'pasadas' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Pasadas</button>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <button onClick={() => toggleLocation('presencial')} className={`px-2 py-1 rounded-full border transition ${filterLocation === 'presencial' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700' : 'border-gray-300 hover:border-gray-400'}`}>Presencial</button>
+            <button onClick={() => toggleLocation('online')} className={`px-2 py-1 rounded-full border transition ${filterLocation === 'online' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700' : 'border-gray-300 hover:border-gray-400'}`}>Online</button>
+          </div>
+        </div>
+
+        {/* Calendario */}
+        <div className="flex justify-center mb-10">
+          <Calendar
+            onChange={(value) => {
+              setSelectedDate(getLocalDateStr(value));
+            }}
+            value={selectedDate ? new Date(selectedDate + 'T12:00:00') : null}
+            tileContent={tileContent}
+            className="rounded-lg border border-gray-200 shadow-sm p-2 bg-white"
+            locale="es-ES"
+          />
+        </div>
+
+        {/* Tarjetas de Campañas BDS */}
+        <h2 className="text-2xl font-bold text-gray-700 mb-4">Campañas activas</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
+          {bdsList.map(bds => (
+            <Link key={bds.id} href={`/bds/${bds.id}`} className="group">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300 h-full flex flex-col">
+                <div className="p-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: bds.color }} />
+                    <h3 className="text-lg font-semibold text-gray-800 group-hover:text-red-600 transition-colors">
+                      {bds.name}
+                    </h3>
+                  </div>
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {bds.description || 'Sin descripción'}
+                  </p>
+                  <div className="mt-3 text-xs text-gray-400">
+                    {bdsActions.filter(a => a.bdsId === bds.id).length} acciones
+                  </div>
+                </div>
+                {bds.imageUrl && (
+                  <div className="h-40 bg-gray-100 overflow-hidden">
+                    <img
+                      src={`${baseUrl}${bds.imageUrl}`}
+                      alt={bds.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+              </div>
+            </Link>
+          ))}
+          {bdsList.length === 0 && (
+            <p className="text-gray-500 col-span-full text-center">No hay campañas BDS todavía.</p>
+          )}
+        </div>
+
+        {/* Acciones del día seleccionado */}
+        {selectedDate && (
+          <div className="mt-10">
+            <h2 className="text-2xl font-bold text-gray-700 mb-4">
+              Acciones del {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </h2>
+            {filteredActions.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No hay acciones para este día.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredActions.map(action => {
+                  const actionDate = new Date(action.datetime);
+                  const isPast = actionDate < now;
+                  const catStyle = categoryStyles[action.category] || { backgroundColor: '#f3f4f6', color: '#1f2937', borderColor: '#d1d5db' };
+                  const catLabel = categoryLabels[action.category] || action.category;
+                  const isOnline = action.locationType === 'online';
+                  const bds = bdsMap[action.bdsId];
+                  let imageUrl = null;
+                  if (action.featuredImage) {
+                    imageUrl = `${baseUrl}${action.featuredImage}`;
+                  } else if (action.images && action.images.length > 0) {
+                    imageUrl = `${baseUrl}${action.images[0].url}`;
+                  }
+
+                  return (
+                    <Link key={action.id} href={`/acciones/${action.id}`} className="group">
+                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition h-full flex flex-col">
+                        {imageUrl && (
+                          <div className="relative w-full h-40 bg-gray-100 overflow-hidden">
+                            <img
+                              src={imageUrl}
+                              alt={action.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              loading="lazy"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          </div>
+                        )}
+                        <div className="p-3 flex flex-col flex-1">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h3 className="text-sm font-semibold text-gray-600 line-clamp-2 flex-1">
+                              {action.title}
+                            </h3>
+                            {action.urgent && (
+                              <span className="flex-shrink-0 inline-block px-1.5 py-0.5 bg-red-100 text-red-800 text-[10px] font-medium rounded-full">
+                                🔥 Urgente
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs mb-1.5">
+                            <span
+                              className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
+                              style={catStyle}
+                            >
+                              {catLabel}
+                            </span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${isOnline ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-green-100 text-green-800 border-green-300'}`}>
+                              {isOnline ? '💻 Online' : '📍 Presencial'}
+                            </span>
+                            {bds && (
+                              <span
+                                className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
+                                style={{ backgroundColor: bds.color, color: '#fff', borderColor: bds.color }}
+                              >
+                                {bds.name}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-gray-500">
+                              {actionDate.toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 line-clamp-2 flex-1">
+                            {action.description || 'Sin descripción'}
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                            <span className={`text-[10px] font-medium ${isPast ? 'text-gray-500' : 'text-green-600'}`}>
+                              {isPast ? 'Pasado' : 'Próximo'}
+                            </span>
+                            <span className="text-fuchsia-600 group-hover:underline text-xs font-medium">
+                              Ver más →
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Layout>
   );

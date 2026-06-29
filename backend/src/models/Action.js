@@ -58,25 +58,33 @@ const Action = sequelize.define('Action', {
       key: 'id',
     },
   },
+  bdsId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'BDSs',
+      key: 'id',
+    },
+  },
   featuredImage: {
     type: DataTypes.STRING,
     allowNull: true,
   },
   groups: {
-    type: DataTypes.JSON,        
+    type: DataTypes.JSON,
     allowNull: true,
   },
   documentLink: {
-    type: DataTypes.STRING,        // enlace externo (opcional)
+    type: DataTypes.STRING,
     allowNull: true,
   },
   document: {
-    type: DataTypes.STRING,        // ruta al archivo subido
+    type: DataTypes.STRING,
     allowNull: true,
   },
   urgent: {
-  type: DataTypes.BOOLEAN,
-  defaultValue: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   enableAttendance: {
     type: DataTypes.BOOLEAN,

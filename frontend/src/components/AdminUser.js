@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash, FaEdit, FaTrash, FaFileExport, FaSearch, FaPlus } from 'react-icons/fa';
 import { useAuth } from '../../../context/AuthContext';
-import { downloadCSV } from '../../../utils/exportCsv';
+import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 
@@ -29,25 +29,50 @@ function AdminUsers() {
   const itemsPerPage = 10;
 
   const fetchUsers = async () => {
-    try { const res = await api.get('/users'); setUsers(res.data); }
-    catch (error) { toast.error('Error al cargar usuarios'); }
+    try {
+      const res = await api.get('/users');
+      setUsers(res.data);
+    } catch (error) {
+      toast.error('Error al cargar usuarios');
+    }
   };
+
   const fetchCampaigns = async () => {
-    try { const res = await api.get('/campaigns'); setCampaigns(res.data); }
-    catch (error) { toast.error('Error al cargar campañas'); }
+    try {
+      const res = await api.get('/campaigns');
+      setCampaigns(res.data);
+    } catch (error) {
+      // Fallo silencioso: si el usuario no tiene permisos (ej. action_admin),
+      // simplemente dejamos el array vacío sin mostrar error
+      console.warn('No se pudieron cargar campañas (posible restricción de rol)', error);
+      setCampaigns([]);
+    }
   };
+
   const fetchActions = async () => {
-    try { const res = await api.get('/actions'); setActions(res.data); }
-    catch (error) { toast.error('Error al cargar acciones'); }
+    try {
+      const res = await api.get('/actions');
+      setActions(res.data);
+    } catch (error) {
+      // Mismo tratamiento: evitamos toast si el usuario no tiene acceso
+      console.warn('No se pudieron cargar acciones (posible restricción de rol)', error);
+      setActions([]);
+    }
   };
-  useEffect(() => { Promise.all([fetchUsers(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false)); }, []);
+
+  useEffect(() => {
+    Promise.all([fetchUsers(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false));
+  }, []);
 
   const canCreate = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'campaign_admin');
   const availableRoles = currentUser?.role === 'superadmin' ? ['superadmin', 'campaign_admin', 'action_admin'] : ['action_admin'];
   const showCampaignSelect = currentUser?.role === 'superadmin';
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  const handleSelectChange = (selectedOptions, field) => { const values = selectedOptions ? selectedOptions.map(opt => opt.value) : []; setForm({ ...form, [field]: values }); };
+  const handleSelectChange = (selectedOptions, field) => {
+    const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+    setForm({ ...form, [field]: values });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -66,12 +91,21 @@ function AdminUsers() {
       }
       setForm({ username: '', password: '', role: 'action_admin', campaignIds: [], actionIds: [] });
       setEditingId(null); setShowForm(false);
-    } catch (error) { toast.error(error.response?.data?.message || 'Error al guardar usuario'); }
-    finally { setSubmitting(false); }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error al guardar usuario');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleEdit = (user) => {
-    setForm({ username: user.username, password: '', role: user.role, campaignIds: user.campaigns ? user.campaigns.map(c => c.id) : [], actionIds: user.actions ? user.actions.map(a => a.id) : [] });
+    setForm({
+      username: user.username,
+      password: '',
+      role: user.role,
+      campaignIds: user.campaigns ? user.campaigns.map(c => c.id) : [],
+      actionIds: user.actions ? user.actions.map(a => a.id) : []
+    });
     setEditingId(user.id); setShowForm(true);
   };
 
@@ -83,11 +117,14 @@ function AdminUsers() {
       await Promise.all(ids.map(id => api.delete(`/users/${id}`)));
       toast.success(`${ids.length} usuario(s) eliminado(s)`);
       setSelected([]); fetchUsers();
-    } catch (error) { toast.error('Error al eliminar'); }
-    finally { setShowDeleteModal(false); setDeleteTarget(null); }
+    } catch (error) {
+      toast.error('Error al eliminar');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
+    }
   };
 
-  // Determinar si el usuario actual puede editar/eliminar a otro usuario según jerarquía
   const canEditUser = (user) => {
     if (!currentUser) return false;
     if (currentUser.role === 'superadmin') return true;
@@ -97,13 +134,17 @@ function AdminUsers() {
 
   const canDeleteUser = (user) => {
     if (!currentUser) return false;
-    if (user.id === 1) return false; // no eliminar superadmin principal
+    if (user.id === 1) return false;
     if (currentUser.role === 'superadmin') return true;
     if (currentUser.role === 'campaign_admin' && user.role === 'action_admin') return true;
     return false;
   };
 
-  const roleLabels = { superadmin: 'Superadministrador', campaign_admin: 'Adm. de campaña', action_admin: 'Adm. de evento' };
+  const roleLabels = {
+    superadmin: 'Superadministrador',
+    campaign_admin: 'Adm. de campaña',
+    action_admin: 'Adm. de evento'
+  };
   const campaignOptions = campaigns.map(c => ({ value: c.id, label: c.name }));
   const actionOptions = actions.map(a => ({ value: a.id, label: a.title }));
 
@@ -118,17 +159,30 @@ function AdminUsers() {
 
   const exportCSV = () => {
     const headers = ['username', 'role', 'assignments'];
-    const data = filtered.map(u => ({ username: u.username, role: roleLabels[u.role] || u.role, assignments: u.campaigns?.map(c => c.name).join(', ') || u.actions?.map(a => a.title).join(', ') || '' }));
+    const data = filtered.map(u => ({
+      username: u.username,
+      role: roleLabels[u.role] || u.role,
+      assignments: u.campaigns?.map(c => c.name).join(', ') || u.actions?.map(a => a.title).join(', ') || ''
+    }));
     downloadCSV(data, headers, 'usuarios.csv');
   };
 
-  const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginated.map(u => u.id)); else setSelected([]); };
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) setSelected(paginated.map(u => u.id));
+    else setSelected([]);
+  };
   const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   return (
     <AdminLayout title="Usuarios">
       <ToastContainer />
-      <ConfirmModal isOpen={showDeleteModal} title="Eliminar usuario" message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} usuarios seleccionados?` : '¿Eliminar este usuario?')} onConfirm={executeDelete} onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Eliminar usuario"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} usuarios seleccionados?` : '¿Eliminar este usuario?')}
+        onConfirm={executeDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
@@ -211,8 +265,8 @@ function AdminUsers() {
 
       {loading ? <p className="text-gray-500 text-sm">Cargando...</p> : filtered.length === 0 ? <p className="text-gray-500 text-sm">No se encontraron usuarios.</p> : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+          <table className="min-w-full divide-y divide-purple-100 text-sm">
+            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
                 <th className="px-6 py-3 text-left w-10"><input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} /></th>
                 <th className="px-6 py-3 text-left">Usuario</th>
@@ -221,7 +275,7 @@ function AdminUsers() {
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-purple-100">
               {paginated.map(user => {
                 const canEdit = canEditUser(user);
                 const canDelete = canDeleteUser(user);
@@ -230,7 +284,11 @@ function AdminUsers() {
                     <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(user.id)} onChange={() => toggleOne(user.id)} /></td>
                     <td className="px-6 py-4 font-medium text-gray-900">{user.username}</td>
                     <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{roleLabels[user.role]}</td>
-                    <td className="px-6 py-4 hidden md:table-cell text-gray-500">{user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}{user.role === 'action_admin' && user.actions?.map(a => a.title).join(', ')}{user.role === 'superadmin' && '-'}</td>
+                    <td className="px-6 py-4 hidden md:table-cell text-gray-500">
+                      {user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}
+                      {user.role === 'action_admin' && user.actions?.map(a => a.title).join(', ')}
+                      {user.role === 'superadmin' && '-'}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {canEdit && <button onClick={() => handleEdit(user)} className="text-gray-400 hover:text-fuchsia-600 transition-colors"><FaEdit /></button>}

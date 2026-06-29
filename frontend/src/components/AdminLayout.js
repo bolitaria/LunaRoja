@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import {
-  FaHome, FaCalendarAlt, FaBullhorn, FaUsers, FaImages, FaNewspaper,
-  FaFileAlt, FaComments, FaEnvelope, FaDatabase, FaUserCog, FaSignOutAlt, FaArrowRight
+  FaHome, FaBolt, FaBullhorn, FaUsers, FaImages, FaNewspaper,
+  FaFileAlt, FaComments, FaEnvelope, FaDatabase, FaUserCog, FaSignOutAlt,
+  FaArrowRight, FaChartPie
 } from 'react-icons/fa';
 
 export default function AdminLayout({ children, title = 'Panel Admin' }) {
@@ -12,29 +13,29 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
-  // Menús según rol (sin Dashboard)
   const superAdminMenu = [
-    { name: 'Acciones', path: '/admin/actions', icon: <FaCalendarAlt className="w-4 h-4" /> },
+    { name: 'Dashboard', path: '/admin/dashboard', icon: <FaChartPie className="w-4 h-4" /> },
+    { name: 'Acciones', path: '/admin/actions', icon: <FaBolt className="w-4 h-4" /> },
     { name: 'Campañas', path: '/admin/campaigns', icon: <FaBullhorn className="w-4 h-4" /> },
-    { name: 'BDS', path: '/admin/bds', icon: <FaDatabase className="w-4 h-4" /> },
+    { name: 'BDS', path: '/admin/bds', icon: <FaBullhorn className="w-4 h-4" /> },
     { name: 'Noticias', path: '/admin/news', icon: <FaNewspaper className="w-4 h-4" /> },
     { name: 'Reportes', path: '/admin/reports', icon: <FaFileAlt className="w-4 h-4" /> },
     { name: 'Grupos de Chat', path: '/admin/chatGroups', icon: <FaComments className="w-4 h-4" /> },
     { name: 'Imágenes', path: '/admin/images', icon: <FaImages className="w-4 h-4" /> },
     { name: 'Documentos', path: '/admin/documents', icon: <FaFileAlt className="w-4 h-4" /> },
     { name: 'Suscriptores', path: '/admin/subscribers', icon: <FaEnvelope className="w-4 h-4" /> },
+    { name: 'Plantillas Email', path: '/admin/email-templates', icon: <FaEnvelope className="w-4 h-4" /> },
     { name: 'Base de Datos', path: '/admin/database', icon: <FaDatabase className="w-4 h-4" /> },
     { name: 'Administradores', path: '/admin/users', icon: <FaUserCog className="w-4 h-4" /> },
   ];
 
   const campaignAdminMenu = [
-    { name: 'Acciones', path: '/admin/actions', icon: <FaCalendarAlt className="w-4 h-4" /> },
+    { name: 'Dashboard', path: '/admin/dashboard', icon: <FaChartPie className="w-4 h-4" /> },
+    { name: 'Acciones', path: '/admin/actions', icon: <FaBolt className="w-4 h-4" /> },
     { name: 'Campañas', path: '/admin/campaigns', icon: <FaBullhorn className="w-4 h-4" /> },
-    { name: 'BDS', path: '/admin/bds', icon: <FaDatabase className="w-4 h-4" /> },
+    { name: 'BDS', path: '/admin/bds', icon: <FaBullhorn className="w-4 h-4" /> },
     { name: 'Noticias', path: '/admin/news', icon: <FaNewspaper className="w-4 h-4" /> },
     { name: 'Grupos de Chat', path: '/admin/chatGroups', icon: <FaComments className="w-4 h-4" /> },
     { name: 'Imágenes', path: '/admin/images', icon: <FaImages className="w-4 h-4" /> },
@@ -43,7 +44,8 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
   ];
 
   const actionAdminMenu = [
-    { name: 'Acciones', path: '/admin/actions', icon: <FaCalendarAlt className="w-4 h-4" /> },
+    { name: 'Dashboard', path: '/admin/dashboard', icon: <FaChartPie className="w-4 h-4" /> },
+    { name: 'Acciones', path: '/admin/actions', icon: <FaBolt className="w-4 h-4" /> },
     { name: 'Imágenes', path: '/admin/images', icon: <FaImages className="w-4 h-4" /> },
     { name: 'Noticias', path: '/admin/news', icon: <FaNewspaper className="w-4 h-4" /> },
     { name: 'Documentos', path: '/admin/documents', icon: <FaFileAlt className="w-4 h-4" /> },
@@ -51,23 +53,18 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
 
   let menu = [];
   if (user && user.role) {
-    if (user.role === 'superadmin') {
-      menu = superAdminMenu;
-    } else if (user.role === 'campaign_admin') {
-      menu = campaignAdminMenu;
-    } else if (user.role === 'action_admin') {
-      menu = actionAdminMenu;
-    }
+    if (user.role === 'superadmin') menu = superAdminMenu;
+    else if (user.role === 'campaign_admin') menu = campaignAdminMenu;
+    else if (user.role === 'action_admin') menu = actionAdminMenu;
   }
 
-  const profileItem = { name: 'Mi Perfil', path: '/admin/profile', icon: <FaUserCog className="w-4 h-4" /> };
-  menu.push(profileItem);
+  menu.push({ name: 'Mi Perfil', path: '/admin/profile', icon: <FaUserCog className="w-4 h-4" /> });
 
-  // Agrupación visual de items del menú
   const groupDefinitions = [
+    { label: 'Principal', keys: ['Dashboard'] },
     { label: 'Campañas y Comunicación', keys: ['Acciones', 'Campañas', 'BDS', 'Noticias', 'Reportes', 'Grupos de Chat'] },
     { label: 'Contenido y Datos', keys: ['Imágenes', 'Documentos', 'Suscriptores', 'Base de Datos'] },
-    { label: 'Administración', keys: ['Administradores', 'Mi Perfil'] },
+    { label: 'Administración', keys: ['Administradores', 'Plantillas Email', 'Mi Perfil'] },
   ];
 
   const groupedMenu = groupDefinitions.map(group => ({
@@ -75,7 +72,6 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     items: menu.filter(item => group.keys.includes(item.name)),
   })).filter(group => group.items.length > 0);
 
-  const roleBadgeClass = 'bg-purple-100 text-purple-800';
   const roleName = {
     superadmin: 'Superadmin',
     campaign_admin: 'Admin Campaña',
@@ -87,22 +83,19 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     return name.charAt(0).toUpperCase();
   };
 
-  // Esqueleto de carga
   if (!isClient || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-stone-50 flex">
         <aside className="w-56 bg-white shadow-md flex flex-col">
-          <div className="h-14 p-4 border-b border-gray-200 bg-white flex items-center">
+          <div className="h-16 p-4 border-b border-gray-200 bg-white flex items-center">
             <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
           </div>
           <nav className="flex-1 p-4 space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />
-            ))}
+            {[1, 2, 3].map(i => (<div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />))}
           </nav>
         </aside>
         <div className="flex-1 p-6">
-          <div className="h-14 bg-gray-200 rounded animate-pulse mb-4" />
+          <div className="h-16 bg-gray-200 rounded animate-pulse mb-4" />
           <div className="h-64 bg-gray-100 rounded animate-pulse" />
         </div>
       </div>
@@ -116,55 +109,42 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     return null;
   }
 
-  const handleLogout = () => {
-    logout();
-  };
+  const handleLogout = () => logout();
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Contenedor principal: sidebar + área de contenido */}
+    <div className="min-h-screen flex flex-col bg-stone-50">
       <div className="flex flex-1">
-        {/* Sidebar: ahora blanco, como la cabecera y el contenido */}
-        <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-          {/* Cabecera del sidebar */}
-          <div className="h-14 px-4 border-b border-gray-200 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.svg" alt="Logo" className="h-7 w-auto" />
+        <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 shadow-sm">
+          <div className="h-16 px-4 border-b border-gray-100 flex items-center justify-between">
+            <Link href="/" className="flex items-center">
+              <img src="/logo.svg" alt="Logo" className="h-10 w-auto" />
             </Link>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-600 truncate max-w-[60px]">{user.username}</span>
-              <button
-                onClick={handleLogout}
-                className="text-xs bg-red-50 hover:bg-red-100 text-red-500 px-2 py-1 rounded-full transition-colors flex items-center gap-1"
-                title="Cerrar sesión"
-              >
-                <FaSignOutAlt className="w-3 h-3" />
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-xs font-medium text-gray-700 leading-none">{user.username}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{roleName[user.role] || user.role}</p>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold text-sm">
+                {getInitials(user.username)}
+              </div>
+              <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Cerrar sesión">
+                <FaSignOutAlt className="w-4 h-4" />
               </button>
             </div>
           </div>
-
-          {/* Menú agrupado */}
           <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
             {groupedMenu.map((group) => (
               <div key={group.label}>
-                <h3 className="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  {group.label}
-                </h3>
+                <h3 className="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{group.label}</h3>
                 <ul className="space-y-1">
                   {group.items.map(item => {
                     const isActive = router.pathname === item.path || router.pathname.startsWith(item.path + '/');
                     return (
                       <li key={item.path}>
-                        <Link
-                          href={item.path}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            isActive
-                              ? 'bg-purple-400 text-white shadow-sm shadow-purple-200'
-                              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                          }`}
-                        >
-                          <span className="flex-shrink-0">{item.icon}</span>
-                          {item.name}
+                        <Link href={item.path} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          isActive ? 'bg-purple-100 text-purple-700 shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+                        }`}>
+                          <span className="flex-shrink-0">{item.icon}</span> {item.name}
                         </Link>
                       </li>
                     );
@@ -173,65 +153,42 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
               </div>
             ))}
           </nav>
-
-          {/* Pie del sidebar */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50/50">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-semibold text-sm">
-                {getInitials(user.username)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-700 truncate">{user.username}</p>
-                <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full ${roleBadgeClass}`}>
-                  {roleName[user.role] || user.role}
-                </span>
-              </div>
-            </div>
-          </div>
         </aside>
 
-        {/* Contenido principal */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Cabecera verde bandera palestina */}
-          <header className="h-14 bg-gradient-to-r from-[#007A3D] to-[#009B4D] shadow-sm flex items-center justify-between px-6 sticky top-0 z-10 border-b border-[#005C2E]">
+          <header className="h-16 bg-gradient-to-r from-[#F2856D] to-[#F2A7B3] flex items-center justify-between px-6 sticky top-0 z-10">
+            {/* Pastilla neutra y elegante */}
+            <span className="bg-white/80 text-gray-700 text-lg font-medium px-4 py-1.5 rounded-lg ml-6 border border-gray-200 shadow-sm">
+              {title}
+            </span>
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-bold text-white tracking-tight">
-                {title}
-              </h1>
-              <span className="text-xs font-medium px-3 py-1 rounded-full bg-white/20 text-white backdrop-blur-sm">
-                {roleName[user.role] || user.role}
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/"
-                className="text-sm font-medium text-green-900 bg-white shadow-sm hover:shadow-md hover:bg-green-50 transition-all px-4 py-1.5 rounded-full flex items-center gap-2"
-              >
-                <img src="/logo.svg" alt="Logo" className="h-4 w-auto" />
-                Ir al sitio público
-                <FaArrowRight className="w-3 h-3" />
-              </Link>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm shadow-inner">
                   {getInitials(user.username)}
                 </div>
-                <span className="text-sm font-medium text-white hidden sm:inline">{user.username}</span>
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-semibold text-white leading-tight">{user.username}</span>
+                  <span className="text-[10px] font-medium text-white/80 uppercase tracking-wide">
+                    {roleName[user.role] || user.role}
+                  </span>
+                </div>
               </div>
+              <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-white border-2 border-white/60 bg-white/10 hover:bg-white/20 px-4 py-1.5 rounded-full">
+                <span className="bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                  <img src="/logo.svg" alt="Logo" className="h-4 w-auto" />
+                </span>
+                Ir al sitio público <FaArrowRight className="w-3 h-3" />
+              </Link>
             </div>
           </header>
-
-          <main className="flex-1 p-6 bg-gray-50">
-            {children}
-          </main>
+          <main className="flex-1 p-6">{children}</main>
         </div>
       </div>
-
-      {/* Footer para toda la página */}
       <footer className="bg-white border-t border-gray-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-500">
-        <p>© {new Date().getFullYear()} Mi Aplicación. Todos los derechos reservados.</p>
+        <p>© {new Date().getFullYear()} Voces Palestinas por la Justicia</p>
         <nav className="flex gap-4 mt-2 sm:mt-0">
-          <Link href="/admin/help" className="hover:text-green-600 transition">Ayuda</Link>
-          <Link href="/admin/privacy" className="hover:text-green-600 transition">Privacidad</Link>
+          <Link href="/admin/help" className="hover:text-purple-600">Ayuda</Link>
+          <Link href="/admin/privacy" className="hover:text-purple-600">Privacidad</Link>
         </nav>
       </footer>
     </div>

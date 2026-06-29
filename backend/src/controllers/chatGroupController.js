@@ -34,7 +34,7 @@ exports.getAllGroups = async (req, res) => {
       where,
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: Action, as: 'assignedAction', attributes: ['id', 'title'] },
+        { model: Action, as: 'action', attributes: ['id', 'title'] },   // ← alias corregido (antes 'assignedAction')
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -53,7 +53,7 @@ exports.getGroupById = async (req, res) => {
     const group = await ChatGroup.findByPk(id, {
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: Action, as: 'assignedAction', attributes: ['id', 'title'] },
+        { model: Action, as: 'action', attributes: ['id', 'title'] },   // ← alias corregido
       ]
     });
     if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
