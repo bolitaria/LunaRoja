@@ -1,12 +1,11 @@
+const Handlebars = require('handlebars');
 const EmailTemplate = require('../models/EmailTemplate');
 const Subscriber = require('../models/Subscriber');
 const { sendEmail } = require('../services/emailService');
 
 exports.getAllTemplates = async (req, res) => {
   try {
-    const templates = await EmailTemplate.findAll({
-      order: [['name', 'ASC']],
-    });
+    const templates = await EmailTemplate.findAll({ order: [['name', 'ASC']] });
     res.json(templates);
   } catch (error) {
     console.error('Error en getAllTemplates:', error);
@@ -93,10 +92,29 @@ exports.sendCampaign = async (req, res) => {
     if (filter === 'reminders') where.sendReminders = true;
 
     const subscribers = await Subscriber.findAll({ where });
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
     for (const sub of subscribers) {
+      const compileData = {
+        username: sub.email.split('@')[0],
+        email: sub.email,
+        unsubscribeLink: `${baseUrl}/unsubscribe?email=${encodeURIComponent(sub.email)}`,
+        preferencesLink: `${baseUrl}/preferences?email=${encodeURIComponent(sub.email)}`,
+        currentYear: new Date().getFullYear(),
+        action: null,
+        campaign: null,
+      };
+
+      let compiledHtml;
+      try {
+        compiledHtml = Handlebars.compile(template.body)(compileData);
+      } catch (err) {
+        console.error(`Error compilando plantilla para ${sub.email}:`, err);
+        continue;
+      }
+
       await sendEmail(sub.email, template.subject, 'custom', {
-        body: template.body,
-        subscriber: sub,
+        body: compiledHtml,
       }).catch(err => console.error(`Error enviando a ${sub.email}:`, err));
     }
 

@@ -10,7 +10,7 @@ const UserBDS = require('./UserBDS');
 const Subscriber = require('./Subscriber');
 const SubscribersReminder = require('./SubscribersReminder');
 const ChatGroup = require('./ChatGroup');
-const News = require('./News');                     // ← Nombre correcto del modelo
+const News = require('./News');
 
 // Campaign <-> Action
 Campaign.hasMany(Action, { foreignKey: 'campaignId', as: 'campaignActions' });
@@ -51,6 +51,15 @@ News.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 // Action <-> News
 Action.hasMany(News, { foreignKey: 'actionId', as: 'news' });
 News.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+
+// ====== ASOCIACIONES FALTANTES ======
+// SubscribersReminder <-> Subscriber
+SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
+Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders' });
+
+// SubscribersReminder <-> Action
+SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
+Action.hasMany(SubscribersReminder, { foreignKey: 'actionId', as: 'reminders' });
 
 module.exports = {
   sequelize,

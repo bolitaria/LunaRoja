@@ -6,7 +6,6 @@ const REPORTS_BASE = path.join(__dirname, '../../uploads/reports');
 
 exports.getAllReports = async (req, res) => {
   try {
-    // La ruta ya exige auth y superadmin, así que no repetimos la verificación
     const reports = await Report.findAll({ order: [['publishedAt', 'DESC']] });
     res.json(reports);
   } catch (error) {
@@ -38,8 +37,6 @@ exports.createReport = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: 'Título es requerido' });
     }
-
-    // Al menos uno de los dos: archivo o contenido enriquecido
     if (!req.file && !content) {
       return res.status(400).json({
         message: 'Debes adjuntar un archivo o escribir el contenido del reporte'

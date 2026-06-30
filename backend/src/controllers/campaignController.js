@@ -1,9 +1,7 @@
-const jwt = require('jsonwebtoken');
 const Campaign = require('../models/Campaign');
 const UserCampaign = require('../models/UserCampaign');
 const Subscriber = require('../models/Subscriber');
 const { sendCampaignNotification } = require('../services/emailService');
-const { sendNotificationToSubscribers } = require('../utils/emailHelper'); // ← AÑADIDO
 const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
 
@@ -12,35 +10,18 @@ const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
 exports.getAllCampaigns = async (req, res) => {
   try {
-    let userRole = null;
-    let userId = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        userRole = decoded.role;
-        userId = decoded.id;
-      } catch (err) { /* token inválido, ignorar */ }
-    }
-
     let where = {};
-    if (userRole) {
-      if (userRole === 'campaign_admin') {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId } });
+    if (req.user) {
+      if (req.user.role === 'campaign_admin') {
+        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
         const campaignIds = userCampaigns.map(uc => uc.campaignId);
         if (campaignIds.length === 0) return res.json([]);
         where.id = campaignIds;
-      } else if (userRole === 'action_admin') {
+      } else if (req.user.role === 'action_admin') {
         return res.json([]);
       }
     }
-
-    const campaigns = await Campaign.findAll({
-      where,
-      attributes: ['id', 'name', 'color'],
-      order: [['name', 'ASC']],
-    });
+    const campaigns = await Campaign.findAll({ where, order: [['name', 'ASC']] });
     res.json(campaigns);
   } catch (error) {
     console.error('Error en getAllCampaigns:', error);
@@ -86,24 +67,18 @@ exports.createCampaign = async (req, res) => {
       document: documentPath,
     });
 
-    // ─── NOTIFICACIONES (plantilla + fallback) ─────────────────
+    // Notificar a todos los suscriptores activos
     try {
-      const sent = await sendNotificationToSubscribers('campaign_created', { campaign });
-      if (!sent) {
-        // Fallback: método antiguo
-        const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
-        for (const sub of subscribers) {
-          await sendCampaignNotification(sub.email, campaign)
-            .catch(err => console.error(`Error email a ${sub.email}:`, err));
-        }
-        console.log(`Notificaciones de campaña enviadas (método antiguo) a ${subscribers.length} suscriptores`);
-      } else {
-        console.log(`Notificaciones de campaña enviadas usando plantilla 'campaign_created'`);
+      const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
+      for (const sub of subscribers) {
+        await sendCampaignNotification(sub.email, campaign).catch(err =>
+          console.error(`Error email a ${sub.email}:`, err)
+        );
       }
+      console.log(`Notificaciones de campaña enviadas a ${subscribers.length} suscriptores`);
     } catch (emailError) {
       console.error('Error al enviar notificaciones de campaña:', emailError);
     }
-    // ─────────────────────────────────────────────────────────
 
     res.status(201).json(campaign);
   } catch (error) {

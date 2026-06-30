@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Recordatorio: {{action.title}}</title>
+  <title>🍉 Donaciones disponibles</title>
   <style>
     body { font-family: 'Inter', Arial, sans-serif; margin:0; background:#f3f4f6; }
     .container { max-width:640px; width:100%; margin:0 auto; background:#fff; border-radius:12px; overflow:hidden; }
@@ -11,7 +11,7 @@
     .content { padding:36px 28px; color:#1f2937; line-height:1.7; font-size:18px; text-align:center; }
     .title { color:#b91c1c; font-size:28px; font-weight:700; margin:0 0 16px; }
     .btn { display:inline-block; background:#16a34a; color:#ffffff; font-weight:600;
-           text-decoration:none; padding:12px 24px; border-radius:10px; font-size:17px; }
+           text-decoration:none; padding:14px 32px; border-radius:10px; font-size:18px; }
     .footer { background:#1f2937; padding:28px 24px; text-align:center; font-size:14px; color:#d1d5db; }
     .footer a { color:#fca5a5; }
     .unsubscribe-note { font-size:13px; color:#9ca3af; margin-top:24px; }
@@ -28,15 +28,11 @@
     </tr>
     <tr>
       <td class="content">
-        <h1 class="title">Recordatorio: {{action.title}}</h1>
-        <p>La acción se celebrará <strong>mañana</strong>.</p>
-        <p><strong>📅 Fecha:</strong> {{formatDate action.datetime}}</p>
-        {{#if action.registrationLink}}
+        <h1 class="title">🍉 ¡Ya puedes donar!</h1>
+        <p>Las donaciones ya están activas. Cada aportación ayuda a mantener nuestra lucha.</p>
         <p style="margin:32px 0;">
-          <a href="{{action.registrationLink}}" class="btn">Inscribirme</a>
+          <a href="{{donationUrl}}" class="btn">Donar ahora ❤️</a>
         </p>
-        {{/if}}
-        <p>¡Esperamos verte!</p>
         <p class="unsubscribe-note">
           <a href="{{unsubscribeLink}}">Darse de baja</a>
         </p>

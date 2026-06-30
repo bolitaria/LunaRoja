@@ -115,23 +115,26 @@ function AdminUsers() {
       <ToastContainer />
       <ConfirmModal isOpen={showDeleteModal} title="Eliminar usuario" message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} usuarios seleccionados?` : '¿Eliminar este usuario?')} onConfirm={executeDelete} onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total', value: total, color: 'bg-purple-100 text-purple-800' },
-          { label: 'Superadmins', value: superadmins, color: 'bg-indigo-100 text-indigo-800' },
-          { label: 'Adm. Campaña', value: campaignAdmins, color: 'bg-orange-100 text-orange-800' },
-          { label: 'Adm. Evento', value: actionAdmins, color: 'bg-yellow-100 text-yellow-800' },
-        ].map((m, i) => (
-          <div key={i} className={`rounded-xl p-4 ${m.color} flex flex-col`}>
-            <span className="text-sm font-medium">{m.label}</span>
-            <span className="text-2xl font-bold">{m.value}</span>
-          </div>
-        ))}
+      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Total</span>
+          <span className="font-bold text-gray-800">{total}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Superadmins</span>
+          <span className="font-bold text-gray-800">{superadmins}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Adm. Campaña</span>
+          <span className="font-bold text-gray-800">{campaignAdmins}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Adm. Evento</span>
+          <span className="font-bold text-gray-800">{actionAdmins}</span>
+        </div>
       </div>
 
-      {/* Encabezado y botón de crear usuario */}
-      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
-        <h2 className="text-2xl font-bold text-gray-800">Usuarios</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           {canCreate && (
             <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
@@ -144,22 +147,20 @@ function AdminUsers() {
             </button>
           )}
         </div>
-      </div>
-
-      {/* Búsqueda y exportación */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="relative flex-1 max-w-xs">
-          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-full" />
+        <div className="flex items-center gap-2 text-sm">
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48" />
+          </div>
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="txt">Texto</option>
+          </select>
+          <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
+            <FaFileExport className="w-4 h-4" />
+          </button>
         </div>
-        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
-          <option value="csv">CSV</option>
-          <option value="xlsx">Excel</option>
-          <option value="txt">Texto</option>
-        </select>
-        <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors">
-          <FaFileExport className="w-3.5 h-3.5" /> Exportar
-        </button>
       </div>
 
       {showForm && canCreate && (
@@ -204,7 +205,7 @@ function AdminUsers() {
       )}
 
       {loading ? <p className="text-gray-500 text-sm">Cargando...</p> : filtered.length === 0 ? <p className="text-gray-500 text-sm">No se encontraron usuarios.</p> : (
-        <div className="card overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
@@ -219,16 +220,20 @@ function AdminUsers() {
               {paginated.map(user => {
                 const canEdit = currentUser?.role === 'superadmin' || (currentUser?.role === 'campaign_admin' && user.role === 'action_admin');
                 return (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(user.id)} onChange={() => toggleOne(user.id)} /></td>
                     <td className="px-6 py-4 font-medium text-gray-900">{user.username}</td>
                     <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{roleLabels[user.role] || user.role}</td>
                     <td className="px-6 py-4 hidden md:table-cell text-gray-500">{user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}{user.role === 'action_admin' && user.actions?.map(a => a.title).join(', ')}{user.role === 'superadmin' && '-'}</td>
                     <td className="px-6 py-4">
                       {canEdit && (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleEdit(user)} className="text-gray-400 hover:text-fuchsia-600 transition-colors"><FaEdit /></button>
-                          {user.id !== 1 && <button onClick={() => handleDelete(user.id)} className="text-gray-400 hover:text-red-600 transition-colors"><FaTrash /></button>}
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleEdit(user)} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
+                            <FaEdit className="w-5 h-5" />
+                          </button>
+                          {user.id !== 1 && <button onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                            <FaTrash className="w-5 h-5" />
+                          </button>}
                         </div>
                       )}
                     </td>

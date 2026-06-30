@@ -4,7 +4,6 @@ const Subscriber = require('../models/Subscriber');
 const Action = require('../models/Action');
 const ActionImage = require('../models/ActionImage');
 const { sendCampaignNotification } = require('../services/emailService');
-const { sendNotificationToSubscribers } = require('../utils/emailHelper'); // ← AÑADIDO
 const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
 const path = require('path');
 
@@ -69,24 +68,23 @@ exports.createBDS = async (req, res) => {
       imageUrl, groups: groups || [], documentLink: documentLink || null, document: documentPath,
     });
 
-    // ─── NOTIFICACIONES (plantilla + fallback) ─────────────────
+    // Notificaciones: enviamos como si fuera una campaña
     try {
-      const sent = await sendNotificationToSubscribers('bds_campaign_created', { campaign: bds });
-      if (!sent) {
-        // Fallback: método antiguo
-        const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
-        for (const sub of subscribers) {
-          await sendCampaignNotification(sub.email, bds)
-            .catch(err => console.error(`Error email a ${sub.email}:`, err));
-        }
-        console.log(`Notificaciones de BDS enviadas (método antiguo) a ${subscribers.length} suscriptores`);
-      } else {
-        console.log(`Notificaciones de BDS enviadas usando plantilla 'bds_campaign_created'`);
+      const campaignData = {
+        name: bds.name,
+        description: bds.description,
+        url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/bds/${bds.id}`,
+      };
+      const subscribers = await Subscriber.findAll({ where: { status: 'active' } });
+      for (const sub of subscribers) {
+        await sendCampaignNotification(sub.email, campaignData).catch(err =>
+          console.error(`Error email a ${sub.email}:`, err)
+        );
       }
+      console.log(`Notificaciones de BDS enviadas a ${subscribers.length} suscriptores`);
     } catch (emailError) {
       console.error('Error al enviar notificaciones de BDS:', emailError);
     }
-    // ─────────────────────────────────────────────────────────
 
     res.status(201).json(bds);
   } catch (error) {

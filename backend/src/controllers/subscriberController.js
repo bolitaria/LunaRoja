@@ -2,17 +2,13 @@ const Subscriber = require('../models/Subscriber');
 const { sendWelcomeEmail, sendGoodbyeEmail } = require('../services/emailService');
 const validator = require('validator');
 
-const isValidEmail = (email) => {
-  return validator.isEmail(email) && email.length <= 255;
-};
+const isValidEmail = (email) => validator.isEmail(email) && email.length <= 255;
 
 exports.getAllSubscribers = async (req, res) => {
   try {
-    // 🔒 Solo superadmin puede ver la lista completa
     if (req.user && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
-
     const subscribers = await Subscriber.findAll({ order: [['subscribedAt', 'DESC']] });
     res.json(subscribers);
   } catch (error) {
@@ -24,7 +20,6 @@ exports.getAllSubscribers = async (req, res) => {
 exports.createSubscriber = async (req, res) => {
   try {
     const { email, sendReminders = false } = req.body;
-
     if (!email) return res.status(400).json({ message: 'Email is required' });
     if (!isValidEmail(email)) return res.status(400).json({ message: 'Invalid email format' });
 

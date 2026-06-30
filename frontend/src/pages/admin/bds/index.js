@@ -61,6 +61,7 @@ function AdminBDS() {
   const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const isSuperAdmin = user && user.role === 'superadmin';
+  const total = bdsList.length;
 
   return (
     <AdminLayout title="Campañas BDS">
@@ -72,12 +73,14 @@ function AdminBDS() {
         onConfirm={executeDelete}
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
+
       <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
-          <span className="font-bold text-gray-800">{bdsList.length}</span>
+          <span className="font-bold text-gray-800">{total}</span>
         </div>
       </div>
+
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
@@ -94,7 +97,13 @@ function AdminBDS() {
         <div className="flex items-center gap-2 text-sm">
           <div className="relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input type="text" placeholder="Buscar…" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48" />
+            <input
+              type="text"
+              placeholder="Buscar…"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
+            />
           </div>
           <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
             <option value="csv">CSV</option>
@@ -106,14 +115,22 @@ function AdminBDS() {
           </button>
         </div>
       </div>
-      {loading ? <p className="text-gray-500 text-sm">Cargando…</p> : filtered.length === 0 ? (
-        <div className="text-center py-12 text-gray-400"><p className="text-lg mb-2">No se encontraron campañas BDS</p><p className="text-sm">Crea una nueva.</p></div>
+
+      {loading ? (
+        <p className="text-gray-500 text-sm">Cargando...</p>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg mb-2">No se encontraron campañas BDS</p>
+          <p className="text-sm">Crea una nueva.</p>
+        </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10"><input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} className="rounded border-gray-300" /></th>
+                <th className="px-6 py-3 text-left w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
                 <th className="px-6 py-3 text-left">Nombre</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Descripción</th>
                 <th className="px-6 py-3 text-right">Acciones</th>
@@ -122,15 +139,17 @@ function AdminBDS() {
             <tbody className="divide-y divide-purple-100">
               {paginated.map(bds => (
                 <tr key={bds.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(bds.id)} onChange={() => toggleOne(bds.id)} className="rounded border-gray-300" /></td>
+                  <td className="px-6 py-4">
+                    <input type="checkbox" checked={selected.includes(bds.id)} onChange={() => toggleOne(bds.id)} />
+                  </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{bds.name}</td>
                   <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{bds.description?.substring(0, 80)}{bds.description?.length > 80 ? '...' : ''}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Link href={`/admin/bds/${bds.id}`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Ver campaña y acciones">
+                      <Link href={`/admin/bds/${bds.id}`} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver">
                         <FaEye className="w-5 h-5" />
                       </Link>
-                      <Link href={`/admin/bds/${bds.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar campaña">
+                      <Link href={`/admin/bds/${bds.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
                         <FaEdit className="w-5 h-5" />
                       </Link>
                       {isSuperAdmin && (

@@ -101,43 +101,83 @@ export default function EditNews() {
       <ToastContainer />
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Formulario a la izquierda */}
-        <form onSubmit={handleSubmit} className="card lg:w-2/3 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
           <h2 className="text-xl font-semibold text-gray-700">Editar Noticia</h2>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-              <input type="text" name="title" value={form.title} onChange={handleChange} required className="input-field" />
+              <input
+                type="text"
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="input-field" />
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">URL de YouTube *</label>
-              <input type="url" name="youtubeUrl" value={form.youtubeUrl} onChange={handleChange} required className="input-field" />
+              <input
+                type="url"
+                name="youtubeUrl"
+                value={form.youtubeUrl}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              />
             </div>
             <div className="flex items-center">
-              <input type="checkbox" name="isNews" checked={form.isNews} onChange={handleChange} className="mr-2 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+              <input
+                type="checkbox"
+                name="isNews"
+                checked={form.isNews}
+                onChange={handleChange}
+                className="mr-2 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500"
+              />
               <label className="text-sm text-gray-700">Es noticia destacada</label>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Campaña</label>
-                <select name="campaignId" value={form.campaignId} onChange={handleChange} className="input-field">
+                <select
+                  name="campaignId"
+                  value={form.campaignId}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                >
                   <option value="">-- Ninguna --</option>
                   {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Acción</label>
-                <select name="actionId" value={form.actionId} onChange={handleChange} className="input-field">
+                <select
+                  name="actionId"
+                  value={form.actionId}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                >
                   <option value="">-- Ninguna --</option>
                   {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
                 </select>
               </div>
             </div>
           </div>
-          <button type="submit" disabled={saving} className="btn-primary w-full">
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors font-medium"
+          >
             {saving ? 'Guardando...' : 'Actualizar Noticia'}
           </button>
         </form>

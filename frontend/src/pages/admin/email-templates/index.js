@@ -4,11 +4,19 @@ import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
-import { FaEdit, FaTrash, FaPlus, FaFlask } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaFlask, FaSearch } from 'react-icons/fa';
+import Pagination from '../../../components/Pagination';
+import ConfirmModal from '../../../components/ConfirmModal';
 
 function AdminEmailTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selected, setSelected] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const itemsPerPage = 10;
 
   const fetchTemplates = async () => {
     try {
@@ -23,15 +31,17 @@ function AdminEmailTemplates() {
 
   useEffect(() => { fetchTemplates(); }, []);
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta plantilla?')) return;
+  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
+  const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
+  const executeDelete = async () => {
+    const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     try {
-      await api.delete(`/email-templates/${id}`);
-      toast.success('Plantilla eliminada');
+      await Promise.all(ids.map(id => api.delete(`/email-templates/${id}`)));
+      toast.success(`${ids.length} plantilla(s) eliminada(s)`);
+      setSelected([]);
       fetchTemplates();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al eliminar');
-    }
+    } catch (error) { toast.error('Error al eliminar'); }
+    finally { setShowDeleteModal(false); setDeleteTarget(null); }
   };
 
   const handleSendTest = async (id) => {
@@ -43,55 +53,104 @@ function AdminEmailTemplates() {
     }
   };
 
+  const filtered = templates.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.subject.toLowerCase().includes(searchTerm.toLowerCase()));
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginated.map(t => t.id)); else setSelected([]); };
+  const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
   return (
     <AdminLayout title="Plantillas de Email">
       <ToastContainer />
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Eliminar plantilla"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} plantillas?` : '¿Eliminar esta plantilla?')}
+        onConfirm={executeDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
 
-      {/* Métricas (opcional, podemos mostrar el total) */}
-      <div className="bg-amber-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-amber-100">
+      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
           <span className="font-bold text-gray-800">{templates.length}</span>
         </div>
       </div>
 
-      {/* Encabezado */}
-      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
-        <h2 className="text-2xl font-bold text-gray-800">Plantillas de Email</h2>
-        <Link href="/admin/email-templates/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-          <FaPlus /> Nueva Plantilla
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <Link href="/admin/email-templates/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
+            <FaPlus /> Nueva Plantilla
+          </Link>
+          {selected.length > 0 && (
+            <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+              <FaTrash /> Eliminar ({selected.length})
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar plantilla…"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
+            />
+          </div>
+        </div>
       </div>
 
-      {loading ? <p>Cargando...</p> : (
-        <div className="card overflow-hidden">
+      {loading ? (
+        <p className="text-gray-500 text-sm">Cargando...</p>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg mb-2">No se encontraron plantillas</p>
+          <p className="text-sm">Crea una nueva plantilla.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
+                <th className="px-6 py-3 text-left w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
                 <th className="px-6 py-3 text-left">Nombre</th>
-                <th className="px-6 py-3 text-left">Asunto</th>
-                <th className="px-6 py-3 text-left">Asociado a</th>
+                <th className="px-6 py-3 text-left hidden sm:table-cell">Asunto</th>
+                <th className="px-6 py-3 text-left hidden md:table-cell">Asociado a</th>
                 <th className="px-6 py-3 text-left">Tipo</th>
                 <th className="px-6 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
-              {templates.map(tpl => (
-                <tr key={tpl.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900">{tpl.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{tpl.subject}</td>
-                  <td className="px-6 py-4 text-gray-500">{tpl.associatedEvent}</td>
+              {paginated.map(tpl => (
+                <tr key={tpl.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${tpl.type === 'system' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                    <input type="checkbox" checked={selected.includes(tpl.id)} onChange={() => toggleOne(tpl.id)} />
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{tpl.name}</td>
+                  <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{tpl.subject}</td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{tpl.associatedEvent}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'}`}>
                       {tpl.type === 'system' ? 'Sistema' : 'Personalizada'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Link href={`/admin/email-templates/${tpl.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600"><FaEdit /></Link>
-                      <button onClick={() => handleSendTest(tpl.id)} className="p-1.5 text-gray-400 hover:text-emerald-600"><FaFlask /></button>
+                      <Link href={`/admin/email-templates/${tpl.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
+                        <FaEdit className="w-5 h-5" />
+                      </Link>
+                      <button onClick={() => handleSendTest(tpl.id)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Enviar prueba">
+                        <FaFlask className="w-5 h-5" />
+                      </button>
                       {tpl.type !== 'system' && (
-                        <button onClick={() => handleDelete(tpl.id)} className="p-1.5 text-gray-400 hover:text-red-600"><FaTrash /></button>
+                        <button onClick={() => handleDelete(tpl.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                          <FaTrash className="w-5 h-5" />
+                        </button>
                       )}
                     </div>
                   </td>
@@ -99,6 +158,7 @@ function AdminEmailTemplates() {
               ))}
             </tbody>
           </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       )}
     </AdminLayout>

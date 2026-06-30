@@ -33,10 +33,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
+# Copiar dependencias completas y luego eliminar las de desarrollo
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+RUN npm prune --production
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
 
 USER nextjs
 EXPOSE 3000

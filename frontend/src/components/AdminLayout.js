@@ -156,31 +156,37 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
         </aside>
 
         <div className="flex-1 flex flex-col min-h-0">
-          <header className="h-16 bg-gradient-to-r from-[#F2856D] to-[#F2A7B3] flex items-center justify-between px-6 sticky top-0 z-10">
-            {/* Pastilla neutra y elegante */}
-            <span className="bg-white/80 text-gray-700 text-lg font-medium px-4 py-1.5 rounded-lg ml-6 border border-gray-200 shadow-sm">
-              {title}
-            </span>
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm shadow-inner">
-                  {getInitials(user.username)}
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-sm font-semibold text-white leading-tight">{user.username}</span>
-                  <span className="text-[10px] font-medium text-white/80 uppercase tracking-wide">
-                    {roleName[user.role] || user.role}
-                  </span>
-                </div>
-              </div>
-              <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-white border-2 border-white/60 bg-white/10 hover:bg-white/20 px-4 py-1.5 rounded-full">
-                <span className="bg-white rounded-full w-6 h-6 flex items-center justify-center">
-                  <img src="/logo.svg" alt="Logo" className="h-4 w-auto" />
-                </span>
-                Ir al sitio público <FaArrowRight className="w-3 h-3" />
-              </Link>
+         <header className="h-16 bg-gradient-to-r from-[#F2856D] to-[#F2A7B3] flex items-stretch justify-between px-6 sticky top-0 z-10 border-b border-stone-200">
+          {/* Pestaña izquierda */}
+          <div className="self-end ml-6 flex items-end">
+            <div className="bg-white border border-stone-200 border-b-0 rounded-t-lg px-5 py-2.5 translate-y-[1px]">
+              <h1 className="text-stone-700 text-lg font-semibold leading-tight">
+                {title}
+              </h1>
             </div>
-          </header>
+          </div>
+
+          {/* Bloque derecho */}
+          <div className="flex items-center gap-4 self-center">
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white/30 flex items-center justify-center text-gray-700 font-bold text-sm shadow-inner">
+                {getInitials(user.username)}
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-semibold text-gray-800 leading-tight">{user.username}</span>
+                <span className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">
+                  {roleName[user.role] || user.role}
+                </span>
+              </div>
+            </div>
+            <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 border-2 border-gray-300 bg-white/10 hover:bg-white/30 px-4 py-1.5 rounded-full transition-colors">
+              <span className="bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                <img src="/logo.svg" alt="Logo" className="h-4 w-auto" />
+              </span>
+              Ir al sitio público <FaArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </header>
           <main className="flex-1 p-6">{children}</main>
         </div>
       </div>

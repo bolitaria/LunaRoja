@@ -3,7 +3,6 @@ const handlebars = require('handlebars');
 const fs = require('fs').promises;
 const path = require('path');
 
-// ---------- Configuration ----------
 let transporter = null;
 let templates = {};
 let templatesLoaded = false;
@@ -16,7 +15,7 @@ const isEmailConfigured = () => {
 if (isEmailConfigured()) {
   transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+    port: Number(process.env.EMAIL_PORT),
     secure: process.env.EMAIL_SECURE === 'true',
     auth: {
       user: process.env.EMAIL_USER,
@@ -42,7 +41,7 @@ handlebars.registerHelper('formatDate', function(date) {
 });
 
 async function loadTemplates() {
-  const templateNames = ['welcome', 'goodbye', 'campaign', 'action', 'reminder', 'passwordReset'];
+  const templateNames = ['welcome', 'goodbye', 'campaign', 'action', 'reminder', 'passwordReset', 'donation_available'];
   const templatesDir = path.join(__dirname, '../templates/emails');
 
   for (const name of templateNames) {
@@ -50,7 +49,7 @@ async function loadTemplates() {
       const content = await fs.readFile(path.join(templatesDir, `${name}.hbs`), 'utf8');
       templates[name] = handlebars.compile(content);
     } catch (err) {
-      console.error(`⚠️ Template ${name}.hbs not found, using plain text fallback.`);
+      console.error(`⚠️ Template ${name}.hbs not found, using fallback.`);
       templates[name] = (context) => `Email content: ${JSON.stringify(context)}`;
     }
   }
@@ -70,20 +69,11 @@ const sendEmail = async (to, subject, templateName, context = {}) => {
     await initEmailService();
   }
 
-  // Si no es una plantilla predefinida y viene un body HTML directo
   if (templateName === 'custom' && context.body) {
-    const data = {
-      ...context,
-      unsubscribeLink: getUnsubscribeLink(to),
-      preferencesLink: getPreferencesLink(to),
-    };
-
     if (!transporter) {
       console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}, Template: custom`);
-      console.log(`[MOCK EMAIL] HTML: ${context.body.substring(0, 200)}...`);
       return;
     }
-
     try {
       await transporter.sendMail({
         from: `"Voces Palestinas por la Justicia" <${process.env.EMAIL_FROM}>`,
@@ -92,30 +82,30 @@ const sendEmail = async (to, subject, templateName, context = {}) => {
         html: context.body,
       });
       console.log(`✅ Email sent to ${to} (${subject})`);
-      return;
     } catch (err) {
       console.error(`❌ Failed to send email to ${to}:`, err);
-      return;
     }
+    return;
   }
 
   const data = {
     ...context,
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',  // ← AÑADIDO
     unsubscribeLink: getUnsubscribeLink(to),
     preferencesLink: getPreferencesLink(to),
+    currentYear: new Date().getFullYear(),
   };
 
   let html;
   try {
-    html = templates[templateName] ? templates[templateName](data) : `HTML not available for ${templateName}.`;
+    html = templates[templateName] ? templates[templateName](data) : `Plantilla '${templateName}' no encontrada.`;
   } catch (err) {
-    console.error(`Template rendering error for ${templateName}:`, err);
-    html = `Error generating email content.`;
+    console.error(`Error al renderizar plantilla ${templateName}:`, err);
+    html = `Error al generar el contenido del email.`;
   }
 
   if (!transporter) {
     console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}, Template: ${templateName}`);
-    console.log(`[MOCK EMAIL] HTML: ${html.substring(0, 200)}...`);
     return;
   }
 
@@ -153,6 +143,12 @@ const sendPasswordResetEmail = (email, resetUrl) =>
 const sendCustomEmail = (email, subject, htmlBody) =>
   sendEmail(email, subject, 'custom', { body: htmlBody });
 
+const sendDonationAvailableEmail = (email) =>
+  sendEmail(email, '🍉 ¡Ya puedes donar!', 'donation_available', {
+    username: email.split('@')[0],
+    donationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donaciones`
+  });
+
 module.exports = {
   initEmailService,
   sendWelcomeEmail,
@@ -162,4 +158,5 @@ module.exports = {
   sendReminderEmail,
   sendPasswordResetEmail,
   sendCustomEmail,
+  sendDonationAvailableEmail,
 };

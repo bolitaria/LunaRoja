@@ -25,7 +25,7 @@ const imageRoutes = require('./routes/imageRoutes');
 const dbAdminRoutes = require('./routes/dbAdminRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const documentRoutes = require('./routes/documentRoutes');
-const bdsRoutes = require('./routes/bdsRoutes');   // ← NUEVO: módulo BDS
+const bdsRoutes = require('./routes/bdsRoutes');
 
 dotenv.config();
 
@@ -52,7 +52,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 
-// Rate limit configurable
+// Rate limit
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 200,
@@ -62,7 +62,6 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// Aumentados para permitir contenido HTML del editor enriquecido y archivos grandes
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));
 app.use(cookieParser());
@@ -86,8 +85,8 @@ app.use('/api/chat-groups', chatGroupRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/database', dbAdminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/documents', documentRoutes);  
-app.use('/api/bds', bdsRoutes);   
+app.use('/api/documents', documentRoutes);
+app.use('/api/bds', bdsRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' });
@@ -155,6 +154,9 @@ const startServer = async () => {
 
     await ensureColumnsExist();
     await ensureAdmin();
+
+    // Iniciar scheduler de recordatorios
+    require('./jobs/reminderJob');
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
