@@ -5,12 +5,9 @@ const authMiddleware = async (req, res, next) => {
   try {
     let token = null;
 
-    // 1. Cookie HttpOnly (nuevo sistema)
     if (req.cookies && req.cookies.access_token) {
       token = req.cookies.access_token;
-    }
-    // 2. Header Authorization (compatibilidad)
-    else if (req.header('Authorization')?.startsWith('Bearer ')) {
+    } else if (req.header('Authorization')?.startsWith('Bearer ')) {
       token = req.header('Authorization').split(' ')[1];
     }
 
@@ -18,7 +15,6 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'Acceso denegado. Token no proporcionado' });
     }
 
-    // Validar que el token no sea literalmente "null" o "undefined"
     if (token === 'null' || token === 'undefined') {
       return res.status(401).json({ message: 'Token inválido' });
     }
@@ -32,11 +28,9 @@ const authMiddleware = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    // Solo registrar advertencia sin stack trace
     console.warn('Token inválido recibido:', error.message);
     return res.status(401).json({ message: 'Token inválido o expirado' });
   }
 };
 
 module.exports = authMiddleware;
-module.exports.authMiddleware = authMiddleware;

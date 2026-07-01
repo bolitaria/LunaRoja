@@ -10,7 +10,7 @@ import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 
-function AdminUsers() {
+export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -111,27 +111,15 @@ function AdminUsers() {
   const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   return (
-    <AdminLayout title="Usuarios">
+    <AdminLayout title="Administradores">
       <ToastContainer />
       <ConfirmModal isOpen={showDeleteModal} title="Eliminar usuario" message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} usuarios seleccionados?` : '¿Eliminar este usuario?')} onConfirm={executeDelete} onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
 
       <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Total</span>
-          <span className="font-bold text-gray-800">{total}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Superadmins</span>
-          <span className="font-bold text-gray-800">{superadmins}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Adm. Campaña</span>
-          <span className="font-bold text-gray-800">{campaignAdmins}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Adm. Evento</span>
-          <span className="font-bold text-gray-800">{actionAdmins}</span>
-        </div>
+        <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Total</span><span className="font-bold text-gray-800">{total}</span></div>
+        <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Superadmins</span><span className="font-bold text-gray-800">{superadmins}</span></div>
+        <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Adm. Campaña</span><span className="font-bold text-gray-800">{campaignAdmins}</span></div>
+        <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Adm. Evento</span><span className="font-bold text-gray-800">{actionAdmins}</span></div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -165,7 +153,7 @@ function AdminUsers() {
 
       {showForm && canCreate && (
         <div className="mb-8 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h2 className="text-xl font-semibold mb-4">{editingId ? 'Editar usuario' : 'Nuevo usuario'}</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">{editingId ? 'Editar usuario' : 'Nuevo usuario'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Rol *</label>
@@ -248,5 +236,3 @@ function AdminUsers() {
     </AdminLayout>
   );
 }
-
-export default AdminUsers;

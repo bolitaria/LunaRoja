@@ -14,23 +14,24 @@ export function AuthProvider({ children }) {
     if (hasCheckedSession.current) return;
     hasCheckedSession.current = true;
 
-    const checkSession = async () => {
-      try {
-        const res = await api.get('/auth/me');
-        setUser(res.data.user);
-      } catch (err) {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkSession();
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    api.get('/users/me')
+      .then(res => setUser(res.data))
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (username, password) => {
     try {
       const res = await api.post('/auth/login', { username, password });
-      setUser(res.data.user);
+      const { token, user: userData } = res.data;
+      localStorage.setItem('token', token);
+      setUser(userData);
       router.push('/admin');
       return { success: true };
     } catch (error) {
@@ -42,8 +43,9 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch (err) {
-      console.error('Error en logout', err);
+      // ignoramos errores
     } finally {
+      localStorage.removeItem('token');
       setUser(null);
       router.push('/admin/login');
     }

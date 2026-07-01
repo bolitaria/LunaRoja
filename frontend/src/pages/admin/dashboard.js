@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import api from '../../lib/axios';
 import Link from 'next/link';
+import { useAuth } from '../../context/AuthContext';
 import {
   FaCalendarAlt, FaBullhorn, FaUsers, FaEnvelope, FaNewspaper,
   FaPlus, FaList, FaArrowRight
@@ -24,6 +25,7 @@ function StatCard({ title, value, icon, color, link }) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     totalActions: 0,
     totalCampaigns: 0,
@@ -39,33 +41,32 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [
-          dashboardRes, actionsRes, campaignsRes, bdsRes,
-          usersRes, subscribersRes, newsRes
-        ] = await Promise.all([
-          api.get('/dashboard'),
-          api.get('/actions'),
-          api.get('/campaigns'),
-          api.get('/bds'),
-          api.get('/users'),
-          api.get('/subscribers'),
-          api.get('/news'),
-        ]);
+        // Peticiones que el backend ya filtra según rol
+        const [actionsRes, campaignsRes, bdsRes, usersRes, subscribersRes, newsRes] =
+          await Promise.all([
+            api.get('/actions'),
+            api.get('/campaigns'),
+            api.get('/bds'),
+            api.get('/users'),
+            api.get('/subscribers'),
+            api.get('/news'),
+          ]);
 
-        const dash = dashboardRes.data;
+        // Calcular totales desde los arrays
         setStats({
-          totalActions: dash.totals?.actions || 0,
-          totalCampaigns: dash.totals?.campaigns || 0,
-          totalBDS: dash.totals?.bds || 0,
-          totalUsers: dash.totals?.users || 0,
-          totalSubscribers: dash.totals?.subscribers || 0,
-          totalNews: dash.totals?.news || 0,
+          totalActions: actionsRes.data.length,
+          totalCampaigns: campaignsRes.data.length,
+          totalBDS: bdsRes.data.length,
+          totalUsers: usersRes.data.length,
+          totalSubscribers: subscribersRes.data.length,
+          totalNews: newsRes.data.length,
         });
 
         setRecentActions(actionsRes.data.slice(0, 5));
         setRecentCampaigns(campaignsRes.data.slice(0, 5));
       } catch (error) {
         console.error('Error fetching dashboard data', error);
+        // Si falla alguna petición, mantenemos los valores por defecto
       } finally {
         setLoading(false);
       }
@@ -73,14 +74,20 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const quickLinks = [
-    { name: 'Nueva Acción', href: '/admin/actions/new', icon: <FaPlus />, color: 'bg-purple-100 text-purple-700' },
-    { name: 'Nueva Campaña', href: '/admin/campaigns/new', icon: <FaPlus />, color: 'bg-emerald-100 text-emerald-700' },
-    { name: 'Nueva Campaña BDS', href: '/admin/bds/new', icon: <FaPlus />, color: 'bg-rose-100 text-rose-700' },
+  // Enlaces rápidos según el rol del usuario
+  const quickLinks = [];
+  if (user?.role === 'superadmin' || user?.role === 'campaign_admin') {
+    quickLinks.push(
+      { name: 'Nueva Acción', href: '/admin/actions/new', icon: <FaPlus />, color: 'bg-purple-100 text-purple-700' },
+      { name: 'Nueva Campaña', href: '/admin/campaigns/new', icon: <FaPlus />, color: 'bg-emerald-100 text-emerald-700' },
+      { name: 'Nueva Campaña BDS', href: '/admin/bds/new', icon: <FaPlus />, color: 'bg-rose-100 text-rose-700' }
+    );
+  }
+  quickLinks.push(
     { name: 'Ver Acciones', href: '/admin/actions', icon: <FaList />, color: 'bg-sky-100 text-sky-700' },
     { name: 'Ver Campañas', href: '/admin/campaigns', icon: <FaList />, color: 'bg-amber-100 text-amber-700' },
-    { name: 'Ver Noticias', href: '/admin/news', icon: <FaNewspaper />, color: 'bg-violet-100 text-violet-700' },
-  ];
+    { name: 'Ver Noticias', href: '/admin/news', icon: <FaNewspaper />, color: 'bg-violet-100 text-violet-700' }
+  );
 
   if (loading) {
     return (
@@ -113,19 +120,21 @@ export default function Dashboard() {
       </div>
 
       {/* Accesos rápidos */}
-      <div className="mb-10">
-        <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
-          <FaArrowRight className="text-purple-500" /> Accesos rápidos
-        </h2>
-        <div className="flex flex-wrap gap-3">
-          {quickLinks.map((link, idx) => (
-            <Link key={idx} href={link.href} className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md ${link.color}`}>
-              {link.icon}
-              {link.name}
-            </Link>
-          ))}
+      {quickLinks.length > 0 && (
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <FaArrowRight className="text-purple-500" /> Accesos rápidos
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {quickLinks.map((link, idx) => (
+              <Link key={idx} href={link.href} className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md ${link.color}`}>
+                {link.icon}
+                {link.name}
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Últimas acciones y campañas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

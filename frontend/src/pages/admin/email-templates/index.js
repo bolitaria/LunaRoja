@@ -8,7 +8,7 @@ import { FaEdit, FaTrash, FaPlus, FaFlask, FaSearch } from 'react-icons/fa';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 
-function AdminEmailTemplates() {
+export default function AdminEmailTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,7 +61,7 @@ function AdminEmailTemplates() {
   const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   return (
-    <AdminLayout title="Plantillas de Email">
+    <AdminLayout title="Plantillas Email">
       <ToastContainer />
       <ConfirmModal
         isOpen={showDeleteModal}
@@ -135,7 +135,7 @@ function AdminEmailTemplates() {
                   <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{tpl.subject}</td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{tpl.associatedEvent}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-fuchsia-100 text-fuchsia-800' : 'bg-emerald-100 text-emerald-800'}`}>
                       {tpl.type === 'system' ? 'Sistema' : 'Personalizada'}
                     </span>
                   </td>
@@ -164,5 +164,3 @@ function AdminEmailTemplates() {
     </AdminLayout>
   );
 }
-
-export default AdminEmailTemplates;
