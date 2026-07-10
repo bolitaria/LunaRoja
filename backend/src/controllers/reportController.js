@@ -33,13 +33,22 @@ exports.getReportById = async (req, res) => {
 
 exports.createReport = async (req, res) => {
   try {
-    const { title, description, content } = req.body;
+    const { title, description, content, type, source, author } = req.body;
     if (!title) {
       return res.status(400).json({ message: 'Título es requerido' });
     }
-    if (!req.file && !content) {
+
+    // Validar fuente para reportes
+    if (type === 'report' && (!source || source.trim() === '')) {
+      return res.status(400).json({ message: 'Los reportes deben citar al menos una fuente oficial' });
+    }
+
+    // Para blogs, permitir que solo tengan descripción sin contenido ni archivo
+    const hasContent = content && content.trim() !== '';
+    const hasFile = !!req.file;
+    if (!hasContent && !hasFile && !(type === 'blog' && description && description.trim() !== '')) {
       return res.status(400).json({
-        message: 'Debes adjuntar un archivo o escribir el contenido del reporte'
+        message: 'Debes adjuntar un archivo, escribir el contenido o (para blogs) proporcionar una descripción'
       });
     }
 
@@ -52,6 +61,9 @@ exports.createReport = async (req, res) => {
       title,
       description: description || '',
       content: content || '',
+      type: type || 'blog',
+      source: source || '',
+      author: author || '',
       fileUrl,
     });
     res.status(201).json(report);
@@ -72,7 +84,7 @@ exports.updateReport = async (req, res) => {
       return res.status(404).json({ message: 'Reporte no encontrado' });
     }
 
-    const { title, description } = req.body;
+    const { title, description, content, type, source, author } = req.body;
     let fileUrl = report.fileUrl;
 
     if (req.file) {
@@ -85,6 +97,10 @@ exports.updateReport = async (req, res) => {
     await report.update({
       title: title || report.title,
       description: description !== undefined ? description : report.description,
+      content: content !== undefined ? content : report.content,
+      type: type || report.type,
+      source: source !== undefined ? source : report.source,
+      author: author !== undefined ? author : report.author,
       fileUrl,
     });
     res.json(report);

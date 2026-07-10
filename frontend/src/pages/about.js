@@ -1,7 +1,6 @@
 import Layout from '../components/Layout';
 
 export default function About() {
-  // Colores alternos para la línea inferior de cada apartado
   const borderColors = [
     'border-red-500',
     'border-green-500',
@@ -58,13 +57,14 @@ export default function About() {
 
   return (
     <Layout title="Acerca de - Voces Palestinas por la Justicia">
-      <div className="min-h-[70vh] bg-gradient-to-b from-gray-50 to-white py-16 px-4">
+      <div className="min-h-screen bg-white py-16 px-4">
         <div className="container mx-auto max-w-4xl">
-          {/* Encabezado - Título principal en gris sin línea */}
+          {/* Encabezado con línea verde centrada */}
           <div className="text-center mb-14">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-700 tracking-tight">
               Acerca de Voces Palestinas por la Justicia
             </h1>
+            <div className="h-1 w-full max-w-xs mx-auto bg-green-600 mt-3"></div>
           </div>
 
           {/* Contenido en tarjetas */}
@@ -74,10 +74,10 @@ export default function About() {
               return (
                 <section
                   key={index}
-                  className="bg-white p-6 md:p-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300"
+                  className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300"
                 >
                   <h2
-                    className={`text-2xl md:text-3xl font-bold text-gray-800 border-b-2 ${borderColor} pb-2 inline-block mb-4`}
+                    className={`text-2xl md:text-3xl font-bold text-gray-600 border-b-2 ${borderColor} pb-2 inline-block mb-4`}
                   >
                     {section.title}
                   </h2>

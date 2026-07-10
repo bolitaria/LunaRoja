@@ -6,7 +6,7 @@ const {
   updateCampaign,
   deleteCampaign,
 } = require('../controllers/campaignController');
-const authMiddleware = require('../middlewares/auth');
+const { authenticate: authMiddleware } = require('../middlewares/auth');
 const optionalAuth = require('../middlewares/optionalAuth');
 const { isSuperAdmin, canAccessCampaign } = require('../middlewares/authorize');
 const uploadCampaign = require('../middlewares/uploadCampaign');

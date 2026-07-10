@@ -7,7 +7,7 @@ const {
   deleteAction,
   deleteActionImage
 } = require('../controllers/actionController');
-const authMiddleware = require('../middlewares/auth');
+const { authenticate: authMiddleware } = require('../middlewares/auth');
 const optionalAuth = require('../middlewares/optionalAuth');
 const { isSuperAdmin, canAccessAction } = require('../middlewares/authorize');
 const uploadFields = require('../middlewares/uploadActions');

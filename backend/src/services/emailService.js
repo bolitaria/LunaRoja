@@ -90,7 +90,7 @@ const sendEmail = async (to, subject, templateName, context = {}) => {
 
   const data = {
     ...context,
-    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',  // ← AÑADIDO
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     unsubscribeLink: getUnsubscribeLink(to),
     preferencesLink: getPreferencesLink(to),
     currentYear: new Date().getFullYear(),
@@ -149,8 +149,57 @@ const sendDonationAvailableEmail = (email) =>
     donationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donaciones`
   });
 
+// ------------------------------------------------------------
+// TRANSPORTE BREVO Y FUNCIONES PARA PETICIONES
+// ------------------------------------------------------------
+const petitionTransporter = nodemailer.createTransport({
+  host: process.env.BREVO_SMTP_HOST,
+  port: parseInt(process.env.BREVO_SMTP_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.BREVO_SMTP_USER,
+    pass: process.env.BREVO_SMTP_PASS,
+  },
+});
+
+async function sendPetitionAlert(petition, signerData) {
+  if (!petition.target_emails || !petition.target_emails.length) return;
+
+  const subject = `Nueva firma en "${petition.title}"`;
+  let dataRows = '';
+  for (const [label, value] of Object.entries(signerData)) {
+    dataRows += `<tr><td style="padding:4px 8px;border:1px solid #ddd;"><strong>${label}</strong></td><td style="padding:4px 8px;border:1px solid #ddd;">${value}</td></tr>`;
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px;">
+      <h2>Alguien ha firmado tu petición</h2>
+      <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">${dataRows}</table>
+      <p>Total de firmas hasta ahora: <strong>${petition.total_signatures}</strong></p>
+      <hr><a href="${process.env.FRONTEND_URL}/petition/${petition.id}">Ver petición</a>
+    </div>`;
+
+  try {
+    await petitionTransporter.sendMail({
+      from: `"${process.env.BREVO_FROM_NAME}" <${process.env.BREVO_FROM_EMAIL}>`,
+      to: petition.target_emails.join(','),
+      subject,
+      html,
+    });
+    return { success: true };
+  } catch (error) {
+    if (error.message && error.message.includes('quota')) {
+      console.warn('⚠️ Cuota diaria de Brevo alcanzada');
+      return { success: false, quotaExceeded: true };
+    }
+    console.error('❌ Error enviando alerta de petición:', error);
+    return { success: false, quotaExceeded: false };
+  }
+}
+
 module.exports = {
   initEmailService,
+  sendEmail,
   sendWelcomeEmail,
   sendGoodbyeEmail,
   sendCampaignNotification,
@@ -159,4 +208,5 @@ module.exports = {
   sendPasswordResetEmail,
   sendCustomEmail,
   sendDonationAvailableEmail,
+  sendPetitionAlert,
 };

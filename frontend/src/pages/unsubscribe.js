@@ -29,7 +29,7 @@ export default function Unsubscribe() {
         <div className="bg-white p-8 rounded-xl shadow-md max-w-md w-full text-center">
           {!done ? (
             <>
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">Darse de baja</h1>
+              <h1 className="text-2xl font-bold text-gray-600 mb-4">Darse de baja</h1>
               <p className="text-gray-600 mb-6">
                 Vas a cancelar la suscripción de <strong>{email || 'tu correo'}</strong>.<br />
                 Dejarás de recibir nuestros correos.

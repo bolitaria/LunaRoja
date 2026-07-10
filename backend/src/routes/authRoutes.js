@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const authMiddleware = require('../middlewares/auth');
+const { authenticate } = require('../middlewares/auth');
 
 // Autenticación
 router.post('/login', authController.login);
-router.post('/logout', authMiddleware, authController.logout);
+router.post('/logout', authenticate, authController.logout);
 router.post('/refresh', authController.refresh);
 
 // Recuperación de contraseña

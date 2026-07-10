@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import api from '../lib/axios';                 // ← instancia con withCredentials
+import api from '../lib/axios';
 import Layout from '../components/Layout';
 import NewsCard from '../components/NewsCard';
 import ReportCard from '../components/ReportCard';
@@ -20,9 +20,9 @@ export default function Home() {
       try {
         const [newsRes, reportsRes, actionsRes, galleryRes] = await Promise.allSettled([
           api.get('/news'),
-          api.get('/reports'),
+          api.get('/reportes'),
           api.get('/actions'),
-          api.get('/images'),                  // ← endpoint real de imágenes
+          api.get('/images'),
         ]);
 
         // Noticias
@@ -39,7 +39,7 @@ export default function Home() {
           setErrors(prev => ({ ...prev, news: 'Error al cargar noticias' }));
         }
 
-        // Reportes (ahora son públicos)
+        // Blog/Reportes
         if (reportsRes.status === 'fulfilled') {
           setReports(reportsRes.value.data.slice(0, 3));
         } else {
@@ -53,11 +53,11 @@ export default function Home() {
           setErrors(prev => ({ ...prev, actions: 'Error al cargar acciones' }));
         }
 
-        // Imágenes (galería) – el backend devuelve objetos con `url`, `relatedTitle`, etc.
+        // Imágenes (galería)
         if (galleryRes.status === 'fulfilled') {
           const images = galleryRes.value.data.map(img => ({
             id: img.id,
-            imageUrl: img.url,                 // la propiedad se llama 'url' en el backend
+            imageUrl: img.url,
             title: img.relatedTitle || 'Imagen'
           }));
           setGallery(images.slice(0, 6));
@@ -83,7 +83,7 @@ export default function Home() {
             Voces Palestinas por la Justicia
           </h1>
           <p className="text-lg mb-8">
-            Unidos por la justicia, para dar voz al pueblo Palestino y a todas las causas que necesitan voz y justicia.
+            Unidos por la justicia, para dar voz a Palestina y a cada voz que merece ser escuchada
           </p>
           <Link
             href="/about"
@@ -97,7 +97,7 @@ export default function Home() {
       {/* Galería */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Galería</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Galería</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando galería...</p>
           ) : gallery.length === 0 ? (
@@ -118,9 +118,9 @@ export default function Home() {
       </section>
 
       {/* Últimas Acciones */}
-      <section className="py-16 bg-white border-t border-gray-100">
+      <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Últimas Acciones</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Últimas Acciones</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando acciones...</p>
           ) : actions.length === 0 ? (
@@ -141,9 +141,9 @@ export default function Home() {
       </section>
 
       {/* Últimas Noticias */}
-      <section className="py-16 bg-white border-t border-gray-100">
+      <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Últimas Noticias</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Últimas Noticias</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando noticias...</p>
           ) : news.length === 0 ? (
@@ -163,14 +163,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Últimos Reportes (ahora visibles para todos) */}
-      <section className="py-16 bg-white border-t border-gray-100">
+      {/* Últimos Blog/Reportes */}
+      <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Reportes recientes</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Blog/Reportes recientes</h2>
           {loading ? (
-            <p className="text-center text-gray-600">Cargando reportes...</p>
+            <p className="text-center text-gray-600">Cargando entradas de Blog y reportes...</p>
           ) : reports.length === 0 ? (
-            <p className="text-center text-gray-600">{errors.reports || 'No hay reportes disponibles.'}</p>
+            <p className="text-center text-gray-600">{errors.reports || 'No hay entradas de Blog o reportes disponibles.'}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {reports.map((report) => (
@@ -179,8 +179,8 @@ export default function Home() {
             </div>
           )}
           <div className="text-center mt-8">
-            <Link href="/reports" className="text-red-700 font-semibold hover:underline">
-              Ver todos los reportes →
+            <Link href="/reportes" className="text-red-700 font-semibold hover:underline">
+              Ver todos los Blog/Reportes →
             </Link>
           </div>
         </div>

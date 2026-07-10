@@ -53,9 +53,10 @@ function AdminReports() {
   };
 
   const exportAll = () => {
-    const headers = ['title', 'description', 'publishedAt', 'fileUrl'];
+    const headers = ['title', 'type', 'description', 'publishedAt', 'fileUrl'];
     const data = reports.map(r => ({
       title: r.title,
+      type: r.type === 'report' ? 'Reporte' : 'Blog',
       description: r.description || '',
       publishedAt: new Date(r.publishedAt).toLocaleDateString(),
       fileUrl: r.fileUrl || 'Sin archivo'
@@ -75,12 +76,12 @@ function AdminReports() {
   const isSuperAdmin = user && user.role === 'superadmin';
 
   return (
-    <AdminLayout title="Reportes">
+    <AdminLayout title="Blog/Reportes">
       <ToastContainer />
       <ConfirmModal
         isOpen={showDeleteModal}
-        title="Eliminar reporte"
-        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} reportes?` : '¿Eliminar este reporte?')}
+        title="Eliminar entrada"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length}?` : '¿Eliminar esta entrada?')}
         onConfirm={executeDelete}
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
@@ -96,7 +97,7 @@ function AdminReports() {
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
             <Link href="/admin/reports/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-              Nuevo Reporte
+              Nueva Entrada
             </Link>
           )}
           {selected.length > 0 && (
@@ -135,8 +136,8 @@ function AdminReports() {
         <p className="text-gray-500 text-sm">Cargando...</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          <p className="text-lg mb-2">No se encontraron reportes</p>
-          <p className="text-sm">Crea un nuevo reporte.</p>
+          <p className="text-lg mb-2">No se encontraron entradas</p>
+          <p className="text-sm">Crea una nueva entrada.</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -147,9 +148,8 @@ function AdminReports() {
                   <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
                 </th>
                 <th className="px-6 py-3 text-left">Título</th>
-                <th className="px-6 py-3 text-left hidden sm:table-cell">Descripción</th>
+                <th className="px-6 py-3 text-left hidden sm:table-cell">Tipo</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Fecha</th>
-                <th className="px-6 py-3 text-left hidden md:table-cell">Archivo</th>
                 <th className="px-6 py-3 text-right">Acciones</th>
               </tr>
             </thead>
@@ -160,15 +160,12 @@ function AdminReports() {
                     <input type="checkbox" checked={selected.includes(report.id)} onChange={() => toggleOne(report.id)} />
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{report.title}</td>
-                  <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{report.description?.substring(0, 80)}{report.description?.length > 80 ? '...' : ''}</td>
-                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{new Date(report.publishedAt).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    {report.fileUrl ? (
-                      <a href={report.fileUrl} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Ver</a>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+                  <td className="px-6 py-4 hidden sm:table-cell">
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full ${report.type === 'report' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                      {report.type === 'report' ? 'Reporte' : 'Blog'}
+                    </span>
                   </td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{new Date(report.publishedAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Link href={`/admin/reports/${report.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">

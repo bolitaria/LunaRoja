@@ -51,10 +51,11 @@ services:
       DB_USER: lunaroja
       DB_PASSWORD: lunaroja123
       DB_NAME: lunaroja
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: http://lunaroja_frontend:3000
       COOKIE_SECURE: "false"
       COOKIE_SAMESITE: "lax"
       RATE_LIMIT_MAX: "50000"
+      CORS_ORIGINS: http://localhost:3000,http://lunaroja_frontend:3000,http://host.docker.internal:3000
     depends_on:
       postgres:
         condition: service_healthy

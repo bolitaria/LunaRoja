@@ -41,6 +41,10 @@ function NewAction() {
   const markerRef = useRef(null);
   const scriptLoadingRef = useRef(false);
 
+  // Coordenadas de Málaga como centro por defecto
+  const DEFAULT_LAT = 36.7213;
+  const DEFAULT_LNG = -4.4214;
+
   const loadLeaflet = () => {
     if (typeof window === 'undefined') return;
     if (window.L) {
@@ -72,10 +76,9 @@ function NewAction() {
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const res = await api.get('/campaigns');   // ← usa la instancia api (token incluido)
+        const res = await api.get('/campaigns');
         setCampaigns(res.data);
       } catch (error) {
-        // Fallo silencioso: el selector simplemente aparecerá vacío
         console.warn('No se pudieron cargar campañas', error);
         setCampaigns([]);
       }
@@ -84,7 +87,7 @@ function NewAction() {
     loadLeaflet();
   }, []);
 
-  // Funciones de mapa (idénticas al original, sin cambios)
+  // Funciones de mapa
   const searchAddress = async () => {
     if (!form.address.trim()) {
       toast.warning('Escribe una dirección para buscar.');
@@ -124,8 +127,9 @@ function NewAction() {
       leafletMapRef.current.remove();
       leafletMapRef.current = null;
     }
-    const defaultLat = form.latitude || 40.416775;
-    const defaultLng = form.longitude || -3.703790;
+    // Usar Málaga como centro por defecto
+    const defaultLat = form.latitude || DEFAULT_LAT;
+    const defaultLng = form.longitude || DEFAULT_LNG;
     const map = L.map(mapRef.current).setView([parseFloat(defaultLat), parseFloat(defaultLng)], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -227,14 +231,6 @@ function NewAction() {
     });
   };
 
-  const addPublicDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
-  };
-  const addPrivateDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]);
-  };
-  const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
-
   const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
   const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
   const updateGroup = (index, field, value) => {
@@ -242,6 +238,14 @@ function NewAction() {
     updated[index][field] = value;
     setGroups(updated);
   };
+
+  const addPublicDocument = (name, file) => {
+    setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
+  };
+  const addPrivateDocument = (name, file) => {
+    setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]);
+  };
+  const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -311,16 +315,16 @@ function NewAction() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
-                  <select name="category" value={form.category} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                  <select name="category" value={form.category} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400">
                     <option value="bds">Acción BDS</option>
                     <option value="solidarity_action">Acción Solidaria</option>
                     <option value="talk">Charla</option>
@@ -333,7 +337,7 @@ function NewAction() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Campaña relacionada</label>
-                  <select name="campaignId" value={form.campaignId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                  <select name="campaignId" value={form.campaignId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400">
                     <option value="">-- Ninguna --</option>
                     {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -341,14 +345,14 @@ function NewAction() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fecha y hora *</label>
-                <input type="datetime-local" name="datetime" value={form.datetime} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="datetime-local" name="datetime" value={form.datetime} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">📍 Ubicación</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de ubicación</label>
-                    <select name="locationType" value={form.locationType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                    <select name="locationType" value={form.locationType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400">
                       <option value="presencial">Presencial</option>
                       <option value="online">Online</option>
                     </select>
@@ -357,11 +361,11 @@ function NewAction() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de registro *</label>
-                        <input type="url" name="registrationLink" value={form.registrationLink} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" placeholder="https://forms.gle/..." />
+                        <input type="url" name="registrationLink" value={form.registrationLink} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" placeholder="https://forms.gle/..." />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Enlace online (acceso)</label>
-                        <input type="url" name="onlineLink" value={form.onlineLink} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" placeholder="https://meet.google.com/..." />
+                        <input type="url" name="onlineLink" value={form.onlineLink} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" placeholder="https://meet.google.com/..." />
                       </div>
                     </>
                   )}
@@ -369,7 +373,7 @@ function NewAction() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del lugar</label>
-                        <input type="text" name="placeName" value={form.placeName} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                        <input type="text" name="placeName" value={form.placeName} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Dirección *</label>
@@ -377,7 +381,7 @@ function NewAction() {
                           <input
                             type="text"
                             placeholder="Buscar dirección..."
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                             value={form.address}
                             onChange={(e) => setForm({ ...form, address: e.target.value })}
                           />
@@ -397,11 +401,11 @@ function NewAction() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
-                        <input type="number" step="any" name="latitude" value={form.latitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                        <input type="number" step="any" name="latitude" value={form.latitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Longitud</label>
-                        <input type="number" step="any" name="longitude" value={form.longitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                        <input type="number" step="any" name="longitude" value={form.longitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                       </div>
                       {form.latitude && form.longitude && (
                         <div className="md:col-span-2 mt-2">
@@ -434,7 +438,7 @@ function NewAction() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">URL de grabación</label>
-                <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div className="flex items-center space-x-4">
                 <label className="flex items-center">
@@ -446,6 +450,31 @@ function NewAction() {
                   <span className="text-sm text-gray-700">📋 Registrar asistencia</span>
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* GRUPOS PÚBLICOS */}
+          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
+            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+              <span>💬</span> Grupos de chat públicos
+            </h3>
+            <p className="text-xs text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
+            <div className="space-y-2">
+              {groups.map((group, idx) => (
+                <div key={idx} className="flex gap-2 mb-2 items-center">
+                  <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-gray-400">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="signal">Signal</option>
+                  </select>
+                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-gray-400" />
+                  <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
+                <span>+</span> Añadir grupo público
+              </button>
             </div>
           </div>
 
@@ -463,7 +492,7 @@ function NewAction() {
                     type="text"
                     placeholder="Nombre del archivo"
                     id="docNamePublicAction"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                   />
                   <input
                     type="file"
@@ -586,7 +615,7 @@ function NewAction() {
                       type="text"
                       placeholder="Nombre del archivo"
                       id="docNamePrivateAction"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                     />
                     <input
                       type="file"
@@ -626,26 +655,8 @@ function NewAction() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
-                <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                 <p className="text-xs text-gray-400 mt-1">Este enlace solo será visible para administradores.</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">🔒 Grupos internos (solo para la organización)</label>
-                {groups.map((group, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500">
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="telegram">Telegram</option>
-                      <option value="signal">Signal</option>
-                    </select>
-                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
-                    <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={addGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
-                  <span>+</span> Añadir grupo
-                </button>
               </div>
             </div>
           </div>
@@ -656,7 +667,13 @@ function NewAction() {
         </form>
 
         <div className="lg:w-1/3">
-          <ActionPreview form={form} featuredImage={featuredImagePreview} images={imagePreviews} documents={documents} />
+          <ActionPreview
+            form={form}
+            featuredImage={featuredImagePreview}
+            images={imagePreviews}
+            documents={documents}
+            groups={groups}
+          />
         </div>
       </div>
 
@@ -672,7 +689,7 @@ function NewAction() {
                 type="text"
                 id="modal-search-input"
                 placeholder="Buscar dirección..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();

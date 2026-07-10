@@ -28,6 +28,9 @@ export default function NewReport() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const hasContent = content.trim().length > 0;
+  const hasFile = file !== null;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -35,7 +38,7 @@ export default function NewReport() {
       toast.warning('El título es obligatorio');
       return;
     }
-    if (!file && !content.trim()) {
+    if (!hasContent && !hasFile) {
       toast.warning('Debes escribir contenido o adjuntar un archivo');
       return;
     }
@@ -68,9 +71,6 @@ export default function NewReport() {
       setLoading(false);
     }
   };
-
-  const hasContent = content.trim().length > 0;
-  const hasFile = file !== null;
 
   return (
     <AdminLayout title="Nuevo Reporte">
@@ -170,7 +170,7 @@ export default function NewReport() {
         <div className="lg:w-1/3">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-6">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Vista previa</h3>
-            {!title && !content && !file ? (
+            {!title && !hasContent && !hasFile ? (
               <p className="text-gray-400 text-sm">Completa el formulario para ver la vista previa.</p>
             ) : (
               <div className="space-y-3">
@@ -180,21 +180,27 @@ export default function NewReport() {
                     <p className="text-gray-800 font-semibold">{title}</p>
                   </div>
                 )}
+                {description && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
+                    <p className="text-gray-700 text-sm">{description}</p>
+                  </div>
+                )}
                 {hasContent && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Contenido</h4>
                     <div
-                      className="prose prose-sm max-w-none text-gray-700 ql-editor"
+                      className="prose prose-sm max-w-none text-gray-700"
                       dangerouslySetInnerHTML={{ __html: content }}
                     />
                   </div>
                 )}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Archivo</h4>
+                  <h4 className="text-sm font-medium text-gray-500">Archivo adjunto</h4>
                   {file ? (
                     <p className="text-sm text-fuchsia-600">📎 {file.name}</p>
                   ) : (
-                    <p className="text-sm text-gray-400">Sin archivo (se enviará solo el texto)</p>
+                    <p className="text-sm text-gray-400">Sin archivo</p>
                   )}
                 </div>
               </div>

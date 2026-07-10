@@ -63,10 +63,12 @@ export default function AccionesIndex() {
     setFilterLocation(prev => prev === value ? 'todos' : value);
   };
 
+  const filterBtnBase = "px-4 py-2 rounded-lg text-sm font-medium transition border border-gray-300";
+
   return (
     <Layout title="Acciones - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 lg:px-8 py-8">
-        <h1 className="text-4xl font-bold text-gray-800 mb-6 text-center">Acciones</h1>
+        <h1 className="text-4xl font-bold text-gray-600 mb-6 text-center">Acciones</h1>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-center">
@@ -84,10 +86,10 @@ export default function AccionesIndex() {
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                className={`${filterBtnBase} ${
                   filterCategory === cat
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-green-600 text-white border-green-600'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
                 }`}
               >
                 {cat === 'todas' ? 'Todas' : (categoryLabels[cat] || cat)}
@@ -98,30 +100,30 @@ export default function AccionesIndex() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilterTime('todas')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              className={`${filterBtnBase} ${
                 filterTime === 'todas'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
               Todas
             </button>
             <button
               onClick={() => setFilterTime('futuras')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              className={`${filterBtnBase} ${
                 filterTime === 'futuras'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
               Futuras
             </button>
             <button
               onClick={() => setFilterTime('pasadas')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              className={`${filterBtnBase} ${
                 filterTime === 'pasadas'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
               Pasadas
@@ -136,7 +138,7 @@ export default function AccionesIndex() {
               className={`px-2 py-1 rounded-full border transition ${
                 filterLocation === 'presencial'
                   ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
-                  : 'border-gray-300 hover:border-gray-400'
+                  : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'
               }`}
             >
               Presencial
@@ -146,7 +148,7 @@ export default function AccionesIndex() {
               className={`px-2 py-1 rounded-full border transition ${
                 filterLocation === 'online'
                   ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
-                  : 'border-gray-300 hover:border-gray-400'
+                  : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'
               }`}
             >
               Online

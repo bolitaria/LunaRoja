@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const authMiddleware = require('../middlewares/auth');
+const { authenticate: authMiddleware } = require('../middlewares/auth');
 const { isSuperAdmin } = require('../middlewares/authorize');
 const reportController = require('../controllers/reportController');
 

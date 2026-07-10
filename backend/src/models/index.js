@@ -11,6 +11,15 @@ const Subscriber = require('./Subscriber');
 const SubscribersReminder = require('./SubscribersReminder');
 const ChatGroup = require('./ChatGroup');
 const News = require('./News');
+const Petition = require('./Petition');
+const SignatureHash = require('./SignatureHash');
+const EmailQueue = require('./EmailQueue');
+const EmailQuota = require('./EmailQuota');
+const Report = require('./Report');
+
+// ============================================================
+// ASOCIACIONES EXISTENTES (se mantienen sin cambios)
+// ============================================================
 
 // Campaign <-> Action
 Campaign.hasMany(Action, { foreignKey: 'campaignId', as: 'campaignActions' });
@@ -32,7 +41,7 @@ Campaign.belongsToMany(User, { through: UserCampaign, foreignKey: 'campaignId', 
 User.belongsToMany(Action, { through: UserAction, foreignKey: 'userId', otherKey: 'actionId', as: 'assignedActions' });
 Action.belongsToMany(User, { through: UserAction, foreignKey: 'actionId', otherKey: 'userId', as: 'assignedUsers' });
 
-// User <-> BDS (para bds_admin)
+// User <-> BDS
 User.belongsToMany(BDS, { through: UserBDS, foreignKey: 'userId', otherKey: 'bdsId', as: 'bdsCampaigns' });
 BDS.belongsToMany(User, { through: UserBDS, foreignKey: 'bdsId', otherKey: 'userId', as: 'users' });
 
@@ -52,7 +61,6 @@ News.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
 Action.hasMany(News, { foreignKey: 'actionId', as: 'news' });
 News.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
-// ====== ASOCIACIONES FALTANTES ======
 // SubscribersReminder <-> Subscriber
 SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
 Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders' });
@@ -61,6 +69,22 @@ Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'remin
 SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 Action.hasMany(SubscribersReminder, { foreignKey: 'actionId', as: 'reminders' });
 
+// ============================================================
+// NUEVAS ASOCIACIONES (Peticiones, Cola de Correos)
+// ============================================================
+
+Petition.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+User.hasMany(Petition, { foreignKey: 'created_by', as: 'petitions' });
+
+Petition.hasMany(SignatureHash, { foreignKey: 'petition_id', as: 'signatureHashes' });
+SignatureHash.belongsTo(Petition, { foreignKey: 'petition_id', as: 'petition' });
+
+Petition.hasMany(EmailQueue, { foreignKey: 'petition_id', as: 'emailQueues' });
+EmailQueue.belongsTo(Petition, { foreignKey: 'petition_id', as: 'petition' });
+
+// ============================================================
+// EXPORTACIÓN DE MODELOS
+// ============================================================
 module.exports = {
   sequelize,
   User,
@@ -75,4 +99,9 @@ module.exports = {
   SubscribersReminder,
   ChatGroup,
   News,
+  Petition,
+  SignatureHash,
+  EmailQueue,
+  EmailQuota,
+  Report,
 };

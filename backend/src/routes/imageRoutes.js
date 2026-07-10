@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const imageController = require('../controllers/imageController');
-const authMiddleware = require('../middlewares/auth');          // ← corregido (sin llaves)
+const { authenticate: authMiddleware } = require('../middlewares/auth');          // ← corregido (sin llaves)
 const { isSuperAdmin } = require('../middlewares/authorize');
 
 // Ruta pública para ver todas las imágenes

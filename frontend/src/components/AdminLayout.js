@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   FaHome, FaBolt, FaBullhorn, FaUsers, FaImages, FaNewspaper,
   FaFileAlt, FaComments, FaEnvelope, FaDatabase, FaUserCog, FaSignOutAlt,
-  FaArrowRight, FaChartPie
+  FaArrowRight, FaChartPie, FaPenFancy
 } from 'react-icons/fa';
 
 export default function AdminLayout({ children, title = 'Panel Admin' }) {
@@ -21,7 +21,8 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Campañas', path: '/admin/campaigns', icon: <FaBullhorn className="w-4 h-4" /> },
     { name: 'BDS', path: '/admin/bds', icon: <FaBullhorn className="w-4 h-4" /> },
     { name: 'Noticias', path: '/admin/news', icon: <FaNewspaper className="w-4 h-4" /> },
-    { name: 'Reportes', path: '/admin/reports', icon: <FaFileAlt className="w-4 h-4" /> },
+    { name: 'Blog/Reportes', path: '/admin/reports', icon: <FaFileAlt className="w-4 h-4" /> },
+    { name: 'Firma Peticiones', path: '/admin/petitions', icon: <FaPenFancy className="w-4 h-4" /> },
     { name: 'Grupos de Chat', path: '/admin/chatGroups', icon: <FaComments className="w-4 h-4" /> },
     { name: 'Imágenes', path: '/admin/images', icon: <FaImages className="w-4 h-4" /> },
     { name: 'Documentos', path: '/admin/documents', icon: <FaFileAlt className="w-4 h-4" /> },
@@ -37,6 +38,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     { name: 'Campañas', path: '/admin/campaigns', icon: <FaBullhorn className="w-4 h-4" /> },
     { name: 'BDS', path: '/admin/bds', icon: <FaBullhorn className="w-4 h-4" /> },
     { name: 'Noticias', path: '/admin/news', icon: <FaNewspaper className="w-4 h-4" /> },
+    { name: 'Firma Peticiones', path: '/admin/petitions', icon: <FaPenFancy className="w-4 h-4" /> },
     { name: 'Grupos de Chat', path: '/admin/chatGroups', icon: <FaComments className="w-4 h-4" /> },
     { name: 'Imágenes', path: '/admin/images', icon: <FaImages className="w-4 h-4" /> },
     { name: 'Documentos', path: '/admin/documents', icon: <FaFileAlt className="w-4 h-4" /> },
@@ -62,7 +64,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
 
   const groupDefinitions = [
     { label: 'Principal', keys: ['Dashboard'] },
-    { label: 'Campañas y Comunicación', keys: ['Acciones', 'Campañas', 'BDS', 'Noticias', 'Reportes', 'Grupos de Chat'] },
+    { label: 'Campañas y Comunicación', keys: ['Acciones', 'Campañas', 'BDS', 'Noticias', 'Blog/Reportes', 'Firma Peticiones', 'Grupos de Chat'] },
     { label: 'Contenido y Datos', keys: ['Imágenes', 'Documentos', 'Suscriptores', 'Base de Datos'] },
     { label: 'Administración', keys: ['Administradores', 'Plantillas Email', 'Mi Perfil'] },
   ];
@@ -72,10 +74,16 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     items: menu.filter(item => group.keys.includes(item.name)),
   })).filter(group => group.items.length > 0);
 
-  const roleName = {
-    superadmin: 'Superadmin',
-    campaign_admin: 'Admin Campaña',
-    action_admin: 'Admin Acción',
+  // Colores según rol: verde neón para Superadmin
+  const roleStyles = {
+    superadmin: { bg: 'bg-green-400', text: 'text-black', label: 'Superadmin' },
+    campaign_admin: { bg: 'bg-orange-500', text: 'text-white', label: 'Admin Campaña' },
+    action_admin: { bg: 'bg-yellow-400', text: 'text-black', label: 'Admin Acción' },
+    blog_admin: { bg: 'bg-purple-600', text: 'text-white', label: 'Blog Admin' },
+  };
+
+  const getRoleStyle = (role) => {
+    return roleStyles[role] || { bg: 'bg-gray-500', text: 'text-white', label: role || 'Usuario' };
   };
 
   const getInitials = (name) => {
@@ -87,7 +95,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     return (
       <div className="min-h-screen bg-stone-50 flex">
         <aside className="w-56 bg-white shadow-md flex flex-col">
-          <div className="h-16 p-4 border-b border-gray-200 bg-white flex items-center">
+          <div className="h-20 p-4 border-b border-gray-200 bg-white flex items-center">
             <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
           </div>
           <nav className="flex-1 p-4 space-y-2">
@@ -95,7 +103,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
           </nav>
         </aside>
         <div className="flex-1 p-6">
-          <div className="h-16 bg-gray-200 rounded animate-pulse mb-4" />
+          <div className="h-20 bg-gray-200 rounded animate-pulse mb-4" />
           <div className="h-64 bg-gray-100 rounded animate-pulse" />
         </div>
       </div>
@@ -111,21 +119,26 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
 
   const handleLogout = () => logout();
 
+  const roleStyle = getRoleStyle(user.role);
+  const roleLabel = roleStyle.label;
+  const roleBg = roleStyle.bg;
+  const roleText = roleStyle.text;
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-50">
       <div className="flex flex-1">
         <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 shadow-sm">
-          <div className="h-16 px-4 border-b border-gray-100 flex items-center justify-between">
-            <Link href="/" className="flex items-center">
-              <img src="/logo.svg" alt="Logo" className="h-10 w-auto" />
-            </Link>
+          {/* Sidebar header */}
+          <div className="h-20 px-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center">
+              <img src="/logo.svg" alt="Logo" className="h-14 w-auto" />
+            </div>
             <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-xs font-medium text-gray-700 leading-none">{user.username}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{roleName[user.role] || user.role}</p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold text-sm">
-                {getInitials(user.username)}
+              <div className="flex flex-col items-end">
+                <p className="text-sm font-medium text-gray-800 leading-tight">{user.username}</p>
+                <p className={`text-xs font-medium ${roleText} ${roleBg} px-2 py-0.5 rounded-full inline-block mt-0.5`}>
+                  {roleLabel}
+                </p>
               </div>
               <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Cerrar sesión">
                 <FaSignOutAlt className="w-4 h-4" />
@@ -156,37 +169,36 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
         </aside>
 
         <div className="flex-1 flex flex-col min-h-0">
-         <header className="h-16 bg-gradient-to-r from-[#F2856D] to-[#F2A7B3] flex items-stretch justify-between px-6 sticky top-0 z-10 border-b border-stone-200">
-          {/* Pestaña izquierda */}
-          <div className="self-end ml-6 flex items-end">
-            <div className="bg-white border border-stone-200 border-b-0 rounded-t-lg px-5 py-2.5 translate-y-[1px]">
-              <h1 className="text-stone-700 text-lg font-semibold leading-tight">
-                {title}
-              </h1>
+          {/* Header principal: pestaña ocupa la mitad izquierda, bloque derecho la otra mitad */}
+          <header className="h-20 bg-gradient-to-r from-[#F2856D] to-[#F2A7B3] flex items-end justify-between px-6 sticky top-0 z-10 border-b border-stone-200">
+            {/* Pestaña izquierda - ocupa el 50% del ancho */}
+            <div className="w-1/2 flex items-end h-full">
+              <div className="bg-white border border-stone-200 border-b-0 rounded-t-lg px-5 py-3 w-full">
+                <h1 className="text-stone-700 text-xl font-semibold leading-tight truncate">
+                  {title}
+                </h1>
+              </div>
             </div>
-          </div>
 
-          {/* Bloque derecho */}
-          <div className="flex items-center gap-4 self-center">
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-white/30 flex items-center justify-center text-gray-700 font-bold text-sm shadow-inner">
-                {getInitials(user.username)}
+            {/* Bloque derecho - ocupa el otro 50%, centrado verticalmente */}
+            <div className="w-1/2 flex-shrink-0 flex items-center justify-end gap-4 self-center">
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-semibold text-gray-800 leading-tight">{user.username}</span>
+                  <span className={`text-xs font-medium ${roleText} ${roleBg} px-2 py-0.5 rounded-full inline-block mt-0.5 border-2 border-gray-300`}>
+                    {roleLabel}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-semibold text-gray-800 leading-tight">{user.username}</span>
-                <span className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">
-                  {roleName[user.role] || user.role}
+              <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 border-2 border-gray-300 bg-white/10 hover:bg-white/30 px-4 py-1.5 rounded-full transition-colors flex-shrink-0">
+                <span className="bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                  <img src="/logo.svg" alt="Logo" className="h-4 w-auto" />
                 </span>
-              </div>
+                Ir al sitio público <FaArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-            <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 border-2 border-gray-300 bg-white/10 hover:bg-white/30 px-4 py-1.5 rounded-full transition-colors">
-              <span className="bg-white rounded-full w-6 h-6 flex items-center justify-center">
-                <img src="/logo.svg" alt="Logo" className="h-4 w-auto" />
-              </span>
-              Ir al sitio público <FaArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-        </header>
+          </header>
+
           <main className="flex-1 p-6">{children}</main>
         </div>
       </div>

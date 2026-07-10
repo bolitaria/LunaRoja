@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const authMiddleware = async (req, res, next) => {
+// Middleware de autenticación (el original)
+const authenticate = async (req, res, next) => {
   try {
     let token = null;
 
@@ -33,4 +34,18 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+// Middleware de verificación de rol admin (ya lo usas en otras rutas seguramente)
+const isAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'No autenticado' });
+  }
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin' && req.user.role !== 'campaign_admin') {
+    return res.status(403).json({ message: 'Acceso denegado. Se requiere rol de administrador' });
+  }
+  next();
+};
+
+// Para mantener compatibilidad con código anterior que importa authMiddleware directamente
+const authMiddleware = authenticate;
+
+module.exports = { authenticate, isAdmin, authMiddleware };

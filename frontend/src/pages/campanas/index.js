@@ -4,7 +4,6 @@ import axios from 'axios';
 import Layout from '../../components/Layout';
 import Link from 'next/link';
 import 'react-calendar/dist/Calendar.css';
-import { categoryLabels, categoryStyles } from '../../utils/categoryConfig';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -22,7 +21,7 @@ export default function Campanas() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
   const [timeFilter, setTimeFilter] = useState('todas');
-  const [filterLocation, setFilterLocation] = useState('todos');
+  const [filterUrgency, setFilterUrgency] = useState('todas');
   const [error, setError] = useState(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -66,21 +65,29 @@ export default function Campanas() {
     return campaignActions.some(action => new Date(action.datetime) > now);
   };
 
-  const hasLocation = (campaignId, locationType) => {
+  const hasUrgency = (campaignId, urgency) => {
     const campaignActions = actions.filter(a => a.campaignId === campaignId);
-    if (locationType === 'online') return campaignActions.some(a => a.locationType === 'online');
-    if (locationType === 'presencial') return campaignActions.some(a => a.locationType === 'presencial');
-    return true;
+    if (urgency === 'urgente') return campaignActions.some(a => a.urgent);
+    return true; // 'todas'
+  };
+
+  const getNextAction = (campaignId) => {
+    const upcoming = actions
+      .filter(a => a.campaignId === campaignId && new Date(a.datetime) > now)
+      .sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+    return upcoming[0] || null;
   };
 
   const filteredCampaigns = useMemo(() => {
     let filtered = campaigns;
+    // Filtro por fecha del calendario
     if (selectedDate) {
       const dateStr = getLocalDateStr(selectedDate);
       const actionsOnDate = actionsByDate.get(dateStr) || [];
       const campaignIds = new Set(actionsOnDate.map(a => a.campaignId));
       filtered = filtered.filter(c => campaignIds.has(c.id));
     }
+    // Filtro de tiempo (futuras/pasadas)
     if (timeFilter === 'futuras' || timeFilter === 'pasadas') {
       filtered = filtered.filter(campaign => {
         const campaignActions = actions.filter(a => a.campaignId === campaign.id);
@@ -91,8 +98,9 @@ export default function Campanas() {
         });
       });
     }
-    if (filterLocation !== 'todos') {
-      filtered = filtered.filter(campaign => hasLocation(campaign.id, filterLocation));
+    // Filtro de urgencia (todas / urgentes)
+    if (filterUrgency === 'urgente') {
+      filtered = filtered.filter(campaign => hasUrgency(campaign.id, 'urgente'));
     }
     // Ordenar: activas primero
     return filtered.sort((a, b) => {
@@ -102,7 +110,7 @@ export default function Campanas() {
       if (!aActive && bActive) return 1;
       return 0;
     });
-  }, [campaigns, selectedDate, actionsByDate, actions, timeFilter, filterLocation, now]);
+  }, [campaigns, selectedDate, actionsByDate, actions, timeFilter, filterUrgency, now]);
 
   const tileContent = ({ date, view }) => {
     if (view !== 'month') return null;
@@ -120,24 +128,14 @@ export default function Campanas() {
     );
   };
 
-  const tileClassName = ({ date, view }) => {
-    if (view !== 'month') return null;
-    if (selectedDate && date.toDateString() === selectedDate.toDateString()) {
-      return 'bg-green-600 text-white rounded-lg';
-    }
-    return null;
-  };
-
-  const toggleLocation = (value) => {
-    setFilterLocation(prev => prev === value ? 'todos' : value);
-  };
+  const filterBtnBase = "px-4 py-2 rounded-lg text-sm font-medium transition border border-gray-300";
 
   if (loading) return <Layout><div className="text-center py-20">Cargando...</div></Layout>;
 
   return (
     <Layout title="Campañas - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 lg:px-8 py-8">
-        <h1 className="text-4xl font-bold text-gray-700 mb-6 text-center">Campañas</h1>
+        <h1 className="text-4xl font-bold text-gray-600 mb-6 text-center">Campañas</h1>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-center">
@@ -148,37 +146,38 @@ export default function Campanas() {
           </div>
         )}
 
-        {/* FILTROS: igual que en acciones */}
+        {/* Filtros */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div></div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilterUrgency('todas')}
+              className={`${filterBtnBase} ${filterUrgency === 'todas' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+            >
+              Todas
+            </button>
+            <button
+              onClick={() => setFilterUrgency('urgente')}
+              className={`${filterBtnBase} ${filterUrgency === 'urgente' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+            >
+              🔥 Urgentes
+            </button>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setTimeFilter('todas')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                timeFilter === 'todas'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`${filterBtnBase} ${timeFilter === 'todas' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
             >
               Todas
             </button>
             <button
               onClick={() => setTimeFilter('futuras')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                timeFilter === 'futuras'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`${filterBtnBase} ${timeFilter === 'futuras' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
             >
               Futuras
             </button>
             <button
               onClick={() => setTimeFilter('pasadas')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                timeFilter === 'pasadas'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`${filterBtnBase} ${timeFilter === 'pasadas' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
             >
               Pasadas
             </button>
@@ -193,33 +192,8 @@ export default function Campanas() {
           </div>
         </div>
 
-        <div className="flex justify-end mb-6">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <button
-              onClick={() => toggleLocation('presencial')}
-              className={`px-2 py-1 rounded-full border transition ${
-                filterLocation === 'presencial'
-                  ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              Presencial
-            </button>
-            <button
-              onClick={() => toggleLocation('online')}
-              className={`px-2 py-1 rounded-full border transition ${
-                filterLocation === 'online'
-                  ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              Online
-            </button>
-          </div>
-        </div>
-
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Calendario */}
+          {/* Calendario estilo BDS */}
           <div className="lg:w-1/4">
             <div className="p-0 bg-transparent">
               <style jsx>{`
@@ -282,7 +256,6 @@ export default function Campanas() {
                 onChange={setSelectedDate}
                 value={selectedDate || new Date()}
                 tileContent={tileContent}
-                tileClassName={tileClassName}
                 navigationLabel={({ date }) => (
                   <span className="text-gray-700 font-semibold px-2 py-1 rounded transition-colors cursor-pointer">
                     {date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
@@ -295,15 +268,13 @@ export default function Campanas() {
           {/* Listado de campañas */}
           <div className="lg:w-3/4">
             {filteredCampaigns.length === 0 ? (
-              <p className="text-gray-600">{selectedDate ? 'Ninguna campaña tiene acciones en esta fecha.' : 'No hay campañas activas.'}</p>
+              <p className="text-gray-600">{selectedDate ? 'Ninguna campaña tiene acciones en esta fecha.' : 'No hay campañas que coincidan con los filtros.'}</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {filteredCampaigns.map(campaign => {
                   const active = isActive(campaign.id);
-                  const dateStr = selectedDate ? getLocalDateStr(selectedDate) : null;
-                  const campaignActions = selectedDate
-                    ? (actionsByDate.get(dateStr) || []).filter(a => a.campaignId === campaign.id)
-                    : actions.filter(a => a.campaignId === campaign.id);
+                  const nextAction = getNextAction(campaign.id);
+                  const activeActions = actions.filter(a => a.campaignId === campaign.id && new Date(a.datetime) > now).length;
 
                   let imageUrl = null;
                   if (campaign.imageUrl) {
@@ -313,11 +284,11 @@ export default function Campanas() {
                   return (
                     <Link key={campaign.id} href={`/campanas/${campaign.id}`} className="group">
                       <div
-                        className="bg-white rounded-lg shadow-sm border-2 overflow-hidden hover:shadow-md transition h-full flex flex-col"
+                        className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition h-full flex flex-col"
                         style={{ borderColor: campaign.color }}
                       >
                         {imageUrl && (
-                          <div className="relative w-full h-40 bg-gray-100 overflow-hidden">
+                          <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
                             <img
                               src={imageUrl}
                               alt={campaign.name}
@@ -327,40 +298,34 @@ export default function Campanas() {
                             />
                           </div>
                         )}
-                        <div className="p-3 flex flex-col flex-1">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h3 className="text-sm font-semibold text-gray-600 line-clamp-2 flex-1">
+                        <div className="p-6 flex flex-col flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: campaign.color }}
+                            />
+                            <h3 className="text-lg font-semibold text-gray-700 line-clamp-2 flex-1 group-hover:text-gray-900">
                               {campaign.name}
                             </h3>
-                            <span
-                              className={`flex-shrink-0 inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
-                                active
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {active ? '🟢 Activa' : '⚪ Inactiva'}
-                            </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-xs mb-1.5">
-                            <span
-                              className="inline-block w-4 h-4 rounded-full border"
-                              style={{ backgroundColor: campaign.color, borderColor: campaign.color }}
-                            />
-                            {!selectedDate && campaignActions.length > 0 && (
-                              <span className="text-[10px] text-gray-500">
-                                {campaignActions.length} acción{campaignActions.length !== 1 ? 'es' : ''}
-                              </span>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-3">
+                            {activeActions > 0 && (
+                              <span className="font-medium text-green-600">{activeActions} acción{activeActions !== 1 ? 'es' : ''} activa{activeActions !== 1 ? 's' : ''}</span>
+                            )}
+                            {nextAction && (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <span>
+                                  Próxima: {new Date(nextAction.datetime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })} a las {new Date(nextAction.datetime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </>
                             )}
                           </div>
-                          <p className="text-xs text-gray-600 line-clamp-2 flex-1">
+                          <p className="text-sm text-gray-600 line-clamp-2 flex-1">
                             {campaign.description || 'Sin descripción'}
                           </p>
-                          <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
-                            <span className={`text-[10px] font-medium ${active ? 'text-green-600' : 'text-gray-500'}`}>
-                              {active ? 'Activa' : 'Inactiva'}
-                            </span>
-                            <span className="text-fuchsia-600 group-hover:underline text-xs font-medium">
+                          <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                            <span className="text-fuchsia-600 group-hover:underline text-sm font-medium">
                               Ver más →
                             </span>
                           </div>

@@ -89,7 +89,7 @@ export default function Galeria() {
       </Head>
 
       <div className="container mx-auto px-4 py-8 pb-16">
-        <h1 className="text-4xl font-bold mb-10 text-center text-gray-800">Galería Multimedia</h1>
+        <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Galería Multimedia</h1>
 
         <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6 mb-8">
           <div className="flex items-center gap-2 text-sm text-gray-600">

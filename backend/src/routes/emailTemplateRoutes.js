@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middlewares/auth');
+const { authenticate: authMiddleware } = require('../middlewares/auth');
 const { isSuperAdmin } = require('../middlewares/authorize');
 const templateController = require('../controllers/emailTemplateController');
 

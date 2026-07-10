@@ -46,6 +46,10 @@ function EditAction() {
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
 
+  // Coordenadas de Málaga como centro por defecto
+  const DEFAULT_LAT = 36.7213;
+  const DEFAULT_LNG = -4.4214;
+
   const loadLeaflet = () => {
     if (typeof window === 'undefined') return;
     if (window.L) {
@@ -78,14 +82,14 @@ function EditAction() {
       try {
         const [actionRes, campaignsRes] = await Promise.all([
           api.get(`/actions/${id}`),
-          api.get('/campaigns'),               // ← usa instancia api
+          api.get('/campaigns'),
         ]);
         const action = actionRes.data;
         setForm({
-          title: action.title,
+          title: action.title || '',
           description: action.description || '',
-          category: action.category,
-          datetime: action.datetime.slice(0, 16),
+          category: action.category || 'protest',
+          datetime: action.datetime ? action.datetime.slice(0, 16) : '',
           locationType: action.locationType || 'presencial',
           onlineLink: action.onlineLink || '',
           placeName: action.placeName || '',
@@ -103,20 +107,22 @@ function EditAction() {
           const parsed = Array.isArray(action.groups) ? action.groups : JSON.parse(action.groups || '[]');
           setGroups(parsed);
         }
-        setCurrentFeaturedImage(action.featuredImage);
+        setCurrentFeaturedImage(action.featuredImage || null);
         if (action.featuredImage) setFeaturedImagePreview(`${baseUrl}${action.featuredImage}`);
         setExistingImages(action.images || []);
         if (action.documents) {
           setDocuments(action.documents.map(doc => ({ ...doc, file: null })));
         }
-        setCampaigns(campaignsRes.data);
+        setCampaigns(campaignsRes.data || []);
       } catch (error) {
-        // Si falla la carga de campañas, las dejamos vacías sin toast
-        if (error.response?.config?.url?.includes('/campaigns')) {
-          console.warn('No se pudieron cargar campañas', error);
-          setCampaigns([]);
+        console.error('Error al cargar datos:', error);
+        if (error.code === 'ERR_NETWORK') {
+          toast.error('No se pudo conectar con el servidor. Verifica que el backend esté corriendo.');
         } else {
-          toast.error('Error al cargar datos');
+          toast.error(error.response?.data?.message || 'Error al cargar la acción');
+        }
+        if (error.response?.config?.url?.includes('/campaigns')) {
+          setCampaigns([]);
         }
       }
     };
@@ -124,7 +130,7 @@ function EditAction() {
     loadLeaflet();
   }, [id]);
 
-  // Funciones de mapa (idénticas a new, sin cambios)
+  // Funciones de mapa
   const searchAddress = async () => {
     if (!form.address.trim()) {
       toast.warning('Escribe una dirección para buscar.');
@@ -164,8 +170,9 @@ function EditAction() {
       leafletMapRef.current.remove();
       leafletMapRef.current = null;
     }
-    const defaultLat = form.latitude || 40.416775;
-    const defaultLng = form.longitude || -3.703790;
+    // Usar Málaga como centro por defecto
+    const defaultLat = form.latitude || DEFAULT_LAT;
+    const defaultLng = form.longitude || DEFAULT_LNG;
     const map = L.map(mapRef.current).setView([parseFloat(defaultLat), parseFloat(defaultLng)], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -265,6 +272,7 @@ function EditAction() {
       return prev.filter((_, i) => i !== idx);
     });
   };
+
   const handleDeleteImage = async (imageId) => {
     if (!confirm('¿Eliminar esta imagen?')) return;
     try {
@@ -276,6 +284,14 @@ function EditAction() {
     }
   };
 
+  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
+  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
+  const updateGroup = (index, field, value) => {
+    const updated = [...groups];
+    updated[index][field] = value;
+    setGroups(updated);
+  };
+
   const addPublicDocument = (name, file) => {
     setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
   };
@@ -283,6 +299,7 @@ function EditAction() {
     setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]);
   };
   const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
+
   const handleDeleteDocument = async (docId) => {
     if (!confirm('¿Eliminar este documento?')) return;
     try {
@@ -292,14 +309,6 @@ function EditAction() {
     } catch (error) {
       toast.error('Error al eliminar documento');
     }
-  };
-
-  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
-  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
-  const updateGroup = (index, field, value) => {
-    const updated = [...groups];
-    updated[index][field] = value;
-    setGroups(updated);
   };
 
   const handleSubmit = async (e) => {
@@ -372,16 +381,16 @@ function EditAction() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <textarea name="description" value={form.description} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
-                  <select name="category" value={form.category} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                  <select name="category" value={form.category} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400">
                     <option value="bds">Acción BDS</option>
                     <option value="solidarity_action">Acción Solidaria</option>
                     <option value="talk">Charla</option>
@@ -394,7 +403,7 @@ function EditAction() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Campaña relacionada</label>
-                  <select name="campaignId" value={form.campaignId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                  <select name="campaignId" value={form.campaignId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400">
                     <option value="">-- Ninguna --</option>
                     {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -402,14 +411,14 @@ function EditAction() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fecha y hora *</label>
-                <input type="datetime-local" name="datetime" value={form.datetime} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="datetime-local" name="datetime" value={form.datetime} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">📍 Ubicación</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de ubicación</label>
-                    <select name="locationType" value={form.locationType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                    <select name="locationType" value={form.locationType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400">
                       <option value="presencial">Presencial</option>
                       <option value="online">Online</option>
                     </select>
@@ -418,11 +427,11 @@ function EditAction() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de registro *</label>
-                        <input type="url" name="registrationLink" value={form.registrationLink} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" placeholder="https://forms.gle/..." />
+                        <input type="url" name="registrationLink" value={form.registrationLink} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" placeholder="https://forms.gle/..." />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Enlace online (acceso)</label>
-                        <input type="url" name="onlineLink" value={form.onlineLink} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" placeholder="https://meet.google.com/..." />
+                        <input type="url" name="onlineLink" value={form.onlineLink} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" placeholder="https://meet.google.com/..." />
                       </div>
                     </>
                   )}
@@ -430,7 +439,7 @@ function EditAction() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del lugar</label>
-                        <input type="text" name="placeName" value={form.placeName} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                        <input type="text" name="placeName" value={form.placeName} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Dirección *</label>
@@ -438,7 +447,7 @@ function EditAction() {
                           <input
                             type="text"
                             placeholder="Buscar dirección..."
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                             value={form.address}
                             onChange={(e) => setForm({ ...form, address: e.target.value })}
                           />
@@ -458,11 +467,11 @@ function EditAction() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
-                        <input type="number" step="any" name="latitude" value={form.latitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                        <input type="number" step="any" name="latitude" value={form.latitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Longitud</label>
-                        <input type="number" step="any" name="longitude" value={form.longitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                        <input type="number" step="any" name="longitude" value={form.longitude} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                       </div>
                       {form.latitude && form.longitude && (
                         <div className="md:col-span-2 mt-2">
@@ -495,7 +504,7 @@ function EditAction() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">URL de grabación</label>
-                <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
               </div>
               <div className="flex items-center space-x-4">
                 <label className="flex items-center">
@@ -510,6 +519,31 @@ function EditAction() {
             </div>
           </div>
 
+          {/* GRUPOS PÚBLICOS */}
+          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
+            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+              <span>💬</span> Grupos de chat públicos
+            </h3>
+            <p className="text-xs text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
+            <div className="space-y-2">
+              {groups.map((group, idx) => (
+                <div key={idx} className="flex gap-2 mb-2 items-center">
+                  <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-gray-400">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="signal">Signal</option>
+                  </select>
+                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-gray-400" />
+                  <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
+                <span>+</span> Añadir grupo público
+              </button>
+            </div>
+          </div>
+
           {/* ARCHIVOS PÚBLICOS */}
           <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
@@ -518,21 +552,13 @@ function EditAction() {
             </h3>
             <p className="text-xs text-gray-400 mb-2">Estos documentos serán visibles para todos los usuarios.</p>
             <div className="space-y-4">
-              <ul className="space-y-1">
-                {documents.filter(d => d.isPublic).map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                    <span className="text-sm">{doc.name} 🔓</span>
-                    <button type="button" onClick={() => handleDeleteDocument(doc.id)} className="text-red-600 text-xs">Eliminar</button>
-                  </li>
-                ))}
-              </ul>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     placeholder="Nombre del archivo"
                     id="docNamePublicEditAction"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                   />
                   <input
                     type="file"
@@ -560,6 +586,14 @@ function EditAction() {
                   </button>
                 </div>
               </div>
+              <ul className="space-y-1 mt-2">
+                {documents.filter(d => d.isPublic).map((doc) => (
+                  <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-sm">{doc.name} 🔓</span>
+                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">Eliminar</button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
@@ -677,7 +711,7 @@ function EditAction() {
                       type="text"
                       placeholder="Nombre del archivo"
                       id="docNamePrivateEditAction"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                     />
                     <input
                       type="file"
@@ -709,26 +743,8 @@ function EditAction() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
-                <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400" />
                 <p className="text-xs text-gray-400 mt-1">Este enlace solo será visible para administradores.</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">🔒 Grupos internos (solo para la organización)</label>
-                {groups.map((group, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500">
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="telegram">Telegram</option>
-                      <option value="signal">Signal</option>
-                    </select>
-                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
-                    <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={addGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
-                  <span>+</span> Añadir grupo
-                </button>
               </div>
             </div>
           </div>
@@ -744,6 +760,7 @@ function EditAction() {
             featuredImage={featuredImagePreview || (currentFeaturedImage ? `${baseUrl}${currentFeaturedImage}` : null)}
             images={[...(existingImages.map(img => `${baseUrl}${img.url}`)), ...newImagePreviews]}
             documents={documents}
+            groups={groups}
           />
         </div>
       </div>
@@ -760,7 +777,7 @@ function EditAction() {
                 type="text"
                 id="modal-search-input"
                 placeholder="Buscar dirección..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();

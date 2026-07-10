@@ -107,9 +107,9 @@ function AdminCampaigns() {
           <button
             key={i}
             onClick={() => { setFilterStatus(m.filter); setCurrentPage(1); }}
-            className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
+            className="flex items-center gap-1.5 hover:text-fuchsia-600 transition-colors group"
           >
-            <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">{m.label}</span>
+            <span className="text-xs text-gray-500 group-hover:text-fuchsia-500">{m.label}</span>
             <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{m.value}</span>
           </button>
         ))}
@@ -150,7 +150,6 @@ function AdminCampaigns() {
         </div>
       </div>
 
-      {/* Tabla */}
       {loading ? (
         <p className="text-gray-500 text-sm">Cargando...</p>
       ) : filtered.length === 0 ? (
@@ -160,8 +159,8 @@ function AdminCampaigns() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-purple-100 text-sm">
-            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-orange-50/80 text-gray-700 text-xs font-medium tracking-wider">
               <tr>
                 <th className="px-6 py-3 text-left w-10"><input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} /></th>
                 <th className="px-6 py-3 text-left">Nombre</th>
@@ -171,7 +170,7 @@ function AdminCampaigns() {
                 <th className="px-6 py-3 text-left">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-purple-100">
+            <tbody className="divide-y divide-gray-100">
               {paginated.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(c.id)} onChange={() => toggleOne(c.id)} /></td>
@@ -186,8 +185,8 @@ function AdminCampaigns() {
                       {c.active ? 'Activa' : 'Inactiva'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{c.color}</td>
-                  <td className="px-6 py-4 hidden lg:table-cell text-gray-500 max-w-xs truncate">{c.description || '-'}</td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-600">{c.color}</td>
+                  <td className="px-6 py-4 hidden lg:table-cell text-gray-600 max-w-xs truncate">{c.description || '-'}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1">
                       <Link href={`/campanas/${c.id}`} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver campaña">

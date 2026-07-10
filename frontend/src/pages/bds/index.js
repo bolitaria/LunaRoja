@@ -176,7 +176,7 @@ export default function BDSList() {
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-2">
                     <span className="w-4 h-4 rounded-full" style={{ backgroundColor: bds.color }} />
-                    <h3 className="text-lg font-semibold text-gray-800 group-hover:text-red-600 transition-colors">
+                    <h3 className="text-lg font-semibold text-gray-600 group-hover:text-red-600 transition-colors">
                       {bds.name}
                     </h3>
                   </div>

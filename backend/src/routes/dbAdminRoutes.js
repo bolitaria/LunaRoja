@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const dbAdminController = require('../controllers/dbAdminController');
-const authMiddleware = require('../middlewares/auth');         
+const { authenticate: authMiddleware } = require('../middlewares/auth');         
 const { isSuperAdmin } = require('../middlewares/authorize');
 
 // Proteger todas las rutas con autenticación y rol superadmin

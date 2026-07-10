@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const subscriberController = require('../controllers/subscriberController');
-const authMiddleware = require('../middlewares/auth');          // ← corregido (sin llaves)
+const { authenticate: authMiddleware } = require('../middlewares/auth');          // ← corregido (sin llaves)
 const { isSuperAdmin } = require('../middlewares/authorize');
 
 // Rutas públicas

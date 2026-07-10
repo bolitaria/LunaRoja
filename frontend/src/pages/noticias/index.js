@@ -48,7 +48,7 @@ export default function Noticias() {
   return (
     <Layout title="Noticias - Voces Palestinas por la Justicia">
       <div className="container mx-auto px-4 py-8 pb-16">
-        <h1 className="text-4xl font-bold mb-10 text-center text-gray-800">Noticias</h1>
+        <h1 className="text-4xl font-bold mb-10 text-center text-gray-600">Noticias</h1>
         <div className="flex flex-wrap items-center gap-4 mb-8 justify-center">
           <label className="flex items-center gap-2">
             <input

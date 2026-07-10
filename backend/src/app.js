@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 const db = require('./models');
 
 const { initEmailService } = require('./services/emailService');
@@ -26,33 +27,62 @@ const dbAdminRoutes = require('./routes/dbAdminRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const bdsRoutes = require('./routes/bdsRoutes');
+const petitionsRoutes = require('./routes/petitions');
+const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
 
 dotenv.config();
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
+// ---------- Configuración de directorios de subida ----------
+const UPLOADS_BASE = '/app/uploads';
+const SUB_DIRS = ['featured', 'images', 'documents', 'petitions'];
+
+if (!fs.existsSync(UPLOADS_BASE)) {
+  fs.mkdirSync(UPLOADS_BASE, { recursive: true });
+}
+SUB_DIRS.forEach(dir => {
+  const fullPath = path.join(UPLOADS_BASE, dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+});
+console.log('📁 Directorios de uploads asegurados en:', UPLOADS_BASE);
+
+// ---------- Middleware de seguridad ----------
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(hpp());
-app.use('/api/email-templates', require('./routes/emailTemplateRoutes'));
+app.use('/api/email-templates', emailTemplateRoutes);
 
+// ---------- CORS ----------
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://host.docker.internal:3000',
+  'http://lunaroja_frontend:3000',
+];
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-  : [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://host.docker.internal:3000',
-    ];
+  : defaultOrigins;
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || !isProduction) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
 }));
 
-// Rate limit
+// ---------- Rate limiting ----------
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 200,
@@ -62,11 +92,16 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
+// ---------- Parsers ----------
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));
 app.use(cookieParser());
 
-app.use('/uploads', express.static('uploads', {
+// ---------- Servir archivos estáticos desde /app/uploads ----------
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(UPLOADS_BASE, {
   dotfiles: 'deny',
   index: false,
   maxAge: '1d',
@@ -87,10 +122,22 @@ app.use('/api/database', dbAdminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/bds', bdsRoutes);
+app.use('/api/petitions', petitionsRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' });
 });
+
+// ---------- Middleware de manejo de errores (JSON) ----------
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  console.error('Error:', err.message);
+  res.status(status).json({
+    message: err.message || 'Error interno del servidor',
+  });
+});
+
+// -----------------------------------------------------------
 
 const PORT = process.env.PORT || 5000;
 
@@ -119,7 +166,7 @@ const ensureAdmin = async () => {
         password: hashedPassword,
         role: 'superadmin',
       });
-      console.log('✅ Superadmin "admin" creado con contraseña "admin123"');
+      console.log('✅ Superadmin "admin" creado');
     } else {
       console.log('✅ Superadmin ya existe.');
     }
@@ -149,7 +196,7 @@ const startServer = async () => {
       console.log('🔒 Production mode: using safe database sync');
     }
 
-    await db.sequelize.sync(syncOptions);
+    await db.sequelize.sync({ force: true });
     console.log('✅ Database synchronized');
 
     await ensureColumnsExist();
@@ -157,6 +204,7 @@ const startServer = async () => {
 
     // Iniciar scheduler de recordatorios
     require('./jobs/reminderJob');
+    require('./jobs/emailQueueJob');
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);

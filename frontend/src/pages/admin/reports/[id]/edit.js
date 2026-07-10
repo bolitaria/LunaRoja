@@ -4,8 +4,23 @@ import AdminLayout from '../../../../components/AdminLayout';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import dynamic from 'next/dynamic';
+import 'react-quill/dist/quill.snow.css';
 
-function ReportPreview({ title, description, file, currentFileUrl }) {
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+
+const quillModules = {
+  toolbar: [
+    [{ header: '1' }, { header: '2' }, { font: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['bold', 'italic', 'underline'],
+    [{ align: [] }],
+    ['link'],
+    ['clean'],
+  ],
+};
+
+function ReportPreview({ title, description, type, source, author, content, file, currentFileUrl }) {
   const existingFile = currentFileUrl && !file;
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-6">
@@ -20,10 +35,23 @@ function ReportPreview({ title, description, file, currentFileUrl }) {
             <h4 className="text-sm font-medium text-gray-500">Título</h4>
             <p className="text-gray-800 font-semibold">{title}</p>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded-full ${type === 'report' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+              {type === 'report' ? '📄 Reporte' : '📝 Blog'}
+            </span>
+            {source && <span className="text-xs text-gray-500">Fuente: {source}</span>}
+            {author && <span className="text-xs text-gray-500">✍️ {author}</span>}
+          </div>
           {description && (
             <div>
               <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
               <p className="text-gray-700 text-sm whitespace-pre-wrap">{description}</p>
+            </div>
+          )}
+          {content && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Contenido</h4>
+              <div className="text-gray-700 text-sm" dangerouslySetInnerHTML={{ __html: content }} />
             </div>
           )}
           <div>
@@ -32,9 +60,7 @@ function ReportPreview({ title, description, file, currentFileUrl }) {
               <p className="text-sm text-fuchsia-600">📎 {file.name} (nuevo)</p>
             ) : existingFile ? (
               <p className="text-sm text-blue-600 underline">
-                <a href={currentFileUrl} target="_blank" rel="noopener noreferrer">
-                  Ver archivo actual
-                </a>
+                <a href={currentFileUrl} target="_blank" rel="noopener noreferrer">Ver archivo actual</a>
               </p>
             ) : (
               <p className="text-sm text-gray-400">Sin archivo adjunto</p>
@@ -50,10 +76,16 @@ export default function EditReport() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [currentFileUrl, setCurrentFileUrl] = useState(null);
-  const [file, setFile] = useState(null);
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    content: '',
+    type: 'blog',
+    source: '',
+    author: '',
+    currentFileUrl: null,
+    file: null,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -63,9 +95,16 @@ export default function EditReport() {
       try {
         const res = await api.get(`/reports/${id}`);
         const report = res.data;
-        setTitle(report.title || '');
-        setDescription(report.description || '');
-        setCurrentFileUrl(report.fileUrl || null);
+        setForm({
+          title: report.title || '',
+          description: report.description || '',
+          content: report.content || '',
+          type: report.type || 'blog',
+          source: report.source || '',
+          author: report.author || '',
+          currentFileUrl: report.fileUrl || null,
+          file: null,
+        });
       } catch (error) {
         toast.error('No se pudo cargar el reporte');
       } finally {
@@ -75,103 +114,124 @@ export default function EditReport() {
     fetchReport();
   }, [id]);
 
+  const handleChange = (e) => {
+    const { name, value, type, files } = e.target;
+    if (type === 'file') {
+      setForm(prev => ({ ...prev, file: files[0] }));
+    } else {
+      setForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleContentChange = (value) => {
+    setForm(prev => ({ ...prev, content: value }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) {
+    if (!form.title.trim()) {
       toast.warning('El título es obligatorio');
+      return;
+    }
+    if (form.type === 'report' && !form.source.trim()) {
+      toast.warning('Los reportes requieren al menos una fuente oficial');
       return;
     }
     setSaving(true);
     try {
       const formData = new FormData();
-      formData.append('title', title.trim());
-      formData.append('description', description.trim());
-      if (file) formData.append('file', file);
+      formData.append('title', form.title.trim());
+      formData.append('description', form.description.trim());
+      formData.append('content', form.content);
+      formData.append('type', form.type);
+      formData.append('source', form.source.trim());
+      formData.append('author', form.author.trim());
+      if (form.file) formData.append('file', form.file);
 
       await api.put(`/reports/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Reporte actualizado');
+      toast.success('Entrada actualizada');
       router.push('/admin/reports');
     } catch (error) {
       console.error('Error updating report:', error);
-      toast.error(error.response?.data?.message || 'No se pudo actualizar el reporte');
+      toast.error(error.response?.data?.message || 'No se pudo actualizar');
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <AdminLayout title="Editar Reporte"><p className="text-center py-8">Cargando reporte...</p></AdminLayout>;
+    return <AdminLayout title="Editar Entrada"><p className="text-center py-8">Cargando...</p></AdminLayout>;
   }
 
   return (
-    <AdminLayout title="Editar Reporte">
+    <AdminLayout title="Editar Entrada Blog/Reporte">
       <ToastContainer />
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Formulario (izquierda) */}
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">Editar Reporte</h2>
+          <h2 className="text-xl font-semibold text-gray-700">Editar Entrada</h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
+              <select name="type" value={form.type} onChange={handleChange} className="w-full border p-2 rounded">
+                <option value="blog">📝 Blog (interno)</option>
+                <option value="report">📄 Reporte (externo)</option>
+              </select>
             </div>
-
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+              <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full border p-2 rounded" />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              <textarea name="description" value={form.description} onChange={handleChange} rows={3} className="w-full border p-2 rounded" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contenido (editor enriquecido)</label>
+              <ReactQuill
+                theme="snow"
+                value={form.content}
+                onChange={handleContentChange}
+                modules={quillModules}
+                placeholder="Escribe el contenido del reporte..."
+                className="bg-white"
               />
             </div>
-
+            {form.type === 'report' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fuente(s) oficial(es) *</label>
+                <input name="source" value={form.source} onChange={handleChange} required className="w-full border p-2 rounded" placeholder="URL o nombre de la fuente" />
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Autor</label>
+              <input name="author" value={form.author} onChange={handleChange} className="w-full border p-2 rounded" />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Archivo actual</label>
-              {currentFileUrl ? (
+              {form.currentFileUrl ? (
                 <p className="text-sm text-blue-600">
-                  <a href={currentFileUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                    Ver archivo actual
-                  </a>
+                  <a href={form.currentFileUrl} target="_blank" rel="noopener noreferrer" className="underline">Ver archivo actual</a>
                 </p>
               ) : (
                 <p className="text-sm text-gray-500">No hay archivo adjunto</p>
               )}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nuevo archivo (opcional)</label>
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files[0])}
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100"
-              />
+              <input type="file" name="file" onChange={handleChange} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100" />
               <p className="text-xs text-gray-400 mt-1">Deja vacío para conservar el archivo actual</p>
             </div>
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center justify-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-sm font-medium"
-            >
+            <button type="submit" disabled={saving} className="inline-flex items-center justify-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-sm font-medium">
               {saving ? 'Guardando...' : 'Guardar Cambios'}
             </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-            >
+            <button type="button" onClick={() => router.back()} className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
               Cancelar
             </button>
           </div>
@@ -180,10 +240,14 @@ export default function EditReport() {
         {/* Vista previa (derecha) */}
         <div className="lg:w-1/3">
           <ReportPreview
-            title={title}
-            description={description}
-            file={file}
-            currentFileUrl={currentFileUrl}
+            title={form.title}
+            description={form.description}
+            type={form.type}
+            source={form.source}
+            author={form.author}
+            content={form.content}
+            file={form.file}
+            currentFileUrl={form.currentFileUrl}
           />
         </div>
       </div>
