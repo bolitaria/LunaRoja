@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "jest --watchAll=false",
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:integration": "start-server-and-test start http://localhost:5000/health test",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
