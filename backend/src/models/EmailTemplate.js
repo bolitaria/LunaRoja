@@ -1,4 +1,3 @@
-// backend/src/models/EmailTemplate.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -19,10 +18,10 @@ const EmailTemplate = sequelize.define('EmailTemplate', {
   },
   body: {
     type: DataTypes.TEXT,
-    allowNull: false,   // HTML completo con placeholders {{variable}}
+    allowNull: false,
   },
   variables: {
-    type: DataTypes.JSON,   // ej: ["username","campaign.name","action.title","unsubscribeLink"]
+    type: DataTypes.JSON,
     defaultValue: [],
   },
   type: {
@@ -36,6 +35,23 @@ const EmailTemplate = sequelize.define('EmailTemplate', {
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
+  },
+  // NUEVOS CAMPOS
+  headerColor: {
+    type: DataTypes.STRING(7),
+    defaultValue: '#b91c1c',
+  },
+  buttonColor: {
+    type: DataTypes.STRING(7),
+    defaultValue: '#16a34a',
+  },
+  footerColor: {
+    type: DataTypes.STRING(7),
+    defaultValue: '#1f2937',
+  },
+  backgroundColor: {
+    type: DataTypes.STRING(7),
+    defaultValue: '#f3f4f6',
   },
 }, {
   timestamps: true,

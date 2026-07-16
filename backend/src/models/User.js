@@ -1,8 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); // ← CAMBIADO a bcryptjs
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');                    // ← nuevo
+const crypto = require('crypto');
 
 const User = sequelize.define('User', {
   id: {
@@ -19,7 +19,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(255),
     allowNull: false,
   },
-  email: {                                           // ← nuevo
+  email: {
     type: DataTypes.STRING(255),
     allowNull: true,
     unique: true,
@@ -33,11 +33,11 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(255),
     allowNull: true,
   },
-  resetToken: {                                      // ← nuevo
+  resetToken: {
     type: DataTypes.STRING(255),
     allowNull: true,
   },
-  resetTokenExpires: {                               // ← nuevo
+  resetTokenExpires: {
     type: DataTypes.DATE,
     allowNull: true,
   },
@@ -58,7 +58,7 @@ const User = sequelize.define('User', {
   tableName: 'Users',
 });
 
-// Hooks de encriptación de contraseña
+// Hooks de encriptación de contraseña (usando bcryptjs)
 User.beforeCreate(async (user) => {
   const salt = await bcrypt.genSalt(12);
   user.password = await bcrypt.hash(user.password, salt);
@@ -91,13 +91,12 @@ User.prototype.generateRefreshToken = function () {
   );
 };
 
-// Generar token de reseteo (sin guardar aún, solo para enviar por email)
 User.prototype.generateResetToken = function () {
   const rawToken = crypto.randomBytes(32).toString('hex');
   const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
   this.resetToken = hashedToken;
-  this.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
-  return rawToken; // se envía por email
+  this.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
+  return rawToken;
 };
 
 module.exports = User;

@@ -76,7 +76,6 @@ export default function AdminUsers() {
     setEditingId(user.id); setShowForm(true);
   };
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
@@ -115,7 +114,7 @@ export default function AdminUsers() {
       <ToastContainer />
       <ConfirmModal isOpen={showDeleteModal} title="Eliminar usuario" message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} usuarios seleccionados?` : '¿Eliminar este usuario?')} onConfirm={executeDelete} onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
 
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex items-center gap-6 text-sm">
         <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Total</span><span className="font-bold text-gray-800">{total}</span></div>
         <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Superadmins</span><span className="font-bold text-gray-800">{superadmins}</span></div>
         <div className="flex items-center gap-1.5"><span className="text-xs text-gray-500">Adm. Campaña</span><span className="font-bold text-gray-800">{campaignAdmins}</span></div>
@@ -197,11 +196,13 @@ export default function AdminUsers() {
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10"><input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} /></th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Usuario</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Rol</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Asignado a</th>
-                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
@@ -209,21 +210,18 @@ export default function AdminUsers() {
                 const canEdit = currentUser?.role === 'superadmin' || (currentUser?.role === 'campaign_admin' && user.role === 'action_admin');
                 return (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4"><input type="checkbox" checked={selected.includes(user.id)} onChange={() => toggleOne(user.id)} /></td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {canEdit && (
+                        <button onClick={() => handleEdit(user)} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
+                          <FaEdit className="w-5 h-5" />
+                        </button>
+                      )}
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{user.username}</td>
                     <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{roleLabels[user.role] || user.role}</td>
                     <td className="px-6 py-4 hidden md:table-cell text-gray-500">{user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}{user.role === 'action_admin' && user.actions?.map(a => a.title).join(', ')}{user.role === 'superadmin' && '-'}</td>
-                    <td className="px-6 py-4">
-                      {canEdit && (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleEdit(user)} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
-                            <FaEdit className="w-5 h-5" />
-                          </button>
-                          {user.id !== 1 && <button onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                            <FaTrash className="w-5 h-5" />
-                          </button>}
-                        </div>
-                      )}
+                    <td className="px-6 py-4 text-right">
+                      <input type="checkbox" checked={selected.includes(user.id)} onChange={() => toggleOne(user.id)} />
                     </td>
                   </tr>
                 );

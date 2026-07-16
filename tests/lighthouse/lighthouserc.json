@@ -1,0 +1,11 @@
+{
+  "ci": {
+    "collect": {
+      "staticDistDir": "../../frontend/.next",
+      "url": ["http://localhost:3000", "http://localhost:3000/acciones", "http://localhost:3000/campanas"]
+    },
+    "assert": {
+      "preset": "lighthouse:recommended"
+    }
+  }
+}

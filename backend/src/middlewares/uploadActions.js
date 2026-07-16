@@ -2,12 +2,16 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// Configuración de almacenamiento
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     let uploadDir;
     if (file.fieldname === 'featuredImage') {
       uploadDir = path.join(__dirname, '../../uploads/featured');
     } else if (file.fieldname === 'document') {
+      uploadDir = path.join(__dirname, '../../uploads/documents');
+    } else if (file.fieldname && file.fieldname.startsWith('documents')) {
+      // Documentos públicos/privados (campo "documents[0][file]")
       uploadDir = path.join(__dirname, '../../uploads/documents');
     } else {
       uploadDir = path.join(__dirname, '../../uploads/actions');
@@ -23,12 +27,14 @@ const storage = multer.diskStorage({
     let prefix = 'action-';
     if (file.fieldname === 'featuredImage') prefix = 'featured-';
     else if (file.fieldname === 'document') prefix = 'doc-';
+    else if (file.fieldname && file.fieldname.startsWith('documents')) prefix = 'doc-';
     cb(null, prefix + uniqueSuffix + ext);
   }
 });
 
+// Filtro de archivos
 const fileFilter = (req, file, cb) => {
-  if (file.fieldname === 'document') {
+  if (file.fieldname === 'document' || (file.fieldname && file.fieldname.startsWith('documents'))) {
     const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt/;
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedTypes.test(ext)) {
@@ -51,9 +57,5 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
-// ✅ EXPORTA LA FUNCIÓN MIDDLEWARE DIRECTAMENTE
-module.exports = upload.fields([
-  { name: 'featuredImage', maxCount: 1 },
-  { name: 'images', maxCount: 20 },
-  { name: 'document', maxCount: 1 }
-]);
+// ✅ EXPORTA upload.any() para aceptar cualquier campo
+module.exports = upload.any();

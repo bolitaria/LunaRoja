@@ -38,7 +38,7 @@ const ChatGroup = sequelize.define('ChatGroup', {
       key: 'id',
     },
   },
-  actionId: {                     // NUEVO
+  actionId: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
@@ -47,6 +47,10 @@ const ChatGroup = sequelize.define('ChatGroup', {
     },
   },
   isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+  isPublic: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },

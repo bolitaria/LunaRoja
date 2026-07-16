@@ -31,7 +31,6 @@ export default function AdminEmailTemplates() {
 
   useEffect(() => { fetchTemplates(); }, []);
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
@@ -71,7 +70,8 @@ export default function AdminEmailTemplates() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
+      {/* Métrica */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex items-center gap-6 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
           <span className="font-bold text-gray-800">{templates.length}</span>
@@ -81,7 +81,7 @@ export default function AdminEmailTemplates() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Link href="/admin/email-templates/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-            <FaPlus /> Nueva Plantilla
+            <FaPlus className="w-3.5 h-3.5" /> Nueva Plantilla
           </Link>
           {selected.length > 0 && (
             <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
@@ -97,7 +97,7 @@ export default function AdminEmailTemplates() {
               placeholder="Buscar plantilla…"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
+              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500 text-sm w-48"
             />
           </div>
         </div>
@@ -115,44 +115,39 @@ export default function AdminEmailTemplates() {
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
-                </th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Nombre</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Asunto</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Asociado a</th>
                 <th className="px-6 py-3 text-left">Tipo</th>
-                <th className="px-6 py-3 text-right">Acciones</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
               {paginated.map(tpl => (
                 <tr key={tpl.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <input type="checkbox" checked={selected.includes(tpl.id)} onChange={() => toggleOne(tpl.id)} />
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{tpl.name}</td>
-                  <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{tpl.subject}</td>
-                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{tpl.associatedEvent}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-fuchsia-100 text-fuchsia-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                      {tpl.type === 'system' ? 'Sistema' : 'Personalizada'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
                       <Link href={`/admin/email-templates/${tpl.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
                         <FaEdit className="w-5 h-5" />
                       </Link>
                       <button onClick={() => handleSendTest(tpl.id)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Enviar prueba">
                         <FaFlask className="w-5 h-5" />
                       </button>
-                      {tpl.type !== 'system' && (
-                        <button onClick={() => handleDelete(tpl.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                          <FaTrash className="w-5 h-5" />
-                        </button>
-                      )}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{tpl.name}</td>
+                  <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{tpl.subject}</td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{tpl.associatedEvent || '-'}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-fuchsia-100 text-fuchsia-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                      {tpl.type === 'system' ? 'Sistema' : 'Personalizada'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <input type="checkbox" checked={selected.includes(tpl.id)} onChange={() => toggleOne(tpl.id)} />
                   </td>
                 </tr>
               ))}

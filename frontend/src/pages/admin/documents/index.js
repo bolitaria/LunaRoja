@@ -6,7 +6,6 @@ import 'react-toastify/dist/ReactToastify.css';
 import { exportInfo } from '../../../utils/exportInfo';
 import { FaFileExport, FaSearch, FaTrash } from 'react-icons/fa';
 import Link from 'next/link';
-import { useAuth } from '../../../context/AuthContext';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 
@@ -34,7 +33,6 @@ function AdminDocuments() {
 
   useEffect(() => { fetchDocuments(); }, []);
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
@@ -65,7 +63,6 @@ function AdminDocuments() {
   };
 
   const total = documents.length;
-
   const filtered = documents.filter(d => d.title.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -84,7 +81,7 @@ function AdminDocuments() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex items-center gap-6 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
           <span className="font-bold text-gray-800">{total}</span>
@@ -136,28 +133,26 @@ function AdminDocuments() {
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
-                </th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Título</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Tipo</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Fecha</th>
-                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
               {paginated.map(doc => (
                 <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
-                    <input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggleOne(doc.id)} />
+                    {/* No hay acciones individuales, solo selección masiva */}
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{doc.title}</td>
                   <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{doc.type === 'organizer' ? 'Privado' : 'Público'}</td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{new Date(doc.createdAt).toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleDelete(doc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                      <FaTrash className="w-5 h-5" />
-                    </button>
+                  <td className="px-6 py-4 text-right">
+                    <input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggleOne(doc.id)} />
                   </td>
                 </tr>
               ))}

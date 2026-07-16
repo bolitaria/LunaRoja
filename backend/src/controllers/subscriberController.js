@@ -1,5 +1,6 @@
 const Subscriber = require('../models/Subscriber');
 const { sendWelcomeEmail, sendGoodbyeEmail } = require('../services/emailService');
+const { enqueueWelcomeEmail } = require('../services/queueService');
 const validator = require('validator');
 
 const isValidEmail = (email) => validator.isEmail(email) && email.length <= 255;
@@ -41,7 +42,7 @@ exports.createSubscriber = async (req, res) => {
       subscribedAt: new Date(),
     });
 
-    sendWelcomeEmail(email).catch(err => console.error('Welcome email error:', err));
+    enqueueWelcomeEmail(email).catch(err => console.error('Welcome queue error:', err));
     res.status(201).json({ message: 'Subscription successful', subscriber });
   } catch (error) {
     console.error('createSubscriber error:', error);

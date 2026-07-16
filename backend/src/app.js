@@ -10,8 +10,12 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const db = require('./models');
 
+
 const { initEmailService } = require('./services/emailService');
+const { initQueueService } = require('./services/queueService');
+const { initSessionCache } = require('./services/sessionCacheService');
 const { runMigrations } = require('./services/migrationService');
+const { assignId, requestLogger } = require('./middlewares/requestLogger');
 
 // --------------------- Routes ---------------------
 const authRoutes = require('./routes/authRoutes');
@@ -27,15 +31,17 @@ const dbAdminRoutes = require('./routes/dbAdminRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const bdsRoutes = require('./routes/bdsRoutes');
-const petitionsRoutes = require('./routes/petitions');
+const petitionsRoutes = require('./routes/petitionsRoutes');
 const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
+const linksRoutes = require('./routes/linksRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 
 dotenv.config();
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
-// ---------- Configuración de directorios de subida ----------
+// ---------- Directorios de subida ----------
 const UPLOADS_BASE = '/app/uploads';
 const SUB_DIRS = ['featured', 'images', 'documents', 'petitions'];
 
@@ -55,7 +61,10 @@ app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(hpp());
-app.use('/api/email-templates', emailTemplateRoutes);
+app.use(assignId);
+app.use(requestLogger);
+app.use('/health', healthRoutes);
+
 
 // ---------- CORS ----------
 const defaultOrigins = [
@@ -85,7 +94,7 @@ app.use(cors({
 // ---------- Rate limiting ----------
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 200,
+  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 50000,
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.',
@@ -97,7 +106,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));
 app.use(cookieParser());
 
-// ---------- Servir archivos estáticos desde /app/uploads ----------
+// ---------- Archivos estáticos (uploads) ----------
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
@@ -123,12 +132,14 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/bds', bdsRoutes);
 app.use('/api/petitions', petitionsRoutes);
+app.use('/api/email-templates', emailTemplateRoutes);
+app.use('/api/links', linksRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' });
 });
 
-// ---------- Middleware de manejo de errores (JSON) ----------
+// ---------- Error handler ----------
 app.use((err, req, res, next) => {
   const status = err.status || 500;
   console.error('Error:', err.message);
@@ -137,8 +148,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// -----------------------------------------------------------
-
+// ==================== ARRANQUE ====================
 const PORT = process.env.PORT || 5000;
 
 const ensureColumnsExist = async () => {
@@ -158,20 +168,96 @@ const ensureColumnsExist = async () => {
 
 const ensureAdmin = async () => {
   try {
-    const adminExists = await db.User.findOne({ where: { username: 'admin' } });
-    if (!adminExists) {
+    let admin = await db.User.findOne({ where: { username: 'admin' } });
+    if (!admin) {
       const hashedPassword = await bcrypt.hash('admin123', 12);
       await db.User.create({
         username: 'admin',
         password: hashedPassword,
+        email: 'admin@example.com',
         role: 'superadmin',
       });
       console.log('✅ Superadmin "admin" creado');
     } else {
-      console.log('✅ Superadmin ya existe.');
+      const match = await bcrypt.compare('admin123', admin.password);
+      if (!match) {
+        admin.password = await bcrypt.hash('admin123', 12);
+        await admin.save();
+        console.log('🔑 Contraseña de admin actualizada');
+      } else {
+        console.log('✅ Superadmin ya existe y contraseña correcta.');
+      }
     }
   } catch (err) {
-    console.error('❌ Error al crear superadmin:', err);
+    console.error('❌ Error al asegurar superadmin:', err);
+    throw err;
+  }
+};
+
+const ensureDefaultPetitionTemplate = async () => {
+  try {
+    const existing = await db.EmailTemplate.findOne({ where: { name: 'Petición oficial' } });
+    if (!existing) {
+      // Plantilla HTML estática (mismo contenido que el archivo .hbs)
+      const templateBody = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{subject}}</title>
+</head>
+<body style="margin:0; padding:0; background-color: {{backgroundColor}}; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: {{backgroundColor}};">
+    <tr>
+      <td align="center" style="padding: 20px 0;">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background-color: {{headerColor}}; padding: 30px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">{{subject}}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 20px; color: #333333; line-height: 1.6;">
+              {{{body}}}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 20px 30px; text-align: center;">
+              <a href="{{actionLink}}" style="display: inline-block; background-color: {{buttonColor}}; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 5px; font-weight: bold;">Firmar petición</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: {{footerColor}}; padding: 20px; text-align: center; color: #ffffff; font-size: 12px;">
+              <p style="margin: 0;">Voces Palestinas por la Justicia</p>
+              <p style="margin: 5px 0 0;">
+                <a href="{{unsubscribeLink}}" style="color: #ffffff; text-decoration: underline;">Cancelar suscripción</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+      await db.EmailTemplate.create({
+        name: 'Petición oficial',
+        subject: 'Petición de justicia para Palestina',
+        body: templateBody,
+        type: 'system',
+        associatedEvent: 'custom',
+        isActive: true,
+        headerColor: '#b91c1c',
+        buttonColor: '#16a34a',
+        footerColor: '#1f2937',
+        backgroundColor: '#f3f4f6',
+      });
+      console.log('✅ Plantilla por defecto para peticiones creada');
+    } else {
+      console.log('✅ Plantilla por defecto ya existe');
+    }
+  } catch (err) {
+    console.error('❌ Error al asegurar plantilla de peticiones:', err);
     throw err;
   }
 };
@@ -189,20 +275,18 @@ const runInitialMigrations = async () => {
 const startServer = async () => {
   try {
     await initEmailService();
+    await initQueueService().catch(err => console.warn('Queue service unavailable:', err.message));
+    await initSessionCache().catch(err => console.warn('Session cache unavailable:', err.message));
     await runInitialMigrations();
 
-    const syncOptions = isProduction ? {} : { alter: true };
-    if (isProduction) {
-      console.log('🔒 Production mode: using safe database sync');
-    }
-
-    await db.sequelize.sync({ force: true });
+    const syncOptions = isProduction ? { alter: true } : { alter: true };
+    await db.sequelize.sync(syncOptions);
     console.log('✅ Database synchronized');
 
     await ensureColumnsExist();
     await ensureAdmin();
+    await ensureDefaultPetitionTemplate();   // <-- AQUÍ SE CREA LA PLANTILLA POR DEFECTO
 
-    // Iniciar scheduler de recordatorios
     require('./jobs/reminderJob');
     require('./jobs/emailQueueJob');
 

@@ -39,7 +39,6 @@ export default function AdminPetitions() {
     }
   };
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => {
     if (selected.length === 0) return;
     setDeleteTarget(selected);
@@ -117,22 +116,31 @@ export default function AdminPetitions() {
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
-                </th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Título</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Tipo</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Urgencia</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Firmas</th>
                 <th className="px-6 py-3 text-left">Visible</th>
-                <th className="px-6 py-3 text-right">Acciones</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
               {paginated.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleOne(p.id)} />
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <a href={`/peticiones/${p.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver página pública">
+                        <FaEye className="w-5 h-5" />
+                      </a>
+                      {p.total_signatures === 0 && (
+                        <Link href={`/admin/petitions/${p.id}/edit`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                          <FaEdit className="w-5 h-5" />
+                        </Link>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{p.title}</td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{p.type === 'official' ? 'Oficial' : 'Personalizada'}</td>
@@ -148,21 +156,7 @@ export default function AdminPetitions() {
                     </button>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {/* Previsualizar siempre */}
-                      <a href={`/peticiones/${p.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver página pública">
-                        <FaEye className="w-5 h-5" />
-                      </a>
-                      {/* Editar solo si no hay firmas */}
-                      {p.total_signatures === 0 && (
-                        <Link href={`/admin/petitions/${p.id}/edit`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
-                          <FaEdit className="w-5 h-5" />
-                        </Link>
-                      )}
-                      <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                        <FaTrash className="w-5 h-5" />
-                      </button>
-                    </div>
+                    <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleOne(p.id)} />
                   </td>
                 </tr>
               ))}

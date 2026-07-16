@@ -1,17 +1,18 @@
-# Voices for Palestinian Justice - Backend
+# LunaRoja Backend
 
-Express backend for the Voices for Palestinian Justice platform.
+The backend for LunaRoja is an Express-based API that powers authentication, content management, subscriber workflows, uploads, and background processing for the platform.
 
 ## Overview
 
-This backend provides the REST API and server-side logic for the platform, including:
+This service provides the server-side logic for:
 
 - Authentication and authorization using JWT
 - CRUD operations for campaigns, actions, news, reports, documents, subscribers, users, and chat groups
 - File upload handling for images and documents
 - PostgreSQL persistence via Sequelize
-- Email service integration for notifications and subscriber workflows
-- Database administration endpoints for backups and maintenance
+- Email service integration and reminder workflows
+- Redis and BullMQ-based background processing
+- Database migration execution and status reporting
 
 ## Technology stack
 
@@ -19,16 +20,18 @@ This backend provides the REST API and server-side logic for the platform, inclu
 - Express
 - Sequelize
 - PostgreSQL
-- JSON Web Tokens (JWT)
+- JWT
 - Multer
 - Nodemailer
 - Handlebars
+- Redis
+- BullMQ
 - dotenv
 - cors
 
 ## Project structure
 
-```
+```text
 backend/
 └── src/
     ├── config/          # Database and environment configuration
@@ -36,9 +39,9 @@ backend/
     ├── middlewares/     # Auth, uploads, and request handling
     ├── models/          # Sequelize models and associations
     ├── routes/          # API route definitions
-    ├── services/        # Business logic and integrations
+    ├── services/        # Migrations, email, queue, and cache integrations
     ├── templates/       # Email templates
-    ├── utils/           # Utility helpers
+    ├── jobs/            # Background job definitions
     └── app.js           # Express application entry point
 ```
 
@@ -51,43 +54,47 @@ cp ../.env .env
 npm run dev
 ```
 
-> Do not commit secrets or environment files to version control.
+> Keep environment files out of version control and rotate credentials when needed.
 
 ## Available scripts
 
-- `npm run dev` — start development server with nodemon
-- `npm start` — start production server
+- npm run dev — start the development server with nodemon
+- npm start — start the production server
+- npm run migrate:status — inspect applied and pending migrations
+- npm run migrate — apply pending migrations
 
 ## Configuration
 
-The backend uses environment variables from `.env`.
+The backend reads environment variables from .env.
 
 Key values include:
 
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `JWT_SECRET`, `JWT_REFRESH_SECRET`
-- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`
-- `FRONTEND_URL`
+- DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+- JWT_SECRET, JWT_REFRESH_SECRET
+- EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM
+- FRONTEND_URL
+- Redis connection settings when enabled
 
-## API features
+## API capabilities
 
-- Authentication: register, login, token refresh, protected routes
+- Authentication: register, login, token refresh, and protected routes
 - User management: roles and permissions for admin operations
-- Content management: campaigns, actions, news, reports, documents
-- Subscriber management: create and manage email subscribers
+- Content management: campaigns, actions, news, reports, and documents
+- Subscriber management: create and manage contact subscriptions
 - File uploads: image and document storage via Multer
-- Database management: backup and maintenance endpoints
+- Background processing: queue-driven jobs and reminder workflows
 
-## Notes
+## Operational notes
 
-- The backend synchronizes Sequelize models on startup.
-- It initializes the database and admin users automatically if needed.
-- Use secure credentials and rotate any default or generated secrets.
+- The backend initializes core services and admin state during startup.
+- Database changes are handled through an explicit migration runner.
+- Redis and BullMQ support asynchronous communication and background tasks.
 
 ## Key files
 
-- `src/app.js` — Express application setup
-- `src/config/database.js` — Sequelize database connection
-- `src/routes/authRoutes.js` — authentication endpoints
-- `src/services/emailService.js` — email delivery logic
-- `src/middlewares/auth.js` — JWT auth middleware
+- src/app.js — Express application setup
+- src/config/database.js — Sequelize connection configuration
+- src/routes/authRoutes.js — authentication endpoints
+- src/services/emailService.js — email delivery logic
+- src/services/migrationService.js — migration planning and execution
+- src/services/queueService.js — background queue integration

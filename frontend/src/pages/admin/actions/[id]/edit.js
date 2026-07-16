@@ -376,7 +376,7 @@ function EditAction() {
           <div className="border-l-2 border-green-500 pl-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
             <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-4">
-              <span>🌐</span> Información pública
+              <span>🌍</span> Información pública
             </h2>
             <div className="space-y-4">
               <div>
@@ -513,7 +513,7 @@ function EditAction() {
                 </label>
                 <label className="flex items-center">
                   <input type="checkbox" name="enableAttendance" checked={form.enableAttendance} onChange={handleChange} className="mr-2" />
-                  <span className="text-sm text-gray-700">📋 Registrar asistencia</span>
+                  <span className="text-sm text-gray-700">📝 Registrar asistencia</span>
                 </label>
               </div>
             </div>
@@ -601,7 +601,7 @@ function EditAction() {
           <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
             <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-              <span>🖼️</span> Galería de imágenes
+              <span>📸 </span> Galería de imágenes
             </h3>
             <p className="text-xs text-gray-400 mb-2">Imágenes que se mostrarán en la galería pública.</p>
             <div className="space-y-4">

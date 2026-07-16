@@ -1,3 +1,4 @@
+import React from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 
 export default function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }) {

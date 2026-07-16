@@ -4,15 +4,14 @@
   "description": "API para Voces Palestinas por la Justicia",
   "main": "src/app.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
-    "migrate": "node src/services/migrationRunner.js",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:ci": "jest --ci --coverage"
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:auth": "jest __tests__/auth.test.js --forceExit --detectOpenHandles",
+    "migrate": "node src/services/migrationRunner.js up",
+    "migrate:status": "node src/services/migrationRunner.js status"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.16.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -22,18 +21,29 @@
     "helmet": "^7.0.0",
     "hpp": "^0.2.3",
     "http-errors": "^2.0.1",
+    "ioredis": "^5.9.0",
     "joi": "^18.2.3",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
+    "morgan": "^1.11.0",
+    "multer": "^2.2.0",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.9.3",
+    "nodemailer": "^9.0.3",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.33.0",
-    "umzug": "^3.8.3"
+    "umzug": "^3.8.3",
+    "uuid": "^14.0.1"
+  },
+  "overrides": {
+    "cross-spawn": "7.0.6",
+    "glob": "10.5.0",
+    "minimatch": "9.0.6",
+    "sigstore": "4.1.1",
+    "tar": "7.5.15"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
+    "artillery": "^2.0.21",
     "jest": "^30.4.2",
     "nodemon": "^3.0.1",
     "supertest": "^7.2.2"

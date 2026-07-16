@@ -28,10 +28,10 @@
     @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors;
   }
 
-  /* Título con Poppins – peso medio (500), más grueso que normal pero sin negrita */
+  /* Título principal con Poppins – semibold para mayor legibilidad */
   .font-title {
     font-family: 'Poppins', sans-serif;
-    font-weight: 500; /* Medium */
+    font-weight: 600; /* Semibold, coincide con font-semibold de Tailwind */
   }
 }
 

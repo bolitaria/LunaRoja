@@ -4,5 +4,5 @@ mkdir -p /app/uploads/featured /app/uploads/images /app/uploads/documents /app/u
 chown -R nodejs:nodejs /app/uploads
 chmod -R 755 /app/uploads
 
-# Ahora ejecutar la aplicación
+# Ejecutar la aplicación
 exec node src/app.js

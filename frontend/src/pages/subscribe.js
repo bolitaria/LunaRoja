@@ -33,7 +33,7 @@ export default function Subscribe() {
         <div className="container mx-auto max-w-3xl">
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-700 tracking-tight">
-              Suscríbete a nuestra newsletter
+              Suscríbete a nuestro boletin y mantente informad@
             </h1>
             <div className="h-1 w-full max-w-xs mx-auto bg-green-600 mt-3"></div>
             <p className="text-lg text-gray-600 mt-4 max-w-xl mx-auto">

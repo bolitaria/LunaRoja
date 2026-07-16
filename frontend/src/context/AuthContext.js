@@ -22,7 +22,9 @@ export function AuthProvider({ children }) {
 
     api.get('/users/me')
       .then(res => setUser(res.data))
-      .catch(() => localStorage.removeItem('token'))
+      .catch(() => {
+        localStorage.removeItem('token');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -30,12 +32,21 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.post('/auth/login', { username, password });
       const { token, user: userData } = res.data;
+
+      if (!token) throw new Error('Token no recibido');
+
+      // 1. Guardar token y establecer usuario INMEDIATAMENTE
       localStorage.setItem('token', token);
       setUser(userData);
-      router.push('/admin');
+
+      // 2. Redirigir al dashboard (no a /admin)
+      router.push('/admin/dashboard');
       return { success: true };
     } catch (error) {
-      return { success: false, message: error.response?.data?.message || 'Error al iniciar sesión' };
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error al iniciar sesión',
+      };
     }
   };
 
@@ -43,7 +54,7 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch (err) {
-      // ignoramos errores
+      // ignorar
     } finally {
       localStorage.removeItem('token');
       setUser(null);

@@ -1,101 +1,69 @@
-# Voices for Palestinian Justice
+# LunaRoja
 
-A full-stack web application for publishing campaigns, actions, news, reports, and supporter resources, with a secure administrative interface and subscriber management.
+LunaRoja is a full-stack platform for civic engagement, advocacy, and community mobilization. It combines a public-facing experience, an administrative console, and a backend API for content management, user workflows, subscribers, petitions, uploads, reminders, and communications.
 
-## Overview
+## Product scope
 
-This repository contains the complete production stack for a social awareness platform. It includes:
+The platform supports the publication and coordination of campaigns, actions, news, reports, documents, and petitions through a structured web application. It is designed for organizations that need a reliable digital presence with secure internal operations.
 
-- A public-facing frontend built in Next.js.
-- A REST API backend built in Express and Node.js.
-- PostgreSQL data persistence with Sequelize ORM.
-- JWT-based authentication and file upload support.
-- A Docker Compose setup for development and deployment.
+## Core capabilities
 
-## Product goals
-
-- Enable campaign managers to publish content quickly.
-- Provide visitors with clear, accessible information.
-- Capture and manage subscriber data reliably.
-- Support administrative workflows through a centralized dashboard.
-
-## Technology stack
-
-- **Frontend:** Next.js, React, Tailwind CSS, Axios, SWR
-- **Backend:** Node.js, Express, Sequelize, PostgreSQL, JWT, Multer
-- **Infrastructure:** Docker, Docker Compose, pgAdmin, Metabase
+- Content management for campaigns, actions, news, reports, documents, and petitions
+- Administrative workflows for publishing, moderation, and user oversight
+- Subscriber registration, preference management, and communication handling
+- File upload support for media and documents
+- Protected API routes with authentication and role-based access control
+- Background processing for reminders and notifications through Redis and BullMQ
+- Explicit database migration management for controlled deployments
 
 ## Architecture
 
-- Public UI and admin interface implemented in Next.js.
-- Backend API with Express routes and authentication middleware.
-- Sequelize data models for campaigns, actions, news, reports, subscribers, and users.
-- Docker Compose orchestrates backend, frontend, PostgreSQL, and observability tools.
-- Static asset and upload handling through the backend.
+### Frontend
+- Next.js and React for the public and admin experience
+- Tailwind CSS for responsive and maintainable styling
+- Axios and SWR for API communication and data fetching
+- React Hook Form and related UI components for forms and validation
+
+### Backend
+- Node.js and Express for the API server and business logic
+- Sequelize with PostgreSQL for data modeling and persistence
+- JWT-based authentication and authorization
+- Multer for upload handling
+- Nodemailer and Handlebars for email delivery
+- Middleware-based request handling for security, auth, validation, and uploads
+
+### Platform and operations
+- Docker Compose for local orchestration and environment consistency
+- PostgreSQL, pgAdmin, Metabase, and Redis as supporting services
+- CI workflows and security scanning for maintainability and delivery readiness
 
 ## Repository structure
 
-```
+```text
 LunaRoja/
-├── backend/                    # API and server implementation
-│   ├── src/
-│   ├── uploads/                # Uploaded files and media
-│   ├── seeders/                # Database seed scripts
-│   ├── package.json
-│   └── Dockerfile
-├── frontend/                   # Next.js application
-│   ├── public/
-│   ├── src/
-│   ├── .env.local              # Local frontend configuration
-│   ├── package.json
-│   └── Dockerfile
-├── database/                   # PostgreSQL initialization scripts
-│   └── init.sql
-├── docker-compose.yml          # Service orchestration
-├── .env                        # Backend environment variables
-└── README.md
+├── backend/                # API, business logic, models, services, and routes
+├── frontend/               # Next.js application and UI components
+├── database/               # Database initialization scripts
+├── docker-compose.yml      # Local service orchestration
+├── .github/workflows/      # CI/CD automation
+└── README.md               # Project overview
 ```
-
-## Prerequisites
-
-- Docker
-- Docker Compose
-- Node.js and npm (only if running without Docker)
 
 ## Quick start
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd LunaRoja
-   ```
+### With Docker
 
-2. Start the application:
-   ```bash
-   docker-compose up -d --build
-   ```
+```bash
+docker compose up -d --build
+```
 
-3. Verify that services are running and available.
+### Services
 
-## Service endpoints
-
-- Frontend: `http://localhost:3000`
-- Admin login: `http://localhost:3000/admin/login`
-- Backend API: `http://localhost:5000/api`
-- pgAdmin: `http://localhost:5050`
-- Metabase: `http://localhost:3001`
-
-## Docker commands
-
-| Action | Command |
-|--------|---------|
-| Start services | `docker-compose up -d --build` |
-| Stop services | `docker-compose down` |
-| Check container status | `docker-compose ps` |
-| View backend logs | `docker-compose logs backend` |
-| View PostgreSQL logs | `docker-compose logs postgres` |
-| Open PostgreSQL shell | `docker exec -it lunaroja_db psql -U lunaroja -d lunaroja` |
-| Export database backup | `docker exec -t lunaroja_db pg_dump -U lunaroja lunaroja > backup.sql` |
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000/api
+- pgAdmin: http://localhost:5050
+- Metabase: http://localhost:3001
+- Redis: localhost:6379
 
 ## Local development
 
@@ -116,30 +84,36 @@ npm install
 npm run dev
 ```
 
-## Configuration
+## Operational workflow
 
-- Backend uses the root `.env` file.
-- Frontend uses `frontend/.env.local`.
-- The repository does not include `.env.example`.
+### Database migrations
 
-## Notes
+```bash
+cd backend
+npm run migrate:status
+npm run migrate
+```
 
-- The backend initializes a default admin user automatically on startup.
-- Rotate any generated credentials after the first deployment.
-- The application supports file uploads, content management, subscriber handling, and analytics integration.
+### Background processing
 
-## Key capabilities
+Redis and BullMQ are used for asynchronous workflows such as welcome emails and reminder-related tasks. The queueing layer is initialized during backend startup and can be extended for additional background jobs.
 
-- Campaign, action, news, report, and document management
-- Role-based admin access and user management
-- Subscriber registration and email workflow support
-- File upload and media handling
-- Docker-based deployment and local development
+## Quality and delivery posture
+
+The project is structured to support maintainability, operational clarity, and practical delivery:
+
+- Clear separation between frontend, backend, and infrastructure concerns
+- Environment-based configuration for service integrations
+- Explicit migration handling for database changes
+- Asynchronous processing for communications and operational workflows
+- A foundation suitable for long-term maintenance and future scaling
 
 ## Key files
 
-- `docker-compose.yml` — service orchestration
-- `backend/src/app.js` — backend entry point
-- `frontend/.env.local` — frontend environment configuration
-- `frontend/Dockerfile` — frontend build container
-- `database/init.sql` — PostgreSQL initialization script
+- docker-compose.yml — service orchestration and local dependencies
+- backend/src/app.js — backend entry point and startup flow
+- backend/src/routes — API structure and feature modules
+- frontend/src — UI pages, components, and shared application state
+- .github/workflows — CI and deployment automation
+
+For operational details, see RUNBOOK.md.

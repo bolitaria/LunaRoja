@@ -11,7 +11,7 @@ import {
 function StatCard({ title, value, icon, color, link }) {
   return (
     <Link href={link} className="block group">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-5 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
         <div className="flex items-center justify-between mb-3">
           <span className={`p-3 rounded-lg ${color}`}>
             {icon}
@@ -41,7 +41,6 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Peticiones que el backend ya filtra según rol
         const [actionsRes, campaignsRes, bdsRes, usersRes, subscribersRes, newsRes] =
           await Promise.all([
             api.get('/actions'),
@@ -52,7 +51,6 @@ export default function Dashboard() {
             api.get('/news'),
           ]);
 
-        // Calcular totales desde los arrays
         setStats({
           totalActions: actionsRes.data.length,
           totalCampaigns: campaignsRes.data.length,
@@ -66,7 +64,6 @@ export default function Dashboard() {
         setRecentCampaigns(campaignsRes.data.slice(0, 5));
       } catch (error) {
         console.error('Error fetching dashboard data', error);
-        // Si falla alguna petición, mantenemos los valores por defecto
       } finally {
         setLoading(false);
       }
@@ -74,7 +71,6 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // Enlaces rápidos según el rol del usuario
   const quickLinks = [];
   if (user?.role === 'superadmin' || user?.role === 'campaign_admin') {
     quickLinks.push(
@@ -101,7 +97,6 @@ export default function Dashboard() {
 
   return (
     <AdminLayout title="Dashboard">
-      {/* Bienvenida */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Panel de Administración</h1>
         <p className="text-gray-500">
@@ -109,7 +104,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Métricas principales */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-10">
         <StatCard title="Acciones" value={stats.totalActions} icon={<FaCalendarAlt className="w-6 h-6 text-purple-600" />} color="bg-purple-100" link="/admin/actions" />
         <StatCard title="Campañas" value={stats.totalCampaigns} icon={<FaBullhorn className="w-6 h-6 text-emerald-600" />} color="bg-emerald-100" link="/admin/campaigns" />
@@ -119,7 +113,6 @@ export default function Dashboard() {
         <StatCard title="Noticias" value={stats.totalNews} icon={<FaNewspaper className="w-6 h-6 text-violet-600" />} color="bg-violet-100" link="/admin/news" />
       </div>
 
-      {/* Accesos rápidos */}
       {quickLinks.length > 0 && (
         <div className="mb-10">
           <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -136,10 +129,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Últimas acciones y campañas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Últimas acciones */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-700">📅 Últimas acciones</h3>
             <Link href="/admin/actions" className="text-sm text-purple-600 hover:underline inline-flex items-center gap-1">
@@ -169,8 +160,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Últimas campañas */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-700">📢 Últimas campañas</h3>
             <Link href="/admin/campaigns" className="text-sm text-purple-600 hover:underline inline-flex items-center gap-1">

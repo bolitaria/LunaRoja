@@ -20,11 +20,13 @@ const nextConfig = {
 
   images: {
     remotePatterns: [
+      // Servidor local (desarrollo)
       { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
       { protocol: 'http', hostname: '127.0.0.1', port: '5000', pathname: '/uploads/**' },
       { protocol: 'http', hostname: 'host.docker.internal', port: '5000', pathname: '/uploads/**' },
+      // YouTube (thumbnail)
+      { protocol: 'https', hostname: 'img.youtube.com', pathname: '/**' },
     ],
-    domains: ['img.youtube.com'],
   },
 };
 

@@ -12,7 +12,7 @@ function AdminImages() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -33,7 +33,6 @@ function AdminImages() {
 
   useEffect(() => { fetchImages(); }, []);
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
@@ -85,7 +84,7 @@ function AdminImages() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex items-center gap-6 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">Total</span>
           <span className="font-bold text-gray-800">{total}</span>
@@ -151,56 +150,53 @@ function AdminImages() {
           <p className="text-sm">Sube imágenes desde acciones o reportes.</p>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {paginated.map(img => (
-            <div key={img.id} className="relative group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="aspect-square bg-gray-100 relative">
-                <img
-                  src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
-                  alt={img.relatedTitle || 'Imagen'}
-                  className="w-full h-full object-cover"
-                />
-                <input
-                  type="checkbox"
-                  checked={selected.includes(img.id)}
-                  onChange={() => toggleOne(img.id)}
-                  className="absolute top-2 left-2 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                />
-                <button
-                  onClick={() => handleDelete(img.id)}
-                  className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                >
-                  <FaTrash className="w-3 h-3" />
-                </button>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {paginated.map(img => (
+              <div key={img.id} className="relative group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div className="aspect-square bg-gray-100 relative">
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
+                    alt={img.relatedTitle || 'Imagen'}
+                    className="w-full h-full object-cover"
+                  />
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(img.id)}
+                    onChange={() => toggleOne(img.id)}
+                    className="absolute top-2 left-2 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                  />
+                </div>
+                <div className="p-2 text-xs">
+                  <p className="font-medium text-gray-700 truncate">{img.relatedTitle || 'Sin título'}</p>
+                  <p className="text-gray-500">{img.relatedType === 'report' ? 'Reporte' : 'Acción'}</p>
+                  <p className="text-gray-400 text-[10px]">{new Date(img.createdAt).toLocaleDateString()}</p>
+                </div>
               </div>
-              <div className="p-2 text-xs">
-                <p className="font-medium text-gray-700 truncate">{img.relatedTitle || 'Sin título'}</p>
-                <p className="text-gray-500">{img.relatedType === 'report' ? 'Reporte' : 'Acción'}</p>
-                <p className="text-gray-400 text-[10px]">{new Date(img.createdAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
-                </th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Imagen</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Relacionado</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Tipo</th>
                 <th className="px-6 py-3 text-left hidden lg:table-cell">Fecha</th>
-                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
               {paginated.map(img => (
                 <tr key={img.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
-                    <input type="checkbox" checked={selected.includes(img.id)} onChange={() => toggleOne(img.id)} />
+                    {/* No hay acciones individuales */}
                   </td>
                   <td className="px-6 py-4">
                     <img src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`} alt="" className="h-10 w-10 object-cover rounded" />
@@ -208,18 +204,16 @@ function AdminImages() {
                   <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{img.relatedTitle || '-'}</td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{img.relatedType === 'report' ? 'Reporte' : 'Acción'}</td>
                   <td className="px-6 py-4 hidden lg:table-cell text-gray-500">{new Date(img.createdAt).toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleDelete(img.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                      <FaTrash className="w-5 h-5" />
-                    </button>
+                  <td className="px-6 py-4 text-right">
+                    <input type="checkbox" checked={selected.includes(img.id)} onChange={() => toggleOne(img.id)} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       )}
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
     </AdminLayout>
   );
 }

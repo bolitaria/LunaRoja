@@ -116,7 +116,7 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
           <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-100">
             {enableAttendance && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-                <span>📋</span> Asistencia
+                <span>📝</span> Asistencia
               </span>
             )}
             {(documentLink || documentFile) && (

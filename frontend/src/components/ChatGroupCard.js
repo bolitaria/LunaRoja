@@ -1,6 +1,3 @@
-// ✅ Eliminamos la importación de SVG y usamos un icono inline
-// (puedes reemplazar con un icono de react-icons si lo prefieres)
-
 const platformConfig = {
   telegram: {
     bgColor: 'bg-blue-500',
@@ -33,7 +30,6 @@ const platformConfig = {
     badgeBg: 'bg-purple-100',
     badgeText: 'text-purple-800',
     icon: (
-      // ✅ Icono inline de Signal (puedes usar un SVG real o un icono de react-icons)
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
         <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm.203 18.37l-.796-.405c-.313-.16-.438-.49-.272-.78.166-.29.542-.396.857-.233l.478.243c.313.16.438.49.272.78-.166.29-.542.396-.857.233l.318-.165zm-.203 1.63c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2zm0-6c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2zm0-6c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z" />
       </svg>
@@ -42,6 +38,8 @@ const platformConfig = {
 };
 
 export default function ChatGroupCard({ group }) {
+  if (!group) return null;
+
   const platform = group.platform?.toLowerCase() || 'whatsapp';
   const config = platformConfig[platform] || platformConfig.whatsapp;
 
@@ -50,7 +48,7 @@ export default function ChatGroupCard({ group }) {
       <div className="p-6">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-xl font-bold text-gray-800 line-clamp-1">{group.name}</h3>
+            <h3 className="text-xl font-bold text-gray-800 line-clamp-1">{group.name || 'Grupo sin nombre'}</h3>
           </div>
           <div className={`p-2 rounded-full ${config.bgColor} bg-opacity-10`}>
             <div className={`w-8 h-8 flex items-center justify-center rounded-full ${config.bgColor} text-white`}>
@@ -60,11 +58,11 @@ export default function ChatGroupCard({ group }) {
         </div>
 
         <p className="text-gray-600 text-sm leading-relaxed mb-5 line-clamp-3">
-          {group.description}
+          {group.description || 'Sin descripción'}
         </p>
 
         <a
-          href={group.link}
+          href={group.link || '#'}
           target="_blank"
           rel="noopener noreferrer"
           className={`inline-flex items-center justify-center w-full px-4 py-2 rounded-lg font-medium text-white transition-colors ${config.bgColor} ${config.hoverBg}`}

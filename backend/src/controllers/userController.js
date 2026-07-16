@@ -323,20 +323,38 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-// ========================= CHANGE MY PASSWORD =========================
+// ========================= CHANGE MY PASSWORD (MEJORADO) =========================
 exports.changeMyPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
 
+    // Validar que ambos campos estén presentes
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Debes proporcionar la contraseña actual y la nueva' });
+    }
+
+    // Validar longitud mínima de la nueva contraseña
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    const userId = req.user.id;
     const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
 
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return res.status(400).json({ message: 'La contraseña actual no es correcta' });
     }
 
+    // Evitar que la nueva sea igual a la actual (opcional pero recomendado)
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'La nueva contraseña debe ser diferente a la actual' });
+    }
+
+    // Asignar la nueva contraseña (el hook beforeUpdate la hasheará)
     user.password = newPassword;
     await user.save();
 

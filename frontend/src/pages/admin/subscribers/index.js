@@ -33,7 +33,6 @@ function AdminSubscribers() {
 
   useEffect(() => { fetchSubscribers(); }, []);
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
@@ -86,25 +85,16 @@ function AdminSubscribers() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
-        <button
-          onClick={() => { setFilterStatus(''); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex items-center gap-6 text-sm">
+        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
           <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Total</span>
           <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{total}</span>
         </button>
-        <button
-          onClick={() => { setFilterStatus('active'); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
+        <button onClick={() => { setFilterStatus('active'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
           <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Activos</span>
           <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{activeCount}</span>
         </button>
-        <button
-          onClick={() => { setFilterStatus('unsubscribed'); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
+        <button onClick={() => { setFilterStatus('unsubscribed'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
           <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Desuscritos</span>
           <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{unsubscribedCount}</span>
         </button>
@@ -152,20 +142,20 @@ function AdminSubscribers() {
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
-                </th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Email</th>
                 <th className="px-6 py-3 text-left hidden sm:table-cell">Estado</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Fecha suscripción</th>
-                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
               {paginated.map(sub => (
                 <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
-                    <input type="checkbox" checked={selected.includes(sub.id)} onChange={() => toggleOne(sub.id)} />
+                    {/* Sin acciones individuales */}
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{sub.email}</td>
                   <td className="px-6 py-4 hidden sm:table-cell">
@@ -174,10 +164,8 @@ function AdminSubscribers() {
                     </span>
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{new Date(sub.subscribedAt).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                      <FaTrash className="w-5 h-5" />
-                    </button>
+                  <td className="px-6 py-4 text-right">
+                    <input type="checkbox" checked={selected.includes(sub.id)} onChange={() => toggleOne(sub.id)} />
                   </td>
                 </tr>
               ))}

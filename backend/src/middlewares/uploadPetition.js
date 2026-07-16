@@ -2,7 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const petitionDir = '/tmp/uploads/petitions';
+// ✅ Guardado dentro del volumen Docker
+const petitionDir = '/app/uploads/petitions';
 if (!fs.existsSync(petitionDir)) {
   fs.mkdirSync(petitionDir, { recursive: true });
 }
@@ -20,8 +21,9 @@ const fileFilter = (req, file, cb) => {
   else cb(new Error('Solo se permiten imágenes'), false);
 };
 
+// ✅ Campo esperado: 'image' (igual que el frontend)
 module.exports = multer({
   storage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
-}).single('featuredImage');
+}).single('image');

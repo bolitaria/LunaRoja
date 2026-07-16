@@ -1,279 +1,554 @@
 import api from '../../../../lib/axios';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../../../components/AdminLayout';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import dynamic from 'next/dynamic';
+import 'react-quill/dist/quill.snow.css';
+import DOMPurify from 'dompurify';
+import {
+  FaPlus, FaSave, FaEye, FaTimes, FaEnvelope, FaPencilAlt, FaPalette, FaExternalLinkAlt, FaImage, FaLock
+} from 'react-icons/fa';
+import Handlebars from 'handlebars';
+import Link from 'next/link';
 
-function ReportPreview({ title, description, type, source, author, content, file, currentFileUrl }) {
-  const existingFile = currentFileUrl && !file;
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-6">
-      <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-        <span>📄</span> Vista previa
-      </h3>
-      {!title ? (
-        <p className="text-gray-400 text-sm">Completa el formulario para ver la vista previa.</p>
-      ) : (
-        <div className="space-y-3">
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">Título</h4>
-            <p className="text-gray-800 font-semibold">{title}</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${type === 'report' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-              {type === 'report' ? '📄 Reporte' : '📝 Blog'}
-            </span>
-            {source && <span className="text-xs text-gray-500">Fuente: {source}</span>}
-            {author && <span className="text-xs text-gray-500">✍️ {author}</span>}
-          </div>
-          {description && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
-              <p className="text-gray-700 text-sm whitespace-pre-wrap">{description}</p>
-            </div>
-          )}
-          {content && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Contenido</h4>
-              <div className="text-gray-700 text-sm" dangerouslySetInnerHTML={{ __html: content }} />
-            </div>
-          )}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">Archivo</h4>
-            {file ? (
-              <p className="text-sm text-gray-700">📎 {file.name} (nuevo)</p>
-            ) : existingFile ? (
-              <p className="text-sm text-blue-600 underline">
-                <a href={currentFileUrl} target="_blank" rel="noopener noreferrer">Ver archivo actual</a>
-              </p>
-            ) : (
-              <p className="text-sm text-gray-400">Sin archivo adjunto</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 
-export default function EditReport() {
+const quillModules = {
+  toolbar: [
+    [{ header: '1' }, { header: '2' }, { font: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['bold', 'italic', 'underline'],
+    [{ align: [] }],
+    ['link'],
+    ['clean'],
+  ],
+};
+
+export default function EditPetition() {
   const router = useRouter();
   const { id } = router.query;
+  const quillRef = useRef(null);
 
   const [form, setForm] = useState({
     title: '',
     description: '',
     content: '',
-    type: 'blog',
-    source: '',
-    author: '',
-    currentFileUrl: null,
-    file: null,
+    targetEmails: '',
+    type: 'internal',
+    externalUrl: '',
+    urgency: false,
+    deadline: '',
+    hidden: false,
+    emailTemplateId: '',
   });
+  const [recipientEmails, setRecipientEmails] = useState([]);
+  const [emailInput, setEmailInput] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [publicGroups, setPublicGroups] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [currentImage, setCurrentImage] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Modal de vista previa
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Plantilla nueva
+  const [showTemplateCreator, setShowTemplateCreator] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    subject: '',
+    body: '',
+    associatedEvent: 'custom',
+    headerColor: '#b91c1c',
+    buttonColor: '#16a34a',
+    footerColor: '#1f2937',
+    backgroundColor: '#f3f4f6',
+  });
+  const [templatePreview, setTemplatePreview] = useState('');
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await api.get('/email-templates');
+      setTemplates(res.data);
+    } catch (error) {
+      toast.error('Error al cargar plantillas');
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
-    const fetchReport = async () => {
+    const fetchPetition = async () => {
       try {
-        const res = await api.get(`/reports/${id}`);
-        const report = res.data;
+        const res = await api.get(`/petitions/${id}`);
+        const p = res.data;
+        const emailsArray = Array.isArray(p.target_emails) ? p.target_emails : [];
         setForm({
-          title: report.title || '',
-          description: report.description || '',
-          content: report.content || '',
-          type: report.type || 'blog',
-          source: report.source || '',
-          author: report.author || '',
-          currentFileUrl: report.fileUrl || null,
-          file: null,
+          title: p.title || '',
+          description: p.description || '',
+          content: p.content || '',
+          targetEmails: emailsArray.join(','),
+          type: p.type === 'official' ? 'external' : p.type,
+          externalUrl: p.external_url || '',
+          urgency: p.urgency || false,
+          deadline: p.deadline ? new Date(p.deadline).toISOString().split('T')[0] : '',
+          hidden: p.hidden || false,
+          emailTemplateId: p.emailTemplateId || '',
         });
+        setRecipientEmails(emailsArray);
+        const groups = p.groups || [];
+        setPublicGroups(groups);
+        if (p.featured_image) {
+          setCurrentImage(p.featured_image);
+        }
       } catch (error) {
-        toast.error('No se pudo cargar el reporte');
+        toast.error('Error al cargar la petición');
       } finally {
         setLoading(false);
       }
     };
-    fetchReport();
+    fetchPetition();
+    fetchTemplates();
   }, [id]);
 
   const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
+    const { name, value, type, checked, files } = e.target;
     if (type === 'file') {
-      setForm(prev => ({ ...prev, file: files[0] }));
+      if (name === 'image') {
+        setImageFile(files[0]);
+        const reader = new FileReader();
+        reader.onloadend = () => setImagePreview(reader.result);
+        if (files[0]) reader.readAsDataURL(files[0]);
+        else setImagePreview(null);
+      }
     } else {
-      setForm(prev => ({ ...prev, [name]: value }));
+      setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    }
+  };
+
+  const handleContentChange = (value) => setForm(prev => ({ ...prev, content: value }));
+
+  const addEmail = () => {
+    const email = emailInput.trim();
+    if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.warning('Email inválido');
+      return;
+    }
+    if (recipientEmails.includes(email)) {
+      toast.warning('Email ya añadido');
+      return;
+    }
+    setRecipientEmails(prev => [...prev, email]);
+    setEmailInput('');
+  };
+  const removeEmail = (index) => setRecipientEmails(prev => prev.filter((_, i) => i !== index));
+  const handleEmailInputKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      addEmail();
+    }
+  };
+
+  const addPublicGroup = () => setPublicGroups([...publicGroups, { platform: 'whatsapp', link: '' }]);
+  const removePublicGroup = (index) => setPublicGroups(publicGroups.filter((_, i) => i !== index));
+  const updatePublicGroup = (index, field, value) => {
+    const updated = [...publicGroups];
+    updated[index][field] = value;
+    setPublicGroups(updated);
+  };
+
+  const handleTemplateChange = (e) => {
+    const { name, value } = e.target;
+    setNewTemplate(prev => {
+      const updated = { ...prev, [name]: value };
+      compileTemplatePreview(updated.body, updated);
+      return updated;
+    });
+  };
+  const compileTemplatePreview = (body, colors) => {
+    try {
+      const template = Handlebars.compile(body);
+      let html = template({
+        username: 'NombreUsuario',
+        email: 'usuario@example.com',
+        campaign: { name: 'Campaña de ejemplo' },
+        action: { title: 'Acción de prueba' },
+        unsubscribeLink: '#',
+        currentYear: new Date().getFullYear(),
+      });
+      html = html
+        .replace(/--header-color/g, colors.headerColor)
+        .replace(/--button-color/g, colors.buttonColor)
+        .replace(/--footer-color/g, colors.footerColor)
+        .replace(/--bg-color/g, colors.backgroundColor);
+      setTemplatePreview(html);
+    } catch (error) {
+      setTemplatePreview(`<div style="color:red">Error: ${error.message}</div>`);
+    }
+  };
+  const saveAndSelectTemplate = async () => {
+    if (!newTemplate.name || !newTemplate.subject || !newTemplate.body) {
+      toast.warning('Nombre, asunto y cuerpo son obligatorios');
+      return;
+    }
+    setCreatingTemplate(true);
+    try {
+      const res = await api.post('/email-templates', newTemplate);
+      toast.success('Plantilla creada y seleccionada');
+      await fetchTemplates();
+      setForm(prev => ({ ...prev, emailTemplateId: res.data.id }));
+      setShowTemplateCreator(false);
+      setNewTemplate({
+        name: '', subject: '', body: '', associatedEvent: 'custom',
+        headerColor: '#b91c1c', buttonColor: '#16a34a', footerColor: '#1f2937', backgroundColor: '#f3f4f6',
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error al crear plantilla');
+    } finally {
+      setCreatingTemplate(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) {
-      toast.warning('El título es obligatorio');
-      return;
-    }
-    if (form.type === 'report' && !form.source.trim()) {
-      toast.warning('Los reportes requieren al menos una fuente oficial');
-      return;
-    }
-    setSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append('title', form.title.trim());
-      formData.append('description', form.description.trim());
-      formData.append('content', form.content.trim());
-      formData.append('type', form.type);
-      formData.append('source', form.source.trim());
-      formData.append('author', form.author.trim());
-      if (form.file) formData.append('file', form.file);
 
-      await api.put(`/reports/${id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      toast.success('Entrada actualizada');
-      router.push('/admin/reports');
+    const editor = quillRef.current?.getEditor();
+    const plainText = editor?.getText().trim() || '';
+
+    if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
+
+    if (form.type === 'internal') {
+      if (!plainText) {
+        toast.warning('El contenido es obligatorio');
+        return;
+      }
+      if (!form.emailTemplateId) { toast.warning('Selecciona una plantilla de email'); return; }
+      if (recipientEmails.length === 0) { toast.warning('Añade al menos un destinatario'); return; }
+    } else {
+      if (!form.externalUrl.trim()) { toast.warning('La URL externa es obligatoria'); return; }
+    }
+
+    setSaving(true);
+
+    const editorContent = editor?.root?.innerHTML || form.content;
+
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      type: form.type,
+      urgency: form.urgency,
+      hidden: form.hidden,
+      deadline: form.deadline || null,
+      groups: publicGroups.map(g => ({ ...g, is_public: true })),
+    };
+
+    if (form.type === 'internal') {
+      payload.content = editorContent;
+      payload.email_template_id = form.emailTemplateId;
+      payload.target_emails = recipientEmails;
+    } else {
+      payload.external_url = form.externalUrl.trim();
+    }
+
+    if (imageFile) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        payload.imageBase64 = reader.result;
+        try {
+          await api.put(`/petitions/${id}`, payload);
+          toast.success('Petición actualizada');
+          router.push('/admin/petitions');
+        } catch (error) {
+          toast.error(error.response?.data?.message || 'Error al actualizar');
+        } finally {
+          setSaving(false);
+        }
+      };
+      reader.readAsDataURL(imageFile);
+      return;
+    }
+
+    try {
+      await api.put(`/petitions/${id}`, payload);
+      toast.success('Petición actualizada');
+      router.push('/admin/petitions');
     } catch (error) {
-      console.error('Error updating report:', error);
-      toast.error(error.response?.data?.message || 'No se pudo actualizar');
+      toast.error(error.response?.data?.message || 'Error al actualizar');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <AdminLayout title="Editar Entrada"><p className="text-center py-8">Cargando...</p></AdminLayout>;
-  }
+  if (loading) return <AdminLayout title="Editar Petición"><p className="text-center py-8">Cargando...</p></AdminLayout>;
+
+  const sanitizedContent = DOMPurify.sanitize(form.content);
+  const isOfficial = form.type === 'external';
+  const previewTitle = form.title || 'Título de ejemplo';
+  const previewContent = form.content || 'Contenido de ejemplo...';
+  const previewImage = imagePreview || (currentImage ? `${process.env.NEXT_PUBLIC_BASE_URL || ''}${currentImage}` : null);
 
   return (
-    <AdminLayout title="Editar Entrada Blog/Reporte">
+    <AdminLayout title="Editar Petición">
       <ToastContainer />
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">Editar Entrada</h2>
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 lg:w-2/3 space-y-6 p-6">
+          <h2 className="text-xl font-semibold text-gray-700 flex items-center gap-2">
+            <FaPencilAlt className="text-fuchsia-600" /> Editar petición
+          </h2>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
-              <select
-                name="type"
-                value={form.type}
-                onChange={handleChange}
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
-              >
-                <option value="blog">📝 Blog (interno)</option>
-                <option value="report">📄 Reporte (externo)</option>
-              </select>
+          {/* Tipo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de petición *</label>
+            <div className="flex items-center gap-6">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="type" value="internal" checked={form.type === 'internal'} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
+                <span className="text-sm text-gray-700">Interna (contenido y email)</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="type" value="external" checked={form.type === 'external'} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
+                <span className="text-sm text-gray-700">Externa (enlace externo)</span>
+              </label>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-              <input
-                type="text"
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                required
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
-              />
+          </div>
+
+          {/* Campos comunes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción breve</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows="2" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+          </div>
+
+          {/* Imagen */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Imagen destacada</label>
+            <div className="flex items-center gap-4">
+              <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed border-fuchsia-300 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-fuchsia-50 transition-colors">
+                {imagePreview ? (
+                  <div className="relative w-full h-full">
+                    <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover rounded-lg" />
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setImageFile(null); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"><FaTimes /></button>
+                  </div>
+                ) : currentImage ? (
+                  <div className="relative w-full h-full">
+                    <img src={`${process.env.NEXT_PUBLIC_BASE_URL || ''}${currentImage}`} alt="Actual" className="w-full h-full object-cover rounded-lg" />
+                    <span className="absolute bottom-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">Actual</span>
+                  </div>
+                ) : (
+                  <>
+                    <FaImage className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="text-xs text-gray-500">Subir imagen</span>
+                  </>
+                )}
+                <input type="file" name="image" accept="image/*, .webp" onChange={handleChange} className="hidden" />
+              </label>
+              <div className="text-sm text-gray-600">
+                <p>JPG, PNG, WebP</p>
+                <p className="text-xs text-gray-400">Dejar vacío para mantener la actual</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows={3}
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contenido (HTML)</label>
-              <textarea
-                name="content"
-                value={form.content}
-                onChange={handleChange}
-                rows={5}
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
-              />
-            </div>
-            {form.type === 'report' && (
+          </div>
+
+          {/* --- INTERNA --- */}
+          {form.type === 'internal' && (
+            <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fuente(s) oficial(es) *</label>
-                <input
-                  name="source"
-                  value={form.source}
-                  onChange={handleChange}
-                  required
-                  className="w-full border p-2 rounded focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
-                  placeholder="URL o nombre de la fuente"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contenido *</label>
+                <ReactQuill
+                  ref={quillRef}
+                  theme="snow"
+                  value={form.content}
+                  onChange={handleContentChange}
+                  modules={quillModules}
+                  placeholder="Escribe el contenido..."
+                  className="bg-white"
                 />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plantilla de email *</label>
+                <div className="flex items-center gap-2">
+                  <select name="emailTemplateId" value={form.emailTemplateId} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500">
+                    <option value="">Selecciona una plantilla</option>
+                    {templates.map(tpl => (<option key={tpl.id} value={tpl.id}>{tpl.name}</option>))}
+                  </select>
+                  <button type="button" onClick={() => setShowTemplateCreator(true)} className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
+                    <FaPlus className="w-3.5 h-3.5" /> Nueva plantilla
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1"><FaEnvelope className="inline w-3 h-3 mr-1" />Destinatarios del email *</label>
+                <div className="flex flex-wrap gap-2 items-center border border-gray-300 rounded-lg p-2">
+                  {recipientEmails.map((email, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 bg-fuchsia-100 text-fuchsia-800 px-2 py-1 rounded-full text-sm">
+                      {email}
+                      <button type="button" onClick={() => removeEmail(idx)} className="text-fuchsia-600 hover:text-red-600"><FaTimes className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                  <input type="text" placeholder="Email y Enter/espacio" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} onKeyDown={handleEmailInputKeyDown} onBlur={addEmail} className="flex-1 min-w-[150px] outline-none border-none" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* --- EXTERNA --- */}
+          {form.type === 'external' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Autor</label>
-              <input
-                name="author"
-                value={form.author}
-                onChange={handleChange}
-                className="w-full border p-2 rounded focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL de la petición *</label>
+              <input type="url" name="externalUrl" value={form.externalUrl} onChange={handleChange} required placeholder="https://www.change.org/..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Archivo actual</label>
-              {form.currentFileUrl ? (
-                <p className="text-sm text-blue-600">
-                  <a href={form.currentFileUrl} target="_blank" rel="noopener noreferrer" className="underline">Ver archivo actual</a>
-                </p>
-              ) : (
-                <p className="text-sm text-gray-500">No hay archivo adjunto</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nuevo archivo (opcional)</label>
-              <input
-                type="file"
-                name="file"
-                onChange={handleChange}
-                className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-              />
-              <p className="text-xs text-gray-400 mt-1">Deja vacío para conservar el archivo actual</p>
-            </div>
+          )}
+
+          {/* Grupos públicos */}
+          <div className="border-t pt-4">
+            <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2"><span>💬</span> Grupos de chat públicos</h3>
+            <p className="text-xs text-gray-400 mb-2">Estos grupos aparecerán en la página pública.</p>
+            {publicGroups.map((group, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <select value={group.platform} onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500">
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="signal">Signal</option>
+                </select>
+                <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+                <button type="button" onClick={() => removePublicGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
+              </div>
+            ))}
+            <button type="button" onClick={addPublicGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1"><span>+</span> Añadir grupo público</button>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center justify-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-sm font-medium"
-            >
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-            >
-              Cancelar
-            </button>
+          {/* Opciones */}
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" name="urgency" checked={form.urgency} onChange={handleChange} className="rounded border-gray-300 text-fuchsia-600 focus:ring-0" />
+              <span className="text-sm text-gray-700">🔥 Urgente</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" name="hidden" checked={form.hidden} onChange={handleChange} className="rounded border-gray-300 text-fuchsia-600 focus:ring-0" />
+              <span className="text-sm text-gray-700 flex items-center gap-1"><FaLock className="w-4 h-4 text-gray-500" /> Ocultar al público</span>
+            </label>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha límite</label>
+            <input type="date" name="deadline" value={form.deadline} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+          </div>
+
+          <button type="submit" disabled={saving} className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition font-medium">
+            <FaSave className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Actualizar Petición'}
+          </button>
         </form>
 
-        {/* Vista previa */}
-        <div className="lg:w-1/3">
-          <ReportPreview
-            title={form.title}
-            description={form.description}
-            type={form.type}
-            source={form.source}
-            author={form.author}
-            content={form.content}
-            file={form.file}
-            currentFileUrl={form.currentFileUrl}
-          />
+        {/* Botón para vista previa */}
+        <div className="lg:w-1/3 flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            className="inline-flex items-center gap-2 bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 transition font-medium shadow-sm"
+          >
+            <FaEye className="text-fuchsia-600" /> Vista previa pública
+          </button>
         </div>
       </div>
+
+      {/* MODAL de vista previa */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4" onClick={() => setShowPreview(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end p-2">
+              <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600 text-xl"><FaTimes /></button>
+            </div>
+            <div className="px-4 pb-6">
+              {previewImage && (
+                <div className="relative w-full h-48 bg-gray-100 rounded-xl overflow-hidden mb-4">
+                  <img src={previewImage} alt="Vista previa" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h3 className="text-lg font-semibold text-gray-800 line-clamp-2 flex-1">{previewTitle}</h3>
+                {form.urgency && <span className="flex-shrink-0 inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">🔥 Urgente</span>}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium border ${isOfficial ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-green-100 text-green-800 border-green-300'}`}>
+                  {isOfficial ? 'Externa' : 'Interna'}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+                {isOfficial ? 'Redirige a un sitio externo para firmar.' : previewContent.replace(/<[^>]*>/g, '').substring(0, 120) + '…'}
+              </p>
+              <div className="border-t border-gray-100 pt-3 flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">0 firmas</span>
+                <span className="text-[#008000] text-sm font-semibold">{isOfficial ? 'Ir a firmar →' : 'Firmar →'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal creación de plantilla */}
+      {showTemplateCreator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => setShowTemplateCreator(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-700 flex items-center gap-2"><FaPalette className="text-fuchsia-600" /> Nueva plantilla</h3>
+              <button onClick={() => setShowTemplateCreator(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nombre *</label>
+                  <input type="text" name="name" value={newTemplate.name} onChange={handleTemplateChange} className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Asunto *</label>
+                  <input type="text" name="subject" value={newTemplate.subject} onChange={handleTemplateChange} className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Evento asociado</label>
+                  <select name="associatedEvent" value={newTemplate.associatedEvent} onChange={handleTemplateChange} className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500">
+                    <option value="custom">Personalizado</option>
+                    <option value="campaign_created">Al crear campaña</option>
+                    <option value="action_created">Al crear acción</option>
+                    <option value="subscriber_welcome">Bienvenida al suscriptor</option>
+                    <option value="reminder">Recordatorio (día antes)</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-xs text-gray-500 mb-1">Color cabecera</label><input type="color" name="headerColor" value={newTemplate.headerColor} onChange={handleTemplateChange} className="w-full h-10 border rounded-lg" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Color botón</label><input type="color" name="buttonColor" value={newTemplate.buttonColor} onChange={handleTemplateChange} className="w-full h-10 border rounded-lg" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Color footer</label><input type="color" name="footerColor" value={newTemplate.footerColor} onChange={handleTemplateChange} className="w-full h-10 border rounded-lg" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Fondo general</label><input type="color" name="backgroundColor" value={newTemplate.backgroundColor} onChange={handleTemplateChange} className="w-full h-10 border rounded-lg" /></div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Cuerpo HTML *</label>
+                  <textarea name="body" value={newTemplate.body} onChange={handleTemplateChange} rows={12} className="mt-1 block w-full border border-gray-300 rounded-lg p-2 font-mono text-sm focus:ring-0 focus:border-fuchsia-500" placeholder="HTML con variables Handlebars..." />
+                </div>
+                <div className="flex items-center justify-between">
+                  <button type="button" onClick={saveAndSelectTemplate} disabled={creatingTemplate} className="bg-fuchsia-600 text-white px-6 py-2 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition">
+                    {creatingTemplate ? 'Guardando...' : 'Guardar y usar'}
+                  </button>
+                  <Link href="/admin/email-templates" className="text-sm text-fuchsia-600 hover:underline flex items-center gap-1"><FaExternalLinkAlt className="w-3 h-3" /> Ir a plantillas</Link>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-md font-semibold text-gray-700 mb-2">Vista previa</h4>
+                <div className="border border-gray-300 rounded-xl overflow-hidden bg-white h-full max-h-[500px] overflow-y-auto p-2">
+                  <iframe srcDoc={templatePreview} title="Preview" className="w-full h-full min-h-[400px] border-0" sandbox="allow-same-origin" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

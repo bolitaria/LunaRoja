@@ -40,7 +40,6 @@ export default function PeticionesIndex() {
     if (filterType === 'externas' && p.type !== 'official') return false;
     if (filterType === 'internas' && p.type !== 'custom') return false;
     if (filterUrgency === 'urgente' && !p.urgency) return false;
-    if (filterUrgency === 'normal' && p.urgency) return false;
     return true;
   });
 
@@ -48,10 +47,9 @@ export default function PeticionesIndex() {
     if (!img) return null;
     if (img.startsWith('http')) return img;
     const root = (backendRoot || '').replace(/\/$/, '');
-    return `${root}${img}`;
+    return `${root}${img.startsWith('/') ? '' : '/'}${img}`;
   };
 
-  // Estilo base común para todos los botones de filtro
   const filterBtnBase = "px-4 py-2 rounded-lg text-sm font-medium transition border border-gray-300";
 
   return (
@@ -69,31 +67,12 @@ export default function PeticionesIndex() {
             </div>
           )}
 
-          {/* Filtros */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            {/* Grupo de filtros de tipo (solo verde activo) */}
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilterType('todas')}
-                className={`${filterBtnBase} ${filterType === 'todas' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Todas
-              </button>
-              <button
-                onClick={() => setFilterType('externas')}
-                className={`${filterBtnBase} ${filterType === 'externas' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Externas
-              </button>
-              <button
-                onClick={() => setFilterType('internas')}
-                className={`${filterBtnBase} ${filterType === 'internas' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Internas
-              </button>
+              <button onClick={() => setFilterType('todas')} className={`${filterBtnBase} ${filterType === 'todas' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Todas</button>
+              <button onClick={() => setFilterType('externas')} className={`${filterBtnBase} ${filterType === 'externas' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Externas</button>
+              <button onClick={() => setFilterType('internas')} className={`${filterBtnBase} ${filterType === 'internas' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Internas</button>
             </div>
-
-            {/* Grupo de filtros de urgencia (solo rojo activo) */}
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilterUrgency('todas')}
@@ -102,16 +81,10 @@ export default function PeticionesIndex() {
                 Todas
               </button>
               <button
-                onClick={() => setFilterUrgency('urgente')}
+                onClick={() => setFilterUrgency(filterUrgency === 'urgente' ? 'todas' : 'urgente')}
                 className={`${filterBtnBase} ${filterUrgency === 'urgente' ? 'bg-red-600 text-white border-red-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 🔥 Urgentes
-              </button>
-              <button
-                onClick={() => setFilterUrgency('normal')}
-                className={`${filterBtnBase} ${filterUrgency === 'normal' ? 'bg-red-600 text-white border-red-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Normales
               </button>
             </div>
           </div>
@@ -154,7 +127,7 @@ export default function PeticionesIndex() {
                       <p className="text-sm text-gray-600 line-clamp-3 flex-1">{isOfficial ? 'Redirige a un sitio externo para firmar.' : pet.content?.replace(/<[^>]*>/g, '').substring(0, 120) + '…'}</p>
                       <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">{pet.total_signatures} firmas</span>
-                        <span className="text-fuchsia-600 text-sm font-semibold">{isOfficial ? 'Ir a firmar →' : 'Firmar →'}</span>
+                        <span className="text-[#008000] text-sm font-semibold">{isOfficial ? 'Ir a firmar →' : 'Firmar →'}</span>
                       </div>
                     </div>
                   </div>

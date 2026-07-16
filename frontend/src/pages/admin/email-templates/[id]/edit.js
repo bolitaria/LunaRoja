@@ -19,18 +19,57 @@ const sampleData = {
 export default function EditEmailTemplate() {
   const router = useRouter();
   const { id } = router.query;
-  const [form, setForm] = useState({ name: '', subject: '', body: '', associatedEvent: 'custom' });
+  const [form, setForm] = useState({
+    name: '',
+    subject: '',
+    body: '',
+    associatedEvent: 'custom',
+    headerColor: '#b91c1c',
+    buttonColor: '#16a34a',
+    footerColor: '#1f2937',
+    backgroundColor: '#f3f4f6',
+  });
   const [previewHtml, setPreviewHtml] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+
+  const compilePreview = (body, colors) => {
+    try {
+      const template = Handlebars.compile(body);
+      let html = template(sampleData);
+      html = html
+        .replace(/--header-color/g, colors.headerColor)
+        .replace(/--button-color/g, colors.buttonColor)
+        .replace(/--footer-color/g, colors.footerColor)
+        .replace(/--bg-color/g, colors.backgroundColor);
+      setPreviewHtml(html);
+    } catch (error) {
+      setPreviewHtml(`<div style="color:red">Error: ${error.message}</div>`);
+    }
+  };
 
   useEffect(() => {
     if (id) {
       api.get(`/email-templates/${id}`)
         .then(res => {
           const t = res.data;
-          setForm({ name: t.name, subject: t.subject, body: t.body, associatedEvent: t.associatedEvent });
-          compilePreview(t.body);
+          const updated = {
+            name: t.name,
+            subject: t.subject,
+            body: t.body,
+            associatedEvent: t.associatedEvent || 'custom',
+            headerColor: t.headerColor || '#b91c1c',
+            buttonColor: t.buttonColor || '#16a34a',
+            footerColor: t.footerColor || '#1f2937',
+            backgroundColor: t.backgroundColor || '#f3f4f6',
+          };
+          setForm(updated);
+          compilePreview(t.body, {
+            headerColor: updated.headerColor,
+            buttonColor: updated.buttonColor,
+            footerColor: updated.footerColor,
+            backgroundColor: updated.backgroundColor,
+          });
         })
         .catch(err => {
           toast.error('Error al cargar plantilla');
@@ -40,19 +79,16 @@ export default function EditEmailTemplate() {
     }
   }, [id]);
 
-  const compilePreview = (body) => {
-    try {
-      const template = Handlebars.compile(body);
-      setPreviewHtml(template(sampleData));
-    } catch (error) {
-      setPreviewHtml(`<div style="color:red">Error al compilar: ${error.message}</div>`);
-    }
-  };
-
-  const handleBodyChange = (e) => {
-    const value = e.target.value;
-    setForm(prev => ({ ...prev, body: value }));
-    compilePreview(value);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const updated = { ...form, [name]: value };
+    setForm(updated);
+    compilePreview(updated.body, {
+      headerColor: updated.headerColor,
+      buttonColor: updated.buttonColor,
+      footerColor: updated.footerColor,
+      backgroundColor: updated.backgroundColor,
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -79,22 +115,22 @@ export default function EditEmailTemplate() {
     <AdminLayout title="Editar Plantilla">
       <ToastContainer />
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
           <h2 className="text-xl font-bold text-gray-800">Editar plantilla</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700">Nombre *</label>
-            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-fuchsia-500" />
+            <input type="text" name="name" value={form.name} onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Asunto *</label>
-            <input type="text" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-fuchsia-500" />
+            <input type="text" name="subject" value={form.subject} onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Evento asociado</label>
-            <select value={form.associatedEvent} onChange={(e) => setForm({ ...form, associatedEvent: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-fuchsia-500">
+            <select name="associatedEvent" value={form.associatedEvent} onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500">
               <option value="custom">Personalizado</option>
               <option value="campaign_created">Al crear campaña</option>
               <option value="action_created">Al crear acción</option>
@@ -102,10 +138,32 @@ export default function EditEmailTemplate() {
               <option value="reminder">Recordatorio (día antes)</option>
             </select>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Color cabecera</label>
+              <input type="color" name="headerColor" value={form.headerColor} onChange={handleChange}
+                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Color botón</label>
+              <input type="color" name="buttonColor" value={form.buttonColor} onChange={handleChange}
+                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Color footer</label>
+              <input type="color" name="footerColor" value={form.footerColor} onChange={handleChange}
+                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Fondo general</label>
+              <input type="color" name="backgroundColor" value={form.backgroundColor} onChange={handleChange}
+                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Cuerpo HTML *</label>
-            <textarea value={form.body} onChange={handleBodyChange} rows={16}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 font-mono text-sm focus:ring-2 focus:ring-fuchsia-500" />
+            <textarea value={form.body} onChange={handleChange} rows={16}
+              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 font-mono text-sm focus:ring-0 focus:border-fuchsia-500" />
           </div>
           <button onClick={handleSubmit} disabled={loading}
             className="w-full bg-fuchsia-600 text-white py-2 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">

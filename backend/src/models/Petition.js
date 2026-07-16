@@ -1,10 +1,12 @@
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const EmailTemplate = require('./EmailTemplate'); // Asegúrate de que este import funcione
 
 class Petition extends Model {
   static associate(models) {
     this.belongsTo(models.User, { foreignKey: 'created_by', as: 'creator' });
     this.hasMany(models.SignatureHash, { foreignKey: 'petition_id', as: 'signatureHashes' });
+    this.belongsTo(models.EmailTemplate, { foreignKey: 'emailTemplateId', as: 'emailTemplate' });
   }
 }
 
@@ -21,6 +23,11 @@ Petition.init({
   deadline: { type: DataTypes.DATE, allowNull: true },
   hidden: { type: DataTypes.BOOLEAN, defaultValue: false },
   email_body_template: { type: DataTypes.TEXT, allowNull: true },
+  emailTemplateId: {                         // NUEVO CAMPO
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: EmailTemplate, key: 'id' },
+  },
   featured_image: { type: DataTypes.STRING, allowNull: true },
   created_by: { type: DataTypes.INTEGER, allowNull: false },
 }, {

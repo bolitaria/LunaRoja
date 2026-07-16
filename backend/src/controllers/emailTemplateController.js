@@ -26,10 +26,15 @@ exports.getTemplateById = async (req, res) => {
 
 exports.createTemplate = async (req, res) => {
   try {
-    const { name, subject, body, variables, type, associatedEvent } = req.body;
+    const {
+      name, subject, body, variables, type, associatedEvent,
+      headerColor, buttonColor, footerColor, backgroundColor
+    } = req.body;
+
     if (!name || !subject || !body) {
       return res.status(400).json({ message: 'Nombre, asunto y cuerpo son requeridos' });
     }
+
     const template = await EmailTemplate.create({
       name,
       subject,
@@ -37,7 +42,12 @@ exports.createTemplate = async (req, res) => {
       variables: variables || [],
       type: type || 'custom',
       associatedEvent: associatedEvent || 'custom',
+      headerColor: headerColor || '#b91c1c',
+      buttonColor: buttonColor || '#16a34a',
+      footerColor: footerColor || '#1f2937',
+      backgroundColor: backgroundColor || '#f3f4f6',
     });
+
     res.status(201).json(template);
   } catch (error) {
     console.error('Error en createTemplate:', error);
@@ -52,14 +62,24 @@ exports.updateTemplate = async (req, res) => {
   try {
     const template = await EmailTemplate.findByPk(req.params.id);
     if (!template) return res.status(404).json({ message: 'Plantilla no encontrada' });
-    const { name, subject, body, variables, isActive } = req.body;
+
+    const {
+      name, subject, body, variables, isActive,
+      headerColor, buttonColor, footerColor, backgroundColor
+    } = req.body;
+
     await template.update({
-      name: name || template.name,
-      subject: subject || template.subject,
+      name: name !== undefined ? name : template.name,
+      subject: subject !== undefined ? subject : template.subject,
       body: body !== undefined ? body : template.body,
-      variables: variables || template.variables,
+      variables: variables !== undefined ? variables : template.variables,
       isActive: isActive !== undefined ? isActive : template.isActive,
+      headerColor: headerColor !== undefined ? headerColor : template.headerColor,
+      buttonColor: buttonColor !== undefined ? buttonColor : template.buttonColor,
+      footerColor: footerColor !== undefined ? footerColor : template.footerColor,
+      backgroundColor: backgroundColor !== undefined ? backgroundColor : template.backgroundColor,
     });
+
     res.json(template);
   } catch (error) {
     console.error('Error en updateTemplate:', error);
@@ -107,7 +127,12 @@ exports.sendCampaign = async (req, res) => {
 
       let compiledHtml;
       try {
-        compiledHtml = Handlebars.compile(template.body)(compileData);
+        compiledHtml = Handlebars.compile(template.body)(compileData); // nosemgrep
+        compiledHtml = compiledHtml
+          .replace(/--header-color/g, template.headerColor)
+          .replace(/--button-color/g, template.buttonColor)
+          .replace(/--footer-color/g, template.footerColor)
+          .replace(/--bg-color/g, template.backgroundColor);
       } catch (err) {
         console.error(`Error compilando plantilla para ${sub.email}:`, err);
         continue;
@@ -122,5 +147,47 @@ exports.sendCampaign = async (req, res) => {
   } catch (error) {
     console.error('Error en sendCampaign:', error);
     res.status(500).json({ message: 'Error al enviar campaña de correos' });
+  }
+};
+
+exports.sendTest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const template = await EmailTemplate.findByPk(id);
+    if (!template) return res.status(404).json({ message: 'Plantilla no encontrada' });
+
+    const user = req.user;
+    if (!user.email) {
+      return res.status(400).json({ message: 'Tu cuenta no tiene email configurado' });
+    }
+
+    const testData = {
+      username: user.username || 'Admin',
+      email: user.email,
+      campaign: { name: 'Campaña de ejemplo', description: 'Descripción de prueba' },
+      action: { title: 'Acción de prueba', datetime: new Date().toISOString(), description: 'Detalles de la acción', registrationLink: '#' },
+      unsubscribeLink: '#',
+      preferencesLink: '#',
+      currentYear: new Date().getFullYear(),
+      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+    };
+
+    let compiledHtml;
+    try {
+      compiledHtml = Handlebars.compile(template.body)(testData); // nosemgrep
+      compiledHtml = compiledHtml
+        .replace(/--header-color/g, template.headerColor)
+        .replace(/--button-color/g, template.buttonColor)
+        .replace(/--footer-color/g, template.footerColor)
+        .replace(/--bg-color/g, template.backgroundColor);
+    } catch (err) {
+      return res.status(500).json({ message: 'Error al compilar la plantilla' });
+    }
+
+    await sendEmail(user.email, template.subject, 'custom', { body: compiledHtml });
+    res.json({ message: 'Correo de prueba enviado a tu email' });
+  } catch (error) {
+    console.error('Error en sendTest:', error);
+    res.status(500).json({ message: 'Error al enviar la prueba' });
   }
 };

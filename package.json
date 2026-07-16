@@ -1,5 +1,13 @@
 {
   "dependencies": {
     "bcrypt": "^6.0.0"
+  },
+  "scripts": {
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:auth": "jest __tests__/auth.test.js --forceExit --detectOpenHandles"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
   }
 }

@@ -16,9 +16,11 @@ const SignatureHash = require('./SignatureHash');
 const EmailQueue = require('./EmailQueue');
 const EmailQuota = require('./EmailQuota');
 const Report = require('./Report');
+const EmailTemplate = require('./EmailTemplate');
+const Link = require('./Link'); // ✅ NUEVO MODELO
 
 // ============================================================
-// ASOCIACIONES EXISTENTES (se mantienen sin cambios)
+// ASOCIACIONES EXISTENTES
 // ============================================================
 
 // Campaign <-> Action
@@ -70,7 +72,7 @@ SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 Action.hasMany(SubscribersReminder, { foreignKey: 'actionId', as: 'reminders' });
 
 // ============================================================
-// NUEVAS ASOCIACIONES (Peticiones, Cola de Correos)
+// NUEVAS ASOCIACIONES (Peticiones, Cola de Correos, Plantillas)
 // ============================================================
 
 Petition.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
@@ -81,6 +83,16 @@ SignatureHash.belongsTo(Petition, { foreignKey: 'petition_id', as: 'petition' })
 
 Petition.hasMany(EmailQueue, { foreignKey: 'petition_id', as: 'emailQueues' });
 EmailQueue.belongsTo(Petition, { foreignKey: 'petition_id', as: 'petition' });
+
+// Petition <-> EmailTemplate
+Petition.belongsTo(EmailTemplate, { foreignKey: 'emailTemplateId', as: 'emailTemplate' });
+EmailTemplate.hasMany(Petition, { foreignKey: 'emailTemplateId', as: 'petitions' });
+
+// ============================================================
+// ASOCIACIÓN PARA LINKS DE INTERÉS
+// ============================================================
+User.hasMany(Link, { foreignKey: 'created_by', as: 'links' });
+Link.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 
 // ============================================================
 // EXPORTACIÓN DE MODELOS
@@ -104,4 +116,6 @@ module.exports = {
   EmailQueue,
   EmailQuota,
   Report,
+  EmailTemplate,
+  Link, 
 };

@@ -34,22 +34,33 @@ exports.getReportById = async (req, res) => {
 exports.createReport = async (req, res) => {
   try {
     const { title, description, content, type, source, author } = req.body;
+
     if (!title) {
-      return res.status(400).json({ message: 'Título es requerido' });
+      return res.status(400).json({ message: 'El título es obligatorio' });
     }
 
-    // Validar fuente para reportes
-    if (type === 'report' && (!source || source.trim() === '')) {
+    // blog_admin solo puede crear blogs
+    let finalType = type || 'blog';
+    if (req.user && req.user.role === 'blog_admin') {
+      finalType = 'blog';
+    }
+
+    // Validar fuente para reportes (solo si el usuario puede crear reportes)
+    if (finalType === 'report' && (!source || source.trim() === '')) {
       return res.status(400).json({ message: 'Los reportes deben citar al menos una fuente oficial' });
     }
 
-    // Para blogs, permitir que solo tengan descripción sin contenido ni archivo
+    // Validar contenido: se permite crear blog sin contenido ni archivo si tiene descripción
     const hasContent = content && content.trim() !== '';
     const hasFile = !!req.file;
-    if (!hasContent && !hasFile && !(type === 'blog' && description && description.trim() !== '')) {
-      return res.status(400).json({
-        message: 'Debes adjuntar un archivo, escribir el contenido o (para blogs) proporcionar una descripción'
-      });
+    if (!hasContent && !hasFile) {
+      if (finalType === 'blog' && description && description.trim() !== '') {
+        // blog con solo descripción es válido
+      } else {
+        return res.status(400).json({
+          message: 'Debes adjuntar un archivo, escribir contenido o (para blogs) incluir una descripción'
+        });
+      }
     }
 
     let fileUrl = null;
@@ -61,10 +72,11 @@ exports.createReport = async (req, res) => {
       title,
       description: description || '',
       content: content || '',
-      type: type || 'blog',
+      type: finalType,
       source: source || '',
       author: author || '',
       fileUrl,
+      userId: req.user ? req.user.id : null,  // opcional: trazabilidad del creador
     });
     res.status(201).json(report);
   } catch (error) {
@@ -84,9 +96,26 @@ exports.updateReport = async (req, res) => {
       return res.status(404).json({ message: 'Reporte no encontrado' });
     }
 
+    // Solo superadmin y blog_admin pueden editar
+    if (req.user.role !== 'superadmin' && req.user.role !== 'blog_admin') {
+      return res.status(403).json({ message: 'No tienes permiso para editar esta entrada' });
+    }
+
+    // blog_admin solo puede editar blogs y no puede cambiar el tipo a report
+    if (req.user.role === 'blog_admin') {
+      if (report.type !== 'blog') {
+        return res.status(403).json({ message: 'Solo puedes editar entradas de tipo blog' });
+      }
+      // si se envía type, debe ser 'blog'
+      if (req.body.type && req.body.type !== 'blog') {
+        return res.status(403).json({ message: 'No puedes cambiar el tipo a reporte' });
+      }
+    }
+
     const { title, description, content, type, source, author } = req.body;
     let fileUrl = report.fileUrl;
 
+    // Si se sube un nuevo archivo, eliminar el anterior
     if (req.file) {
       if (report.fileUrl) {
         deleteFileSafe(report.fileUrl, REPORTS_BASE);
@@ -94,15 +123,23 @@ exports.updateReport = async (req, res) => {
       fileUrl = `/uploads/reports/${req.file.filename}`;
     }
 
-    await report.update({
-      title: title || report.title,
+    // Campos actualizables
+    const updatedData = {
+      title: title !== undefined ? title : report.title,
       description: description !== undefined ? description : report.description,
       content: content !== undefined ? content : report.content,
-      type: type || report.type,
+      type: type !== undefined ? (req.user.role === 'blog_admin' ? 'blog' : type) : report.type,
       source: source !== undefined ? source : report.source,
       author: author !== undefined ? author : report.author,
       fileUrl,
-    });
+    };
+
+    // Si el usuario es superadmin y cambia a report, validar fuente
+    if (req.user.role === 'superadmin' && updatedData.type === 'report' && !updatedData.source) {
+      return res.status(400).json({ message: 'Los reportes requieren al menos una fuente oficial' });
+    }
+
+    await report.update(updatedData);
     res.json(report);
   } catch (error) {
     console.error('Error en updateReport:', error);

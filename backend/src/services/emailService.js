@@ -3,6 +3,33 @@ const handlebars = require('handlebars');
 const fs = require('fs').promises;
 const path = require('path');
 
+// ==========================================================
+// HELPERS DE SEGURIDAD (prevención de XSS en href)
+// ==========================================================
+
+// Helper que solo genera un enlace si la URL es segura (http://, https://, mailto:)
+handlebars.registerHelper('safeLink', function(url, text) {
+  if (typeof url !== 'string' || url.trim() === '') {
+    return text || '';
+  }
+  const safe = /^(https?:\/\/|mailto:)/i.test(url.trim());
+  if (safe) {
+    const escapedUrl = handlebars.escapeExpression(url);
+    const escapedText = text ? handlebars.escapeExpression(text) : escapedUrl;
+    return new handlebars.SafeString(`<a href="${escapedUrl}">${escapedText}</a>`);
+  }
+  // Si no es seguro, solo devolvemos el texto (sin enlace)
+  return text || '';
+});
+
+// Helper para concatenar strings (útil para construir URLs)
+handlebars.registerHelper('concat', function(...args) {
+  return args.slice(0, -1).join('');
+});
+
+// ==========================================================
+// CONFIGURACIÓN DEL TRANSPORTE
+// ==========================================================
 let transporter = null;
 let templates = {};
 let templatesLoaded = false;
@@ -122,14 +149,23 @@ const sendEmail = async (to, subject, templateName, context = {}) => {
   }
 };
 
+// ==========================================================
+// FUNCIONES DE ENVÍO PREDEFINIDAS
+// ==========================================================
+
 const sendWelcomeEmail = (email) =>
   sendEmail(email, '¡Bienvenido a Voces Palestinas por la Justicia!', 'welcome', { username: email.split('@')[0] });
 
 const sendGoodbyeEmail = (email) =>
   sendEmail(email, 'Voces Palestinas por la Justicia – Lamentamos que te vayas', 'goodbye', {});
 
-const sendCampaignNotification = (email, campaign) =>
-  sendEmail(email, `Nueva campaña: ${campaign.name}`, 'campaign', { campaign });
+const sendCampaignNotification = (email, campaign) => {
+  // Construir la URL completa de la campaña para que la plantilla pueda usar {{{safeLink campaign.url ...}}}
+  const campaignUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/campanas/${campaign.id}`;
+  return sendEmail(email, `Nueva campaña: ${campaign.name}`, 'campaign', {
+    campaign: { ...campaign, url: campaignUrl }
+  });
+};
 
 const sendActionNotification = (email, action, campaign) =>
   sendEmail(email, `Nueva acción: ${action.title}`, 'action', { action, campaign });
@@ -197,6 +233,19 @@ async function sendPetitionAlert(petition, signerData) {
   }
 }
 
+// Función para enviar correo con una plantilla de la base de datos (nuevo)
+const sendEmailWithTemplate = async (to, template, data) => {
+  const subjectCompiled = handlebars.compile(template.subject)(data);
+  let htmlCompiled = handlebars.compile(template.body)(data);
+  htmlCompiled = htmlCompiled
+    .replace(/--header-color/g, template.headerColor)
+    .replace(/--button-color/g, template.buttonColor)
+    .replace(/--footer-color/g, template.footerColor)
+    .replace(/--bg-color/g, template.backgroundColor);
+  return sendEmail(to, subjectCompiled, 'custom', { body: htmlCompiled });
+};
+
+// ========== EXPORTACIÓN ÚNICA ==========
 module.exports = {
   initEmailService,
   sendEmail,
@@ -209,4 +258,5 @@ module.exports = {
   sendCustomEmail,
   sendDonationAvailableEmail,
   sendPetitionAlert,
+  sendEmailWithTemplate,
 };

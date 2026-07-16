@@ -29,6 +29,12 @@ function AdminActions() {
   const [exportFormat, setExportFormat] = useState('csv');
   const itemsPerPage = 10;
 
+  const categoryLabels = {
+    webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
+    bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha',
+    solidarity_action: 'Acción Solidaria', workshop: 'Taller'
+  };
+
   const fetchActions = async () => {
     try {
       const res = await api.get('/actions');
@@ -57,7 +63,6 @@ function AdminActions() {
     Promise.all([fetchActions(), fetchCampaigns()]).then(() => setLoading(false));
   }, []);
 
-  const handleDelete = (id) => { setDeleteTarget(id); setShowDeleteModal(true); };
   const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
   const executeDelete = async () => {
     const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
@@ -76,24 +81,20 @@ function AdminActions() {
 
   const exportSelectedCSV = () => {
     const selectedActions = actions.filter(a => selected.includes(a.id));
-    const headers = ['title', 'category', 'datetime', 'locationType', 'placeName', 'campaign', 'status'];
+    const headers = ['title', 'category', 'datetime', 'locationType', 'placeName', 'campaign', 'status', 'isBDS'];
     const data = selectedActions.map(a => ({
       title: a.title,
       category: categoryLabels[a.category] || a.category,
       datetime: new Date(a.datetime).toLocaleString(),
       locationType: a.locationType === 'online' ? 'Online' : (a.placeName || 'Presencial'),
       placeName: a.placeName || '',
-      campaign: a.campaignId ? campaignMap[a.campaignId]?.name || '' : '',
-      status: new Date(a.datetime) < new Date() ? 'Pasado' : 'Próximo'
+      campaign: a.campaignId ? campaigns.find(c => c.id === a.campaignId)?.name || '' : '',
+      status: new Date(a.datetime) < new Date() ? 'Pasado' : 'Próximo',
+      isBDS: a.bdsId ? 'Sí' : 'No'
     }));
     exportInfo(data, headers, 'acciones_seleccionadas', exportFormat);
   };
 
-  const categoryLabels = {
-    webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
-    bds: 'Acción BDS', strike: 'Huelga', march: 'Marcha',
-    solidarity_action: 'Acción Solidaria', workshop: 'Taller'
-  };
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
   const now = new Date();
 
@@ -118,7 +119,7 @@ function AdminActions() {
   const urgentCount = actions.filter(a => a.urgent).length;
 
   const exportToCSV = () => {
-    const headers = ['title', 'category', 'datetime', 'locationType', 'placeName', 'campaign', 'status'];
+    const headers = ['title', 'category', 'datetime', 'locationType', 'placeName', 'campaign', 'status', 'isBDS'];
     const data = filteredActions.map(a => ({
       title: a.title,
       category: categoryLabels[a.category] || a.category,
@@ -126,7 +127,8 @@ function AdminActions() {
       locationType: a.locationType === 'online' ? 'Online' : (a.placeName || 'Presencial'),
       placeName: a.placeName || '',
       campaign: a.campaignId ? campaignMap[a.campaignId]?.name || '' : '',
-      status: new Date(a.datetime) < now ? 'Pasado' : 'Próximo'
+      status: new Date(a.datetime) < now ? 'Pasado' : 'Próximo',
+      isBDS: a.bdsId ? 'Sí' : 'No'
     }));
     exportInfo(data, headers, 'acciones', exportFormat);
   };
@@ -169,41 +171,41 @@ function AdminActions() {
         </div>
       )}
 
-      <div className="bg-gray-50/80 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-6 text-sm border border-gray-100">
-        <button
-          onClick={() => { setFilterStatus(''); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Total</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{total}</span>
+      {/* Métricas minimalistas */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex flex-wrap items-center gap-4 text-sm">
+        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Total</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{total}</span>
         </button>
-        <button
-          onClick={() => { setFilterStatus('upcoming'); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Próximas</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{upcomingCount}</span>
+        <button onClick={() => { setFilterStatus('upcoming'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Próximas</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{upcomingCount}</span>
         </button>
-        <button
-          onClick={() => { setFilterStatus('past'); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Pasadas</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{pastCount}</span>
+        <button onClick={() => { setFilterStatus('past'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Pasadas</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{pastCount}</span>
         </button>
-        <button
-          onClick={() => { setFilterStatus(''); setCurrentPage(1); }}
-          className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group"
-        >
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Urgentes</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{urgentCount}</span>
+        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Urgentes</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{urgentCount}</span>
         </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }} className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-600 focus:ring-1 focus:ring-purple-400">
+            <option value="">Todas las categorías</option>
+            {Object.entries(categoryLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+          <select value={filterCampaignId} onChange={(e) => { setFilterCampaignId(e.target.value); setCurrentPage(1); }} className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-600 focus:ring-1 focus:ring-purple-400">
+            <option value="">Todas las campañas</option>
+            {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
       </div>
 
+      {/* Filtros de búsqueda y exportación */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           {user && (user.role === 'superadmin' || user.role === 'campaign_admin') && (
-            <Link href="/admin/actions/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
+            <Link href="/admin/actions/new" className="inline-flex items-center gap-1.5 text-sm font-medium border border-purple-300 text-purple-700 bg-white px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors shadow-sm">
               Nueva Acción
             </Link>
           )}
@@ -226,14 +228,10 @@ function AdminActions() {
               placeholder="Buscar…"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
+              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-400 text-sm w-48"
             />
           </div>
-          <select
-            value={exportFormat}
-            onChange={(e) => setExportFormat(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-600"
-          >
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
             <option value="csv">CSV</option>
             <option value="xlsx">Excel</option>
             <option value="txt">Texto</option>
@@ -253,24 +251,32 @@ function AdminActions() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-purple-100 text-sm">
-            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginatedActions.length > 0 && selected.length === paginatedActions.length} />
-                </th>
+                <th className="px-6 py-3 text-left">Acciones</th>
                 <th className="px-6 py-3 text-left">Título</th>
                 <th className="px-6 py-3 text-left hidden md:table-cell">Categoría</th>
                 <th className="px-6 py-3 text-left hidden lg:table-cell">Campaña</th>
                 <th className="px-6 py-3 text-left">Estado</th>
-                <th className="px-6 py-3 text-right">Acciones</th>
+                <th className="px-6 py-3 text-left">Tipo</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginatedActions.length > 0 && selected.length === paginatedActions.length} />
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-purple-100">
+            <tbody className="divide-y divide-gray-100">
               {paginatedActions.map(action => (
                 <tr key={action.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <input type="checkbox" checked={selected.includes(action.id)} onChange={() => toggleOne(action.id)} />
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPreviewAction(action)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver">
+                        <FaEye className="w-5 h-5" />
+                      </button>
+                      <Link href={`/admin/actions/${action.id}/edit`} className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Editar">
+                        <FaEdit className="w-5 h-5" />
+                      </Link>
+                    </div>
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{action.title}</td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{categoryLabels[action.category]}</td>
@@ -280,18 +286,19 @@ function AdminActions() {
                       {new Date(action.datetime) < now ? 'Pasado' : 'Próximo'}
                     </span>
                   </td>
+                  <td className="px-6 py-4">
+                    {action.bdsId ? (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+                        BDS
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                        General
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setPreviewAction(action)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver">
-                        <FaEye className="w-5 h-5" />
-                      </button>
-                      <Link href={`/admin/actions/${action.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
-                        <FaEdit className="w-5 h-5" />
-                      </Link>
-                      <button onClick={() => handleDelete(action.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                        <FaTrash className="w-5 h-5" />
-                      </button>
-                    </div>
+                    <input type="checkbox" checked={selected.includes(action.id)} onChange={() => toggleOne(action.id)} />
                   </td>
                 </tr>
               ))}

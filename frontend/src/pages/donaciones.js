@@ -80,7 +80,7 @@ export default function Donaciones() {
             )}
 
             <p className="mt-8 text-gray-500 text-sm">
-              Valoramos profundamente vuestra confianza y vuestro entusiasmo. ¡Pronto tendremos buenas noticias!
+              Valoramos profundamente vuestra confianza y solidaridad. ¡Pronto tendremos más noticias!
             </p>
           </div>
         </div>

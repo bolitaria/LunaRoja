@@ -52,8 +52,6 @@
   <table role="presentation" class="container">
     <tr>
       <td class="header">
-        <!-- LOGO: en producción, descomenta esta línea -->
-        <!-- <img src="{{frontendUrl}}/logo.svg" alt="Voces Palestinas por la Justicia" /> -->
         <h1 style="color:#ffffff; font-size:24px; margin:0;">Voces Palestinas por la Justicia</h1>
       </td>
     </tr>
@@ -99,13 +97,11 @@
           </tr>
         </table>
 
-        <!-- Galería -->
         <a href="{{frontendUrl}}/galeria" class="gallery-link">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           Galería
         </a>
 
-        <!-- Instagram -->
         <br/>
         <a href="https://www.instagram.com/stories/voces_palestinas_malaga" class="instagram-link">
           <svg fill="currentColor" viewBox="0 0 24 24">
@@ -115,14 +111,12 @@
         </a>
 
         <p class="unsubscribe-note">
-          Si no deseas recibir estos correos, puedes <a href="{{unsubscribeLink}}">darte de baja</a>.
+          Si no deseas recibir estos correos, puedes {{{safeLink unsubscribeLink "darte de baja"}}}.
         </p>
       </td>
     </tr>
     <tr>
       <td class="footer">
-        <!-- BANDERA: en producción, descomenta esta línea -->
-        <!-- <img src="{{frontendUrl}}/palestine-flag.png" alt="Palestina" style="display:block; margin:0 auto 16px; width:40px;" /> -->
         <p style="margin:0 0 12px;">© {{currentYear}} Voces Palestinas por la Justicia</p>
         <a href="https://www.instagram.com/stories/voces_palestinas_malaga" style="text-decoration:none;">
           <svg fill="currentColor" viewBox="0 0 24 24" width="24" height="24" style="color:#d1d5db; vertical-align:middle;">

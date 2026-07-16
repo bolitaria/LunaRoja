@@ -5,13 +5,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "jest --watchAll=false",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "axios": "^1.6.0",
     "dompurify": "^3.4.11",
     "handlebars": "^4.7.9",
-    "next": "14.0.4",
+    "next": "^16.2.10",
+    "quill": "^2.0.3",
     "react": "^18.2.0",
     "react-calendar": "^4.8.0",
     "react-dom": "^18.2.0",
@@ -26,8 +30,23 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@babel/preset-env": "^7.25.0",
+    "@babel/preset-react": "^7.25.0",
+    "@lhci/cli": "^0.15.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
+    "cypress": "^15.18.1",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^15.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "postcss": "^8.5.19",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^3.3.6"
   }
 }

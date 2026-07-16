@@ -22,7 +22,6 @@
   <table role="presentation" class="container">
     <tr>
       <td class="header">
-        <!-- LOGO aquí -->
         <h1 style="color:#ffffff; font-size:24px; margin:0;">Voces Palestinas por la Justicia</h1>
       </td>
     </tr>
@@ -31,10 +30,10 @@
         <h1 class="title">{{campaign.name}}</h1>
         <p>{{campaign.description}}</p>
         <p style="margin:32px 0;">
-          <a href="{{frontendUrl}}/campanas/{{campaign.id}}" class="btn">Conocer más</a>
+          {{{safeLink campaign.url "Conocer más"}}}
         </p>
         <p class="unsubscribe-note">
-          <a href="{{unsubscribeLink}}">Darse de baja</a>
+          {{{safeLink unsubscribeLink "Darse de baja"}}}
         </p>
       </td>
     </tr>

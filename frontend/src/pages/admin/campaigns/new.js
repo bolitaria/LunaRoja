@@ -1,13 +1,12 @@
 import api from '../../../lib/axios';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ColorPicker from '../../../components/ColorPicker';
 import CampaignPreview from '../../../components/CampaignPreview';
 
-function NewCampaign() {
+export default function NewCampaign() {
   const router = useRouter();
   const [form, setForm] = useState({
     name: '',
@@ -15,13 +14,13 @@ function NewCampaign() {
     color: '#E53E3E',
     privateLink: '',
   });
-  const [groups, setGroups] = useState([]);
+  const [publicGroups, setPublicGroups] = useState([]);
+  const [privateGroups, setPrivateGroups] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [images, setImages] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -38,38 +37,53 @@ function NewCampaign() {
   const addImage = (file) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImages([...images, { id: Date.now(), file, preview: reader.result }]);
+      setImages((prev) => [...prev, { id: Date.now(), file, preview: reader.result }]);
     };
     reader.readAsDataURL(file);
   };
-  const removeImage = (id) => setImages(images.filter(img => img.id !== id));
+  const removeImage = (id) => setImages(images.filter((img) => img.id !== id));
 
   const addPublicDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
+    setDocuments((prev) => [...prev, { id: Date.now(), name, file, isPublic: true }]);
   };
   const addPrivateDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]);
+    setDocuments((prev) => [...prev, { id: Date.now(), name, file, isPublic: false }]);
   };
-  const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
+  const removeDocument = (id) => setDocuments(documents.filter((doc) => doc.id !== id));
 
-  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
-  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
-  const updateGroup = (index, field, value) => {
-    const updated = [...groups];
+  // Grupos públicos
+  const addPublicGroup = () => setPublicGroups([...publicGroups, { platform: 'whatsapp', link: '' }]);
+  const removePublicGroup = (index) => setPublicGroups(publicGroups.filter((_, i) => i !== index));
+  const updatePublicGroup = (index, field, value) => {
+    const updated = [...publicGroups];
     updated[index][field] = value;
-    setGroups(updated);
+    setPublicGroups(updated);
+  };
+
+  // Grupos privados
+  const addPrivateGroup = () => setPrivateGroups([...privateGroups, { platform: 'whatsapp', link: '' }]);
+  const removePrivateGroup = (index) => setPrivateGroups(privateGroups.filter((_, i) => i !== index));
+  const updatePrivateGroup = (index, field, value) => {
+    const updated = [...privateGroups];
+    updated[index][field] = value;
+    setPrivateGroups(updated);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const allGroups = [
+        ...publicGroups.map(g => ({ ...g, isPublic: true })),
+        ...privateGroups.map(g => ({ ...g, isPublic: false })),
+      ];
+
       const formData = new FormData();
       formData.append('name', form.name);
       formData.append('description', form.description);
       formData.append('color', form.color);
       formData.append('privateLink', form.privateLink || '');
-      formData.append('groups', JSON.stringify(groups));
+      formData.append('groups', JSON.stringify(allGroups));
       if (imageFile) formData.append('image', imageFile);
       images.forEach((img) => formData.append('images[]', img.file));
       documents.forEach((doc, idx) => {
@@ -77,9 +91,11 @@ function NewCampaign() {
         formData.append(`documents[${idx}][file]`, doc.file);
         formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
       });
-      await axios.post(`${apiUrl}/campaigns`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+
+      await api.post('/campaigns', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       toast.success('Campaña creada');
       router.push('/admin/campaigns');
     } catch (error) {
@@ -98,7 +114,7 @@ function NewCampaign() {
           <div className="border-l-2 border-green-500 pl-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
             <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-4">
-              <span>🌐</span> Información pública
+              <span>🌍</span> Información pública
             </h2>
             <div className="space-y-4">
               <div>
@@ -115,6 +131,39 @@ function NewCampaign() {
                   <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
                   <span className="text-sm text-gray-500">{form.color}</span>
                 </div>
+              </div>
+              {/* GRUPOS PÚBLICOS */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+                  <span>💬</span> Grupos de chat públicos
+                </h3>
+                <p className="text-xs text-gray-400 mb-2">Estos grupos se mostrarán en la página pública para que los usuarios se unan.</p>
+                {publicGroups.map((group, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2 items-center">
+                    <select
+                      value={group.platform}
+                      onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)}
+                      className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    >
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="telegram">Telegram</option>
+                      <option value="signal">Signal</option>
+                    </select>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={group.link}
+                      onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)}
+                      className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    />
+                    <button type="button" onClick={() => removePublicGroup(idx)} className="text-red-600 hover:text-red-800">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addPublicGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
+                  <span>+</span> Añadir grupo público
+                </button>
               </div>
             </div>
           </div>
@@ -162,10 +211,12 @@ function NewCampaign() {
                 </div>
               </div>
               <ul className="space-y-1 mt-2">
-                {documents.filter(d => d.isPublic).map((doc) => (
+                {documents.filter((d) => d.isPublic).map((doc) => (
                   <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                     <span className="text-sm">{doc.name} 🔓</span>
-                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">Eliminar</button>
+                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">
+                      Eliminar
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -176,7 +227,7 @@ function NewCampaign() {
           <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
             <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-              <span>🖼️</span> Galería de imágenes
+              <span>📸 </span> Galería de imágenes
             </h3>
             <p className="text-xs text-gray-400 mb-2">Imágenes que se mostrarán en la galería pública.</p>
             <div className="space-y-4">
@@ -201,7 +252,14 @@ function NewCampaign() {
                       </div>
                     ) : (
                       <>
-                        <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
                         <span className="text-xs text-gray-500">Subir imagen</span>
                       </>
                     )}
@@ -229,12 +287,20 @@ function NewCampaign() {
                     </div>
                   ))}
                   <label className="flex flex-col items-center justify-center h-20 w-20 border-2 border-dashed border-fuchsia-300 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-fuchsia-50 transition-colors">
-                    <svg className="w-5 h-5 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                    <svg className="w-5 h-5 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                    </svg>
                     <span className="text-xs text-gray-500">Añadir</span>
-                    <input type="file" accept="image/*" multiple onChange={(e) => {
-                      Array.from(e.target.files).forEach(file => addImage(file));
-                      e.target.value = '';
-                    }} className="hidden" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        Array.from(e.target.files).forEach((file) => addImage(file));
+                        e.target.value = '';
+                      }}
+                      className="hidden"
+                    />
                   </label>
                 </div>
               </div>
@@ -248,6 +314,41 @@ function NewCampaign() {
               <span>🔒</span> Área privada de administración
             </h2>
             <div className="space-y-4">
+              {/* GRUPOS PRIVADOS */}
+              <div>
+                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+                  <span>🔐</span> Grupos internos (privados)
+                </h3>
+                <p className="text-xs text-gray-400 mb-2">Solo visibles para administradores.</p>
+                {privateGroups.map((group, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2 items-center">
+                    <select
+                      value={group.platform}
+                      onChange={(e) => updatePrivateGroup(idx, 'platform', e.target.value)}
+                      className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    >
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="telegram">Telegram</option>
+                      <option value="signal">Signal</option>
+                    </select>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={group.link}
+                      onChange={(e) => updatePrivateGroup(idx, 'link', e.target.value)}
+                      className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    />
+                    <button type="button" onClick={() => removePrivateGroup(idx)} className="text-red-600 hover:text-red-800">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addPrivateGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
+                  <span>+</span> Añadir grupo privado
+                </button>
+              </div>
+
+              {/* ARCHIVOS PRIVADOS */}
               <div>
                 <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
                   <span>🔐</span> Archivos privados
@@ -288,10 +389,12 @@ function NewCampaign() {
                   </div>
                 </div>
                 <ul className="space-y-1 mt-2">
-                  {documents.filter(d => !d.isPublic).map((doc) => (
+                  {documents.filter((d) => !d.isPublic).map((doc) => (
                     <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                       <span className="text-sm">{doc.name} 🔒</span>
-                      <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">Eliminar</button>
+                      <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">
+                        Eliminar
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -299,31 +402,24 @@ function NewCampaign() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
-                <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input
+                  type="url"
+                  name="privateLink"
+                  value={form.privateLink}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                />
                 <p className="text-xs text-gray-400 mt-1">Este enlace solo será visible para administradores.</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">🔒 Grupos internos (solo para la organización)</label>
-                {groups.map((group, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500">
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="telegram">Telegram</option>
-                      <option value="signal">Signal</option>
-                    </select>
-                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
-                    <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={addGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
-                  <span>+</span> Añadir grupo
-                </button>
               </div>
             </div>
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors font-medium">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors font-medium"
+          >
             {loading ? 'Guardando...' : 'Crear Campaña'}
           </button>
         </form>
@@ -334,7 +430,7 @@ function NewCampaign() {
             description={form.description}
             color={form.color}
             image={imagePreview}
-            groups={groups}
+            groups={[...publicGroups.map(g => ({ ...g, isPublic: true })), ...privateGroups.map(g => ({ ...g, isPublic: false }))]}
             documents={documents}
             privateLink={form.privateLink}
           />
@@ -343,5 +439,3 @@ function NewCampaign() {
     </AdminLayout>
   );
 }
-
-export default NewCampaign;

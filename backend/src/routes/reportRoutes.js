@@ -1,40 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { authenticate: authMiddleware } = require('../middlewares/auth');
 const { isSuperAdmin } = require('../middlewares/authorize');
-const reportController = require('../controllers/reportController');
+const templateController = require('../controllers/emailTemplateController');
 
-// Configuración de almacenamiento para reportes
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../../uploads/reports');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, 'report-' + uniqueSuffix + ext);
-  }
-});
+// Todas las rutas requieren autenticación
+router.use(authMiddleware);
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 20 * 1024 * 1024 } // 20MB
-});
+// GET / y /:id accesibles para cualquier admin (el controlador no filtra por rol)
+router.get('/', templateController.getAllTemplates);
+router.get('/:id', templateController.getTemplateById);
 
-// Rutas públicas (sin autenticación)
-router.get('/', reportController.getAllReports);
-router.get('/:id', reportController.getReportById);
+// POST y PUT: pueden hacerlo superadmin, campaign_admin, blog_admin
+const canEditTemplates = (req, res, next) => {
+  const allowedRoles = ['superadmin', 'campaign_admin', 'blog_admin'];
+  if (allowedRoles.includes(req.user.role)) return next();
+  res.status(403).json({ message: 'No tienes permiso para modificar plantillas' });
+};
 
-// Rutas protegidas (solo superadmin)
-router.post('/', authMiddleware, isSuperAdmin, upload.single('file'), reportController.createReport);
-router.put('/:id', authMiddleware, isSuperAdmin, upload.single('file'), reportController.updateReport);
-router.delete('/:id', authMiddleware, isSuperAdmin, reportController.deleteReport);
+router.post('/', canEditTemplates, templateController.createTemplate);
+router.put('/:id', canEditTemplates, templateController.updateTemplate);
+
+// DELETE: solo superadmin
+router.delete('/:id', isSuperAdmin, templateController.deleteTemplate);
+
+// Envío de campaña masiva (solo superadmin)
+router.post('/send', isSuperAdmin, templateController.sendCampaign);
+
+// Enviar prueba (cualquier admin con acceso a plantillas)
+router.post('/:id/test', canEditTemplates, templateController.sendTest);
 
 module.exports = router;

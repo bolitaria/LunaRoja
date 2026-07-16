@@ -40,7 +40,7 @@ export default function PetitionDetailPage() {
     setLoading(true);
     try {
       const res = await api.post(`/petitions/${id}/sign`, formData);
-      setMessage('¡Gracias! Tu firma ha sido registrada. Tus datos han sido utilizados únicamente para esta petición y no se almacenan en nuestro sistema. Si deseas recibir noticias de Voces Palestinas por la Justicia, puedes suscribirte ahora.');
+      setMessage('¡Gracias! Tu firma ha sido registrada.');
       setError('');
       const cleared = {};
       petition.signature_fields.forEach(f => { cleared[f.name] = ''; });
@@ -54,11 +54,12 @@ export default function PetitionDetailPage() {
   };
 
   const cleanContent = typeof window !== 'undefined' ? DOMPurify.sanitize(petition?.content || '') : '';
+
   const getImageUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
     const root = (backendRoot || '').replace(/\/$/, '');
-    return `${root}${url}`;
+    return `${root}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
   const recipients = petition?.email_recipients || [];
@@ -95,7 +96,6 @@ export default function PetitionDetailPage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-3">
-            {/* Columna izquierda */}
             <div className="lg:col-span-2 p-6 md:p-8">
               {petition.featured_image && (
                 <img
@@ -136,7 +136,6 @@ export default function PetitionDetailPage() {
               )}
             </div>
 
-            {/* Columna derecha: formulario + contador abajo */}
             <div className="bg-gray-50 p-6 md:p-8 flex flex-col border-l border-gray-100">
               <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 hidden lg:block">
                 {petition.title}
@@ -181,7 +180,6 @@ export default function PetitionDetailPage() {
                     </button>
                   </form>
 
-                  {/* Contador de firmas - pequeño y minimalista debajo del botón */}
                   <div className="mt-4 text-center">
                     <p className="text-sm text-gray-500">
                       <span className="font-semibold text-gray-700">{petition.total_signatures || 0}</span> personas han firmado

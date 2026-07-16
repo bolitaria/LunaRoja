@@ -22,7 +22,6 @@
   <table role="presentation" class="container">
     <tr>
       <td class="header">
-        <!-- LOGO aquí -->
         <h1 style="color:#ffffff; font-size:24px; margin:0;">Voces Palestinas por la Justicia</h1>
       </td>
     </tr>
@@ -33,12 +32,12 @@
         <p><strong>📅 Fecha:</strong> {{formatDate action.datetime}}</p>
         {{#if action.registrationLink}}
         <p style="margin:32px 0;">
-          <a href="{{action.registrationLink}}" class="btn">Inscribirme</a>
+          {{{safeLink action.registrationLink "Inscribirme"}}}
         </p>
         {{/if}}
         <p>¡Esperamos verte!</p>
         <p class="unsubscribe-note">
-          <a href="{{unsubscribeLink}}">Darse de baja</a>
+          {{{safeLink unsubscribeLink "Darse de baja"}}}
         </p>
       </td>
     </tr>

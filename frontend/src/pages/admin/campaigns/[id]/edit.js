@@ -1,13 +1,12 @@
 import api from '../../../../lib/axios';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import AdminLayout from '../../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ColorPicker from '../../../../components/ColorPicker';
 import CampaignPreview from '../../../../components/CampaignPreview';
 
-function EditCampaign() {
+export default function EditCampaign() {
   const router = useRouter();
   const { id } = router.query;
   const [form, setForm] = useState({
@@ -16,23 +15,21 @@ function EditCampaign() {
     color: '#E53E3E',
     privateLink: '',
   });
-  const [groups, setGroups] = useState([]);
+  const [publicGroups, setPublicGroups] = useState([]);
+  const [privateGroups, setPrivateGroups] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [currentImage, setCurrentImage] = useState(null);
   const [images, setImages] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
 
   useEffect(() => {
     if (!id) return;
     const fetchCampaign = async () => {
       try {
-        const res = await axios.get(`${apiUrl}/campaigns/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get(`/campaigns/${id}`);
         const campaign = res.data;
         setForm({
           name: campaign.name,
@@ -40,15 +37,15 @@ function EditCampaign() {
           color: campaign.color || '#E53E3E',
           privateLink: campaign.privateLink || '',
         });
-        if (campaign.groups) {
-          const parsed = Array.isArray(campaign.groups) ? campaign.groups : JSON.parse(campaign.groups || '[]');
-          setGroups(parsed);
-        }
+        // Separar grupos por visibilidad
+        const allGroups = campaign.groups || [];
+        setPublicGroups(allGroups.filter(g => g.isPublic));
+        setPrivateGroups(allGroups.filter(g => !g.isPublic));
         if (campaign.imageUrl) {
           setCurrentImage(campaign.imageUrl);
           setImagePreview(`${baseUrl}${campaign.imageUrl}`);
         }
-        if (campaign.images && Array.isArray(campaign.images)) {
+        if (campaign.images) {
           setImages(campaign.images.map(img => ({ ...img, file: null, preview: img.url })));
         }
         if (campaign.documents) {
@@ -59,7 +56,7 @@ function EditCampaign() {
       }
     };
     fetchCampaign();
-  }, [id, apiUrl, baseUrl]);
+  }, [id]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -76,23 +73,23 @@ function EditCampaign() {
   const addImage = (file) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImages([...images, { id: Date.now(), file, preview: reader.result, url: null }]);
+      setImages((prev) => [...prev, { id: Date.now(), file, preview: reader.result }]);
     };
     reader.readAsDataURL(file);
   };
   const removeImage = (id) => setImages(images.filter(img => img.id !== id));
 
   const addPublicDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
+    setDocuments((prev) => [...prev, { id: Date.now(), name, file, isPublic: true }]);
   };
   const addPrivateDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]);
+    setDocuments((prev) => [...prev, { id: Date.now(), name, file, isPublic: false }]);
   };
   const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
   const handleDeleteDocument = async (docId) => {
     if (!confirm('¿Eliminar este documento?')) return;
     try {
-      await api.delete('/campaigns/documents/${docId}');
+      await api.delete(`/campaigns/documents/${docId}`);
       toast.success('Documento eliminado');
       setDocuments(prev => prev.filter(doc => doc.id !== docId));
     } catch (error) {
@@ -100,29 +97,42 @@ function EditCampaign() {
     }
   };
 
-  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
-  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
-  const updateGroup = (index, field, value) => {
-    const updated = [...groups];
+  // Grupos públicos
+  const addPublicGroup = () => setPublicGroups([...publicGroups, { platform: 'whatsapp', link: '' }]);
+  const removePublicGroup = (index) => setPublicGroups(publicGroups.filter((_, i) => i !== index));
+  const updatePublicGroup = (index, field, value) => {
+    const updated = [...publicGroups];
     updated[index][field] = value;
-    setGroups(updated);
+    setPublicGroups(updated);
+  };
+
+  // Grupos privados
+  const addPrivateGroup = () => setPrivateGroups([...privateGroups, { platform: 'whatsapp', link: '' }]);
+  const removePrivateGroup = (index) => setPrivateGroups(privateGroups.filter((_, i) => i !== index));
+  const updatePrivateGroup = (index, field, value) => {
+    const updated = [...privateGroups];
+    updated[index][field] = value;
+    setPrivateGroups(updated);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const allGroups = [
+        ...publicGroups.map(g => ({ ...g, isPublic: true })),
+        ...privateGroups.map(g => ({ ...g, isPublic: false })),
+      ];
+
       const formData = new FormData();
       formData.append('name', form.name);
       formData.append('description', form.description);
       formData.append('color', form.color);
       formData.append('privateLink', form.privateLink || '');
-      formData.append('groups', JSON.stringify(groups));
+      formData.append('groups', JSON.stringify(allGroups));
       if (imageFile) formData.append('image', imageFile);
       images.forEach((img) => {
-        if (img.file) {
-          formData.append('images[]', img.file);
-        }
+        if (img.file) formData.append('images[]', img.file);
       });
       documents.forEach((doc, idx) => {
         if (doc.file) {
@@ -131,8 +141,9 @@ function EditCampaign() {
           formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
         }
       });
-      await axios.put(`${apiUrl}/campaigns/${id}`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+
+      await api.put(`/campaigns/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Campaña actualizada');
       router.push('/admin/campaigns');
@@ -169,6 +180,39 @@ function EditCampaign() {
                   <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
                   <span className="text-sm text-gray-500">{form.color}</span>
                 </div>
+              </div>
+              {/* GRUPOS PÚBLICOS */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+                  <span>💬</span> Grupos de chat públicos
+                </h3>
+                <p className="text-xs text-gray-400 mb-2">Estos grupos aparecerán en la web pública.</p>
+                {publicGroups.map((group, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2 items-center">
+                    <select
+                      value={group.platform}
+                      onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)}
+                      className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    >
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="telegram">Telegram</option>
+                      <option value="signal">Signal</option>
+                    </select>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={group.link}
+                      onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)}
+                      className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    />
+                    <button type="button" onClick={() => removePublicGroup(idx)} className="text-red-600 hover:text-red-800">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addPublicGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
+                  <span>+</span> Añadir grupo público
+                </button>
               </div>
             </div>
           </div>
@@ -230,7 +274,7 @@ function EditCampaign() {
           <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
             <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-              <span>📸</span> Galería de imágenes
+              <span>📸 </span> Galería de imágenes
             </h3>
             <p className="text-xs text-gray-400 mb-2">Imágenes que se mostrarán en la galería pública.</p>
             <div className="space-y-4">
@@ -305,6 +349,41 @@ function EditCampaign() {
               <span>🔒</span> Área privada de administración
             </h2>
             <div className="space-y-4">
+              {/* GRUPOS PRIVADOS */}
+              <div>
+                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+                  <span>🔐</span> Grupos internos (privados)
+                </h3>
+                <p className="text-xs text-gray-400 mb-2">Solo visibles para administradores.</p>
+                {privateGroups.map((group, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2 items-center">
+                    <select
+                      value={group.platform}
+                      onChange={(e) => updatePrivateGroup(idx, 'platform', e.target.value)}
+                      className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    >
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="telegram">Telegram</option>
+                      <option value="signal">Signal</option>
+                    </select>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={group.link}
+                      onChange={(e) => updatePrivateGroup(idx, 'link', e.target.value)}
+                      className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                    />
+                    <button type="button" onClick={() => removePrivateGroup(idx)} className="text-red-600 hover:text-red-800">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addPrivateGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
+                  <span>+</span> Añadir grupo privado
+                </button>
+              </div>
+
+              {/* ARCHIVOS PRIVADOS */}
               <div>
                 <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
                   <span>🔐</span> Archivos privados
@@ -359,24 +438,6 @@ function EditCampaign() {
                 <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
                 <p className="text-xs text-gray-400 mt-1">Este enlace solo será visible para administradores.</p>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">🔒 Grupos internos (solo para la organización)</label>
-                {groups.map((group, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500">
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="telegram">Telegram</option>
-                      <option value="signal">Signal</option>
-                    </select>
-                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
-                    <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={addGroup} className="text-fuchsia-600 text-sm hover:underline flex items-center gap-1">
-                  <span>+</span> Añadir grupo
-                </button>
-              </div>
             </div>
           </div>
 
@@ -391,7 +452,7 @@ function EditCampaign() {
             description={form.description}
             color={form.color}
             image={imagePreview || (currentImage ? `${baseUrl}${currentImage}` : null)}
-            groups={groups}
+            groups={[...publicGroups.map(g => ({ ...g, isPublic: true })), ...privateGroups.map(g => ({ ...g, isPublic: false }))]}
             documents={documents}
             privateLink={form.privateLink}
           />
@@ -400,5 +461,3 @@ function EditCampaign() {
     </AdminLayout>
   );
 }
-
-export default EditCampaign;

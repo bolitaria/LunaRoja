@@ -165,9 +165,9 @@ export default function AccionDetalle() {
     };
   }, [showMapModal, mapApiLoaded, action]);
 
-  if (loading) return <Layout><p className="text-center py-20">Cargando...</p></Layout>;
-  if (error) return <Layout><p className="text-center py-20 text-red-600">{error}</p></Layout>;
-  if (!action) return <Layout><p className="text-center py-20">Acción no encontrada</p></Layout>;
+  if (loading) return <Layout bgClass="bg-gradient-to-b from-yellow-100 via-amber-50 to-white min-h-screen"><p className="text-center py-20">Cargando...</p></Layout>;
+  if (error) return <Layout bgClass="bg-gradient-to-b from-yellow-100 via-amber-50 to-white min-h-screen"><p className="text-center py-20 text-red-600">{error}</p></Layout>;
+  if (!action) return <Layout bgClass="bg-gradient-to-b from-yellow-100 via-amber-50 to-white min-h-screen"><p className="text-center py-20">Acción no encontrada</p></Layout>;
 
   const galleryImages = [];
   if (action.featuredImage && action.featuredImage.trim() !== '') {
@@ -208,88 +208,102 @@ export default function AccionDetalle() {
   const validGroups = action.groups?.filter(g => g.link && g.link.trim() !== '') || [];
 
   return (
-    <Layout title={action.title}>
-      {/* Contenedor principal igual que campaña */}
-      <div className="container mx-auto px-4 lg:px-8 py-8 max-w-7xl bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Cabecera estilo campaña */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-8 pb-4 border-b border-gray-200">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl lg:text-4xl font-bold text-gray-700">{action.title}</h1>
-            {action.urgent && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full border border-red-300">
-                <span className="text-lg">🔥</span> Urgente
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {campaign && (
-              <Link href={`/campanas/${campaign.id}`}>
-                <span
-                  className="inline-block px-3 py-1 rounded-lg text-sm font-medium border cursor-pointer hover:opacity-80 transition"
-                  style={campaignBadgeStyle}
-                >
-                  {campaign.name}
+    <Layout title={action.title} bgClass="bg-gradient-to-b from-yellow-100 via-amber-50 to-white min-h-screen">
+      <div className="container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
+        {/* CABECERA MEJORADA */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-8">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+            {/* Título + etiquetas cercanas */}
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <h1 className="text-3xl lg:text-4xl font-bold text-gray-700">{action.title}</h1>
+                {action.urgent && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full border border-red-300">
+                    <span className="text-lg">🔥</span> Urgente
+                  </span>
+                )}
+                <span className="inline-block px-3 py-1 rounded-full text-sm font-medium border" style={catStyle}>
+                  {catLabel}
                 </span>
-              </Link>
-            )}
-            <span className="inline-block px-3 py-1 rounded-full text-sm font-medium border" style={catStyle}>
-              {catLabel}
-            </span>
-            <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${isPast ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
-              {isPast ? 'Pasada' : 'Próxima'}
-            </span>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${isPast ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+                  {isPast ? 'Pasada' : 'Próxima'}
+                </span>
+              </div>
+
+              {/* Datos relevantes: fecha, hora, lugar */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <svg className="w-6 h-6 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{actionDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <svg className="w-6 h-6 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{actionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <svg className="w-6 h-6 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{isOnline ? 'Online' : (action.placeName || 'Presencial')}</p>
+                    {action.address && <p className="text-xs text-gray-500">{action.address}</p>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <svg className="w-6 h-6 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{isOnline ? 'Online' : 'Presencial'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Insignia de campaña (esquina superior derecha) */}
+            <div className="flex-shrink-0">
+              {campaign && (
+                <Link href={`/campanas/${campaign.id}`}>
+                  <span
+                    className="inline-block px-4 py-1.5 rounded-lg text-sm font-medium border cursor-pointer hover:opacity-80 transition"
+                    style={campaignBadgeStyle}
+                  >
+                    🎯 {campaign.name}
+                  </span>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Información de la acción (fecha, hora, ubicación) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>{actionDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{actionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span>{isOnline ? 'Online' : (action.placeName || 'Presencial')}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span className="capitalize">{isOnline ? 'Online' : 'Presencial'}</span>
-          </div>
-        </div>
-
+        {/* CUERPO PRINCIPAL */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Columna principal (2/3) */}
           <div className="lg:col-span-2 space-y-8">
             {/* Descripción */}
             {action.description && (
-              <div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-700 mb-3">Descripción</h2>
-                <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-line">{action.description}</p>
-                </div>
+                <p className="text-gray-700 whitespace-pre-line">{action.description}</p>
               </div>
             )}
 
             {/* Imagen destacada (si solo hay una) */}
             {action.featuredImage && galleryImages.length === 1 && (
-              <div className="relative w-full aspect-video overflow-hidden rounded-xl shadow-sm bg-gray-50 border border-gray-200">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <img
                   src={getImageUrl(action.featuredImage)}
                   alt={action.title}
-                  className="absolute inset-0 w-full h-full object-contain"
+                  className="w-full h-auto object-contain"
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
               </div>
@@ -297,7 +311,7 @@ export default function AccionDetalle() {
 
             {/* Galería en miniaturas */}
             {galleryImages.length > 1 && (
-              <div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-700 mb-3">Galería</h2>
                 <div className="grid grid-cols-3 gap-3">
                   {galleryImages.slice(0, 6).map((img, idx) => (
@@ -329,46 +343,45 @@ export default function AccionDetalle() {
               </div>
             )}
 
-            {/* Documentos */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-700 mb-3">Documentos</h2>
-              <div className="space-y-3">
-                {action.document && (() => {
-                  const { name, type, icon } = getFileDetails(action.document);
-                  return (
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:shadow-sm transition">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{icon}</span>
-                        <div>
-                          <p className="text-gray-800 font-medium">{name}.{type}</p>
-                          <p className="text-xs text-gray-500">Documento público</p>
+            {/* Documentos (solo si hay algo que mostrar) */}
+            {(action.document || (isAdmin && action.documentLink)) && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-700 mb-3">Documentos</h2>
+                <div className="space-y-3">
+                  {action.document && (() => {
+                    const { name, type, icon } = getFileDetails(action.document);
+                    return (
+                      <div className="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:shadow-sm transition">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{icon}</span>
+                          <div>
+                            <p className="text-gray-800 font-medium">{name}.{type}</p>
+                            <p className="text-xs text-gray-500">Documento público</p>
+                          </div>
                         </div>
+                        <a
+                          href={getImageUrl(action.document)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm font-medium"
+                        >
+                          Descargar
+                        </a>
                       </div>
-                      <a
-                        href={getImageUrl(action.document)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                      >
-                        Descargar
+                    );
+                  })()}
+                  {isAdmin && action.documentLink && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-yellow-800 font-medium mb-1">🔒 Documentación interna</p>
+                      <p className="text-xs text-gray-500 mb-2">Acceso restringido a administradores</p>
+                      <a href={action.documentLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Acceder a la carpeta de documentos
                       </a>
                     </div>
-                  );
-                })()}
-                {isAdmin && action.documentLink && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-yellow-800 font-medium mb-1">🔒 Documentación interna</p>
-                    <p className="text-xs text-gray-500 mb-2">Acceso restringido a administradores</p>
-                    <a href={action.documentLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Acceder a la carpeta de documentos
-                    </a>
-                  </div>
-                )}
-                {!action.document && !action.documentLink && (
-                  <p className="text-gray-400 text-sm">No hay documentos adjuntos.</p>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Columna lateral (1/3) */}
@@ -411,7 +424,7 @@ export default function AccionDetalle() {
 
             {/* Mapa (solo presencial) */}
             {!isOnline && action.latitude != null && action.longitude != null && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div ref={previewMapRef} style={{ height: '200px', width: '100%' }} />
                 <div className="p-3 bg-gray-50 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200">
                   <div className="text-sm text-gray-600">
@@ -440,7 +453,7 @@ export default function AccionDetalle() {
 
             {/* Grupos de mensajería */}
             {validGroups.length > 0 && (
-              <div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3">Grupos de chat</h3>
                 <div className="space-y-2">
                   {validGroups.map((group, idx) => {

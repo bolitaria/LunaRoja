@@ -15,7 +15,62 @@ const FEATURED_BASE = path.join(__dirname, '../../uploads/featured');
 const ACTIONS_BASE = path.join(__dirname, '../../uploads/actions');
 const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
-// GET ALL ACTIONS
+// ─── HELPER: Procesar archivos subidos ───
+function processUploadedFiles(req) {
+  const files = req.files || [];
+  const result = {
+    featuredImage: null,   // objeto file o null
+    images: [],            // array de objetos file
+    documents: [],         // array de { file, name, isPublic }
+  };
+
+  // Extraer nombres de documentos desde req.body
+  const docNames = {};
+  const docIsPublic = {};
+  Object.keys(req.body).forEach(key => {
+    const matchName = key.match(/documents\[(\d+)\]\[name\]/);
+    if (matchName) {
+      const idx = parseInt(matchName[1]);
+      docNames[idx] = req.body[key];
+    }
+    const matchPublic = key.match(/documents\[(\d+)\]\[isPublic\]/);
+    if (matchPublic) {
+      const idx = parseInt(matchPublic[1]);
+      docIsPublic[idx] = req.body[key] === 'true';
+    }
+  });
+
+  // Procesar cada archivo
+  files.forEach(file => {
+    if (file.fieldname === 'featuredImage') {
+      result.featuredImage = file;
+    } else if (file.fieldname === 'images') {
+      result.images.push(file);
+    } else if (file.fieldname && file.fieldname.startsWith('documents[')) {
+      // Extraer índice del campo: documents[0][file] -> 0
+      const match = file.fieldname.match(/documents\[(\d+)\]\[file\]/);
+      if (match) {
+        const idx = parseInt(match[1]);
+        result.documents.push({
+          file: file,
+          name: docNames[idx] || file.originalname,
+          isPublic: docIsPublic[idx] || false,
+        });
+      }
+    }
+  });
+
+  // Ordenar documentos por índice (si es necesario)
+  result.documents.sort((a, b) => {
+    const aIdx = parseInt(a.file.fieldname.match(/documents\[(\d+)\]/)[1]);
+    const bIdx = parseInt(b.file.fieldname.match(/documents\[(\d+)\]/)[1]);
+    return aIdx - bIdx;
+  });
+
+  return result;
+}
+
+// ─── GET ALL ACTIONS ───
 exports.getAllActions = async (req, res) => {
   try {
     const { campaignId, bdsId } = req.query;
@@ -61,7 +116,7 @@ exports.getAllActions = async (req, res) => {
   }
 };
 
-// GET ACTION BY ID
+// ─── GET ACTION BY ID ───
 exports.getActionById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -81,7 +136,7 @@ exports.getActionById = async (req, res) => {
   }
 };
 
-// CREATE ACTION
+// ─── CREATE ACTION ───
 exports.createAction = async (req, res) => {
   try {
     let {
@@ -139,16 +194,22 @@ exports.createAction = async (req, res) => {
       if (isNaN(longitude)) longitude = null;
     } else longitude = null;
 
+    // ─── PROCESAR ARCHIVOS SUBIDOS ───
+    const uploaded = processUploadedFiles(req);
+
     let featuredImage = null;
-    if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
-      featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
+    if (uploaded.featuredImage) {
+      featuredImage = `/uploads/featured/${uploaded.featuredImage.filename}`;
     }
 
     let documentPath = null;
-    if (req.files && req.files.document && req.files.document.length > 0) {
-      documentPath = `/uploads/documents/${req.files.document[0].filename}`;
+    // Tomar el primer documento público (si existe)
+    const publicDoc = uploaded.documents.find(d => d.isPublic === true);
+    if (publicDoc) {
+      documentPath = `/uploads/documents/${publicDoc.file.filename}`;
     }
 
+    // ─── CREAR ACCIÓN ───
     const action = await Action.create({
       title,
       description: description || '',
@@ -171,16 +232,24 @@ exports.createAction = async (req, res) => {
       document: documentPath,
     });
 
-    // Procesar imágenes adicionales
-    if (req.files && req.files.images && req.files.images.length > 0) {
-      const imagePromises = req.files.images.map((file, index) => {
+    // ─── IMÁGENES ADICIONALES ───
+    if (uploaded.images.length > 0) {
+      const imagePromises = uploaded.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
         return ActionImage.create({ url, actionId: action.id, order: index });
       });
       await Promise.all(imagePromises);
     }
 
-    // ─── NOTIFICACIONES ─────────────────
+    // ─── DOCUMENTOS ADICIONALES (privados y públicos) ───
+    // Si hay más documentos, podrías guardarlos en una tabla Document, pero la estructura actual
+    // solo soporta un documento público (campo 'document') y los privados no se guardan.
+    // Por ahora, solo guardamos el primer documento público. Si quieres guardar todos, necesitarás
+    // crear una tabla Document o almacenarlos como JSON. Pero para mantener compatibilidad,
+    // usamos el campo 'document' para el primer documento público.
+    // (En el frontend, los documentos privados solo aparecen en la vista previa del admin)
+
+    // ─── NOTIFICACIONES ───
     try {
       const campaign = await action.getCampaign().catch(() => null);
       if (campaign) {
@@ -197,7 +266,7 @@ exports.createAction = async (req, res) => {
       console.error('Error al enviar notificaciones de acción:', emailError);
     }
 
-    // Crear recordatorios (un día antes a las 09:00)
+    // ─── RECORDATORIOS ───
     try {
       const reminderSubscribers = await Subscriber.findAll({ where: { status: 'active', sendReminders: true } });
       const actionDate = new Date(datetime);
@@ -227,7 +296,7 @@ exports.createAction = async (req, res) => {
   }
 };
 
-// UPDATE ACTION
+// ─── UPDATE ACTION ───
 exports.updateAction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -300,22 +369,27 @@ exports.updateAction = async (req, res) => {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
 
+    // ─── PROCESAR ARCHIVOS SUBIDOS ───
+    const uploaded = processUploadedFiles(req);
+
     let featuredImage = action.featuredImage;
-    if (req.files && req.files.featuredImage && req.files.featuredImage.length > 0) {
+    if (uploaded.featuredImage) {
       if (action.featuredImage) {
         deleteFileSafe(action.featuredImage, FEATURED_BASE);
       }
-      featuredImage = `/uploads/featured/${req.files.featuredImage[0].filename}`;
+      featuredImage = `/uploads/featured/${uploaded.featuredImage.filename}`;
     }
 
     let documentPath = action.document;
-    if (req.files && req.files.document && req.files.document.length > 0) {
+    const publicDoc = uploaded.documents.find(d => d.isPublic === true);
+    if (publicDoc) {
       if (action.document) {
         deleteFileSafe(action.document, DOCUMENTS_BASE);
       }
-      documentPath = `/uploads/documents/${req.files.document[0].filename}`;
+      documentPath = `/uploads/documents/${publicDoc.file.filename}`;
     }
 
+    // ─── ACTUALIZAR ACCIÓN ───
     await action.update({
       title: title || action.title,
       description: description !== undefined ? description : action.description,
@@ -338,9 +412,10 @@ exports.updateAction = async (req, res) => {
       document: documentPath,
     });
 
-    if (req.files && req.files.images && req.files.images.length > 0) {
+    // ─── IMÁGENES ADICIONALES ───
+    if (uploaded.images.length > 0) {
       const currentImageCount = action.images ? action.images.length : 0;
-      const imagePromises = req.files.images.map((file, index) => {
+      const imagePromises = uploaded.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
         return ActionImage.create({ url, actionId: action.id, order: currentImageCount + index });
       });
@@ -357,7 +432,7 @@ exports.updateAction = async (req, res) => {
   }
 };
 
-// DELETE ACTION
+// ─── DELETE ACTION ───
 exports.deleteAction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -393,7 +468,7 @@ exports.deleteAction = async (req, res) => {
   }
 };
 
-// DELETE ACTION IMAGE
+// ─── DELETE ACTION IMAGE ───
 exports.deleteActionImage = async (req, res) => {
   try {
     const { imageId } = req.params;

@@ -1,5 +1,9 @@
+import DOMPurify from 'dompurify';
+
 export default function PetitionPreview({ form }) {
   const { title, content, type, urgency, deadline, targetEmails, externalUrl, signature_fields = [], featured_image } = form;
+
+  const sanitizedContent = content ? DOMPurify.sanitize(content) : '';
 
   const getDomain = (url) => {
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
@@ -43,7 +47,10 @@ export default function PetitionPreview({ form }) {
         </div>
       ) : (
         <div>
-          <div className="prose mb-4" dangerouslySetInnerHTML={{ __html: content || '<p>Contenido de la petición...</p>' }} />
+          <div
+            className="prose mb-4"
+            dangerouslySetInnerHTML={{ __html: sanitizedContent || '<p>Contenido de la petición...</p>' }}
+          />
           {signature_fields.length > 0 && (
             <div className="border-t pt-4">
               <h4 className="font-semibold mb-3">Firmar esta petición</h4>
