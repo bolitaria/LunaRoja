@@ -113,6 +113,7 @@ describe('Auth API', () => {
         .send({
           username: uniqueName,
           password: 'original123',
+          email: `${uniqueName}@test.com`,   // ← añadir email
           role: 'action_admin',
         });
       if (createRes.statusCode === 201 || createRes.statusCode === 200) {
