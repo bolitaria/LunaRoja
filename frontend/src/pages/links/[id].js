@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Layout from '../../components/Layout';
 import axios from 'axios';
 import { FaExternalLinkAlt, FaSpinner } from 'react-icons/fa';
@@ -23,14 +24,13 @@ export default function SingleLink() {
       .catch(() => setError(true));
   }, [id, apiUrl]);
 
-  // Redirigir automáticamente tras 3 segundos
   useEffect(() => {
     if (!link) return;
     const timer = setTimeout(() => {
-      window.location.href = link.url;
+      router.push(link.url);
     }, 3500);
     return () => clearTimeout(timer);
-  }, [link]);
+  }, [link, router]);
 
   if (!id || error) {
     return (
@@ -38,7 +38,9 @@ export default function SingleLink() {
         <div className="container mx-auto px-4 py-16 text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">Enlace no encontrado</h1>
           <p className="text-gray-600 mb-8">El enlace que buscas no existe o ha sido desactivado.</p>
-          <a href="/links" className="text-[#E4312B] hover:underline font-medium">← Volver a Links de interés</a>
+          <Link href="/links" className="text-[#E4312B] hover:underline font-medium">
+            ← Volver a Links de interés
+          </Link>
         </div>
       </Layout>
     );

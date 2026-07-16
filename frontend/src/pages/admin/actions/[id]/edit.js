@@ -463,7 +463,7 @@ function EditAction() {
                             Seleccionar en mapa
                           </button>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">Escribe una dirección y presiona "Buscar", o usa el mapa.</p>
+                        <p className="text-xs text-gray-400 mt-1">Escribe una dirección y presiona &quot;Buscar&quot;, o usa el mapa.</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
