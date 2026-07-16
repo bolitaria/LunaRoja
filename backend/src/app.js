@@ -253,6 +253,8 @@ const runInitialMigrations = async () => {
   }
 };
 
+// ... (todo el código anterior se mantiene igual)
+
 const startServer = async () => {
   try {
     await initEmailService();
@@ -260,7 +262,7 @@ const startServer = async () => {
     await initSessionCache().catch(err => console.warn('Session cache unavailable:', err.message));
     await runInitialMigrations();
 
-    // ─── Sincronización condicional (solo si SKIP_DB_SYNC no está activa) ───
+    // Sincronización condicional (solo en desarrollo, no en CI)
     if (process.env.SKIP_DB_SYNC !== 'true') {
       const syncOptions = isProduction ? { alter: true } : { alter: true };
       await db.sequelize.sync(syncOptions);
@@ -269,6 +271,7 @@ const startServer = async () => {
       console.log('⏩ Sincronización de BD omitida (SKIP_DB_SYNC=true)');
     }
 
+    // Estas funciones siempre se ejecutan, pero manejan errores internamente
     await ensureColumnsExist();
     await ensureAdmin();
     await ensureDefaultPetitionTemplate();
