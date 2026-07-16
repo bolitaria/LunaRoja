@@ -2,10 +2,20 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// ✅ Guardado dentro del volumen Docker
+// Ruta dentro del contenedor/runner
 const petitionDir = '/app/uploads/petitions';
-if (!fs.existsSync(petitionDir)) {
-  fs.mkdirSync(petitionDir, { recursive: true });
+
+// Crear el directorio si no existe, con permisos amplios, sin lanzar error
+try {
+  if (!fs.existsSync(petitionDir)) {
+    fs.mkdirSync(petitionDir, { recursive: true, mode: 0o777 });
+  } else {
+    // Si ya existe, aseguramos que sea escribible
+    fs.chmodSync(petitionDir, 0o777);
+  }
+} catch (err) {
+  // No detenemos la app; multer fallará después si realmente no puede escribir
+  console.warn(`⚠️  No se pudo crear/ajustar ${petitionDir}: ${err.message}`);
 }
 
 const storage = multer.diskStorage({
@@ -21,7 +31,6 @@ const fileFilter = (req, file, cb) => {
   else cb(new Error('Solo se permiten imágenes'), false);
 };
 
-// ✅ Campo esperado: 'image' (igual que el frontend)
 module.exports = multer({
   storage,
   fileFilter,
