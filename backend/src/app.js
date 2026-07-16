@@ -171,8 +171,13 @@ const ensureColumnsExist = async () => {
     `);
     console.log('✅ Aseguradas columnas en Users');
   } catch (err) {
-    console.error('❌ Error al asegurar columnas:', err);
-    throw err;
+    // Si la tabla no existe (p. ej. en CI porque se usa solo migraciones), ignoramos el error
+    if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
+      console.warn('⚠️  La tabla Users no existe aún, omitiendo ajuste de columnas.');
+    } else {
+      console.error('❌ Error al asegurar columnas:', err);
+      throw err; // relanzar solo si es otro tipo de error
+    }
   }
 };
 
