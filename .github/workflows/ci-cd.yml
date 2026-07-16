@@ -23,7 +23,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # 🔴 Se añade el servicio Redis (necesario para evitar ECONNREFUSED)
+
       redis:
         image: redis:7-alpine
         ports:
@@ -33,6 +33,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     strategy:
       matrix:
         service: [backend, frontend]
@@ -76,7 +77,6 @@ jobs:
         if: matrix.service == 'backend'
         run: |
           sudo mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured
-          # 🔴 Dar propiedad al usuario que ejecuta las pruebas para evitar EPERM al hacer chmod
           sudo chown -R $(whoami) /app/uploads
           sudo chmod -R 755 /app/uploads
 
@@ -91,10 +91,10 @@ jobs:
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
-          # 🔴 Quitamos el sufijo "/api" para evitar el doble prefijo /api/api/...
           API_URL: http://localhost:5000
           BASE_URL: http://localhost:5000
           SKIP_DB_SYNC: 'true'
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
       - name: Test frontend
         if: matrix.service == 'frontend'

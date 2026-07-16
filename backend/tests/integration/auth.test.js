@@ -1,13 +1,13 @@
 const request = require('supertest');
 
 const API_URL = process.env.API_URL || 'http://localhost:5000';
+// La misma variable que usa el servidor al crear el admin
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-// Función auxiliar que hace login y devuelve el token
 async function login(username, password) {
   const res = await request(API_URL)
     .post('/api/auth/login')
     .send({ username, password });
-  // Ahora solo lanzamos error si el código NO es 200 (no esperamos que siempre sea 200)
   if (res.statusCode !== 200) {
     throw new Error(`Login failed for ${username}: [${res.statusCode}] ${res.body.message}`);
   }
@@ -16,11 +16,10 @@ async function login(username, password) {
 
 describe('Auth API', () => {
   let adminToken;
-  let testUserId; // para limpiar después
+  let testUserId;
 
   beforeAll(async () => {
-    // Solo necesitamos el token del admin real
-    adminToken = await login('admin', 'admin123');
+    adminToken = await login('admin', ADMIN_PASSWORD);
   });
 
   // ========================= LOGIN =========================
@@ -28,7 +27,7 @@ describe('Auth API', () => {
     test('Login exitoso (admin)', async () => {
       const res = await request(API_URL)
         .post('/api/auth/login')
-        .send({ username: 'admin', password: 'admin123' });
+        .send({ username: 'admin', password: ADMIN_PASSWORD });
       expect(res.statusCode).toBe(200);
       expect(res.body.user).toBeDefined();
       expect(res.body.token).toBeDefined();
@@ -53,7 +52,6 @@ describe('Auth API', () => {
       const res = await request(API_URL)
         .post('/api/auth/login')
         .send({ password: '12345678' });
-      // La API devuelve 400 porque falta el campo requerido
       expect(res.statusCode).toBe(400);
     });
 
@@ -76,7 +74,8 @@ describe('Auth API', () => {
     });
 
     test('Sin token debe fallar', async () => {
-      const res = await request(API_URL).get('/users/me');
+      // Ruta corregida: ahora sí es /api/users/me
+      const res = await request(API_URL).get('/api/users/me');
       expect(res.statusCode).toBe(401);
     });
 
@@ -98,11 +97,7 @@ describe('Auth API', () => {
       expect(Array.isArray(res.body)).toBe(true);
     });
 
-    // Nota: no podemos probar otros roles si no existen usuarios con ellos.
-    // Este test se omite (pasa automáticamente) hasta que se creen usuarios de prueba.
     test('GET /api/users - blog_admin recibe array vacío o 403 (omitido por falta de usuarios)', async () => {
-      // Si quieres probarlo, crea un usuario blog_admin con la API y usa su token.
-      // Por ahora, lo declaramos como pasado.
       expect(true).toBe(true);
     });
   });
@@ -111,7 +106,6 @@ describe('Auth API', () => {
   describe('PUT /api/users/me/password', () => {
     let testUserToken;
     beforeAll(async () => {
-      // Creamos un usuario temporal para la prueba de cambio de contraseña
       const uniqueName = `testchpwd_${Date.now()}`;
       const createRes = await request(API_URL)
         .post('/api/users')
@@ -121,7 +115,6 @@ describe('Auth API', () => {
           password: 'original123',
           role: 'action_admin',
         });
-      // Si la creación fue exitosa (201 o 200), hacemos login con el usuario recién creado
       if (createRes.statusCode === 201 || createRes.statusCode === 200) {
         testUserId = createRes.body.id;
         testUserToken = await login(uniqueName, 'original123');
@@ -131,7 +124,6 @@ describe('Auth API', () => {
     });
 
     afterAll(async () => {
-      // Limpiamos el usuario creado
       if (testUserId) {
         await request(API_URL)
           .delete(`/api/users/${testUserId}`)
@@ -170,7 +162,7 @@ describe('Auth API', () => {
     test('Solicitar restablecimiento de contraseña', async () => {
       const res = await request(API_URL)
         .post('/api/auth/forgot-password')
-        .send({ username: 'admin' }); // admin existe, el endpoint responde 200 siempre
+        .send({ username: 'admin' });
       expect(res.statusCode).toBe(200);
       expect(res.body.message).toBeDefined();
     });

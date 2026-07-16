@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../src/app'); // tu instancia de express
+const app = require('../../src/app');
 
 describe('GET /api/chat-groups', () => {
   it('devuelve solo grupos públicos y activos para usuario no autenticado', async () => {

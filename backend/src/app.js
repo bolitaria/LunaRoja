@@ -175,27 +175,31 @@ const ensureColumnsExist = async () => {
       console.warn('⚠️  La tabla Users no existe aún, omitiendo ajuste de columnas.');
     } else {
       console.error('❌ Error al asegurar columnas:', err);
-      // No detenemos el servidor por este fallo
     }
   }
 };
 
 const ensureAdmin = async () => {
   try {
+    // Contraseña desde variable de entorno; fallback solo para desarrollo local
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
     let admin = await db.User.findOne({ where: { username: 'admin' } });
+
     if (!admin) {
-      const hashedPassword = await bcrypt.hash('admin123', 12);
+      // El hook beforeCreate del modelo se encarga de hashear
       await db.User.create({
         username: 'admin',
-        password: hashedPassword,
+        password: adminPassword,          // Texto plano, seguro gracias al hook
         email: 'admin@example.com',
         role: 'superadmin',
       });
       console.log('✅ Superadmin "admin" creado');
     } else {
-      const match = await bcrypt.compare('admin123', admin.password);
+      const match = await bcrypt.compare(adminPassword, admin.password);
       if (!match) {
-        admin.password = await bcrypt.hash('admin123', 12);
+        // Actualizamos contraseña; el hook beforeUpdate la hasheará
+        admin.password = adminPassword;   // Texto plano
         await admin.save();
         console.log('🔑 Contraseña de admin actualizada');
       } else {
@@ -207,7 +211,6 @@ const ensureAdmin = async () => {
       console.warn('⚠️  La tabla Users no existe, omitiendo verificación de admin.');
     } else {
       console.error('❌ Error al asegurar superadmin:', err);
-      // No detenemos el servidor por este fallo
     }
   }
 };
