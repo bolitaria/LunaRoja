@@ -33,7 +33,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // BDSs (observa que el down usa 'BDs', pero el modelo se llama BDSs)
+    // BDSs
     await queryInterface.createTable('BDSs', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       name: { type: Sequelize.STRING, allowNull: false },
@@ -159,12 +159,13 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // EmailTemplates
+    // EmailTemplates (incluye la columna variables)
     await queryInterface.createTable('EmailTemplates', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       name: { type: Sequelize.STRING, allowNull: false },
       subject: { type: Sequelize.STRING },
       body: { type: Sequelize.TEXT },
+      variables: { type: Sequelize.JSON },
       type: { type: Sequelize.STRING },
       associatedEvent: { type: Sequelize.STRING },
       isActive: { type: Sequelize.BOOLEAN, defaultValue: true },
