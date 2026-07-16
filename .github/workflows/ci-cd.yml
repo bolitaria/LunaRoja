@@ -64,7 +64,7 @@ jobs:
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
 
-      # Crear directorios de uploads
+      # Crear directorios de uploads necesarios para los tests del backend
       - name: Create upload directories for backend tests
         if: matrix.service == 'backend'
         run: |
@@ -84,6 +84,7 @@ jobs:
           JWT_SECRET: test_secret
           API_URL: http://localhost:5000/api
           BASE_URL: http://localhost:5000
+          SKIP_DB_SYNC: 'true'   # ← evita el sync de Sequelize
 
       - name: Test frontend
         if: matrix.service == 'frontend'

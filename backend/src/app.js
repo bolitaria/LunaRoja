@@ -10,7 +10,6 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const db = require('./models');
 
-
 const { initEmailService } = require('./services/emailService');
 const { initQueueService } = require('./services/queueService');
 const { initSessionCache } = require('./services/sessionCacheService');
@@ -76,7 +75,6 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
 }));
-
 
 // ---------- CORS ----------
 const defaultOrigins = [
@@ -210,7 +208,6 @@ const ensureDefaultPetitionTemplate = async () => {
   try {
     const existing = await db.EmailTemplate.findOne({ where: { name: 'Petición oficial' } });
     if (!existing) {
-      // Plantilla HTML estática (mismo contenido que el archivo .hbs)
       const templateBody = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -291,13 +288,18 @@ const startServer = async () => {
     await initSessionCache().catch(err => console.warn('Session cache unavailable:', err.message));
     await runInitialMigrations();
 
-    const syncOptions = isProduction ? { alter: true } : { alter: true };
-    await db.sequelize.sync(syncOptions);
-    console.log('✅ Database synchronized');
+    // ─── Sincronización condicional (solo si SKIP_DB_SYNC no está activa) ───
+    if (process.env.SKIP_DB_SYNC !== 'true') {
+      const syncOptions = isProduction ? { alter: true } : { alter: true };
+      await db.sequelize.sync(syncOptions);
+      console.log('✅ Database synchronized');
+    } else {
+      console.log('⏩ Sincronización de BD omitida (SKIP_DB_SYNC=true)');
+    }
 
     await ensureColumnsExist();
     await ensureAdmin();
-    await ensureDefaultPetitionTemplate();   // <-- AQUÍ SE CREA LA PLANTILLA POR DEFECTO
+    await ensureDefaultPetitionTemplate();
 
     require('./jobs/reminderJob');
     require('./jobs/emailQueueJob');
