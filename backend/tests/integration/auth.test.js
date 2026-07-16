@@ -76,7 +76,7 @@ describe('Auth API', () => {
     });
 
     test('Sin token debe fallar', async () => {
-      const res = await request(API_URL).get('/api/users/me');
+      const res = await request(API_URL).get('/users/me');
       expect(res.statusCode).toBe(401);
     });
 
