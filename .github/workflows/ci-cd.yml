@@ -44,7 +44,14 @@ jobs:
       - name: Lint
         run: npm run lint || echo "No lint script configured"
 
-      # Ejecutar migraciones (crean todas las tablas)
+      # Crear la tabla SequelizeMeta antes de las migraciones
+      - name: Initialize SequelizeMeta table (backend)
+        if: matrix.service == 'backend'
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+
+      # Ejecutar migraciones
       - name: Run database migrations (backend)
         if: matrix.service == 'backend'
         run: npm run migrate
@@ -57,7 +64,7 @@ jobs:
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
 
-      # Crear directorios de uploads
+      # Crear directorios de uploads necesarios para los tests del backend
       - name: Create upload directories for backend tests
         if: matrix.service == 'backend'
         run: |
