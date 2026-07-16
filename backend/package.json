@@ -11,12 +11,6 @@
     "migrate": "node src/services/migrationRunner.js up",
     "migrate:status": "node src/services/migrationRunner.js status"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "transformIgnorePatterns": [
-      "node_modules/(?!(uuid)/)"
-    ]
-  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.16.0",
