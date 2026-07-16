@@ -44,6 +44,19 @@ jobs:
       - name: Lint
         run: npm run lint || echo "No lint script configured"
 
+      # Ejecutar migraciones antes de arrancar el backend
+      - name: Run database migrations (backend)
+        if: matrix.service == 'backend'
+        run: npm run migrate
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+          JWT_SECRET: test_secret
+
       # Crear directorios de uploads necesarios para los tests del backend
       - name: Create upload directories for backend tests
         if: matrix.service == 'backend'
