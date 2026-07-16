@@ -1,10 +1,1 @@
-# Ignorar dependencias y entornos virtuales
-env/
-venv/
-node_modules/
-.next/
-.git/
-
-# Ignorar archivos no relevantes
-*.md
-*.txt.github/
+.github/
