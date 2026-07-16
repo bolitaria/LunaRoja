@@ -9,6 +9,20 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lunaroja
+          POSTGRES_PASSWORD: lunaroja123
+          POSTGRES_DB: lunaroja
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       matrix:
         service: [backend, frontend]
@@ -30,7 +44,22 @@ jobs:
       - name: Lint
         run: npm run lint || echo "No lint script configured"
 
-      - name: Test
+      - name: Test backend (integration)
+        if: matrix.service == 'backend'
+        run: npm run test:integration
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+          JWT_SECRET: test_secret
+          API_URL: http://localhost:5000/api
+          BASE_URL: http://localhost:5000
+
+      - name: Test frontend
+        if: matrix.service == 'frontend'
         run: npm test
 
   build-and-push:
