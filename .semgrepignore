@@ -1,1 +1,28 @@
+# Entorno virtual de Python (mucho ruido)
+env/
+
+# Dependencias de Node
+node_modules/
+
+# Builds y cachés
+.next/
+dist/
+build/
+
+# Archivos de base de datos y uploads
+database/
+uploads/
+backend/uploads/
+
+# Archivos de IDE y sistema
+.git/
+.idea/
+.vscode/
+*.log
+
+# Tests y cobertura
+coverage/
+.nyc_output/
+
+# Archivos de configuración de CI/CD (ya los habíamos excluido)
 .github/

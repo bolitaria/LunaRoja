@@ -24,6 +24,10 @@ COPY src ./src
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Crear directorios de uploads necesarios y darles permisos al futuro usuario
+RUN mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured && \
+    chown -R nodejs:nodejs /app/uploads
+
 # Usuario no root
 RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
 USER nodejs
