@@ -16,6 +16,7 @@ module.exports = {
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "hidden" BOOLEAN DEFAULT false`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "deadline" TIMESTAMP WITH TIME ZONE`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "email_body_template" TEXT`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "email_template_id" INTEGER REFERENCES "EmailTemplates"("id")`);
 
     // Links
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "description" TEXT`);
@@ -36,7 +37,7 @@ module.exports = {
     // Reports
     await query(`ALTER TABLE "Reports" ADD COLUMN IF NOT EXISTS "fileUrl" VARCHAR(255)`);
 
-    // Documents (tabla)
+    // Documents (tabla completa)
     await query(`CREATE TABLE IF NOT EXISTS "Documents" (
       "id" SERIAL PRIMARY KEY,
       "title" VARCHAR(255),
@@ -70,11 +71,12 @@ module.exports = {
       "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     )`);
+    await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "sent_count" INTEGER DEFAULT 0`);
   },
 
   async down(queryInterface) {
     const { sequelize } = queryInterface;
     const query = sequelize.query.bind(sequelize);
-    // No se implementa down para evitar pérdida de datos accidentales
+    // No se implementa down para evitar pérdida accidental de datos
   }
 };
