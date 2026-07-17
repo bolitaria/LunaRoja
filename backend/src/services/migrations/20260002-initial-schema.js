@@ -33,7 +33,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // BDs (table name matches model)
+    // BDs (la tabla que espera el modelo BDS)
     await queryInterface.createTable('BDs', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       name: { type: Sequelize.STRING, allowNull: false },
@@ -111,7 +111,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // Subscribers (with subscribedAt column)
+    // Subscribers (con subscribedAt)
     await queryInterface.createTable('Subscribers', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       email: { type: Sequelize.STRING, allowNull: false, unique: true },
@@ -149,7 +149,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // News (full columns)
+    // News (todas las columnas)
     await queryInterface.createTable('News', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       title: { type: Sequelize.STRING, allowNull: false },
@@ -182,7 +182,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // petitions (full columns)
+    // petitions (esquema completo con created_at/updated_at)
     await queryInterface.createTable('petitions', {
       id: { type: Sequelize.UUID, defaultValue: Sequelize.UUIDV4, primaryKey: true },
       title: { type: Sequelize.STRING(200), allowNull: false },
@@ -222,7 +222,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // email_quota (with timestamps)
+    // email_quota (con timestamps)
     await queryInterface.createTable('email_quota', {
       date: { type: Sequelize.DATEONLY, primaryKey: true },
       sent_count: { type: Sequelize.INTEGER, defaultValue: 0 },
@@ -258,7 +258,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // links (with ENUM and UUID id)
+    // links (con ENUM y UUID)
     await queryInterface.sequelize.query(`
       DO $$ BEGIN
         CREATE TYPE "public"."enum_links_category" AS ENUM('local','nacional','europeo','internacional','literatura');
@@ -279,7 +279,6 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    // Order matters because of foreign keys
     await queryInterface.dropTable('links');
     await queryInterface.dropTable('Documents');
     await queryInterface.dropTable('Reports');
