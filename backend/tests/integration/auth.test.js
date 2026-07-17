@@ -1,7 +1,5 @@
 const request = require('supertest');
-
 const API_URL = process.env.API_URL || 'http://localhost:5000';
-// La misma variable que usa el servidor al crear el admin
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 async function login(username, password) {
@@ -22,7 +20,6 @@ describe('Auth API', () => {
     adminToken = await login('admin', ADMIN_PASSWORD);
   });
 
-  // ========================= LOGIN =========================
   describe('POST /api/auth/login', () => {
     test('Login exitoso (admin)', async () => {
       const res = await request(API_URL)
@@ -63,7 +60,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= ME =========================
   describe('GET /api/users/me', () => {
     test('Usuario autenticado (admin) - con token Bearer', async () => {
       const res = await request(API_URL)
@@ -74,7 +70,6 @@ describe('Auth API', () => {
     });
 
     test('Sin token debe fallar', async () => {
-      // Ruta corregida: ahora sí es /api/users/me
       const res = await request(API_URL).get('/api/users/me');
       expect(res.statusCode).toBe(401);
     });
@@ -87,7 +82,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= ROLES Y PERMISOS =========================
   describe('Control de acceso por roles', () => {
     test('GET /api/users - superadmin puede listar', async () => {
       const res = await request(API_URL)
@@ -102,7 +96,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= CHANGE PASSWORD =========================
   describe('PUT /api/users/me/password', () => {
     let testUserToken;
     beforeAll(async () => {
@@ -113,7 +106,7 @@ describe('Auth API', () => {
         .send({
           username: uniqueName,
           password: 'original123',
-          email: `${uniqueName}@test.com`,   // ← añade esta línea
+          email: `${uniqueName}@test.com`,   // ← email añadido
           role: 'action_admin',
         });
       if (createRes.statusCode === 201 || createRes.statusCode === 200) {
@@ -158,7 +151,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= FORGOT/RESET PASSWORD =========================
   describe('POST /api/auth/forgot-password', () => {
     test('Solicitar restablecimiento de contraseña', async () => {
       const res = await request(API_URL)
@@ -169,7 +161,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= LOGOUT =========================
   describe('POST /api/auth/logout', () => {
     test('Logout exitoso con token válido', async () => {
       const res = await request(API_URL)
