@@ -21,7 +21,14 @@ describe('Links API', () => {
     const res = await request(API_URL)
       .post('/api/links')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ title: 'Enlace test', url: 'https://example.com', description: 'Desc', category: 'local', active: true, created_by: 1 });
+      .send({
+        title: 'Enlace test',
+        url: 'https://example.com',
+        description: 'Desc',
+        category: 'local',
+        active: true,
+        // created_by se asigna automáticamente a partir del token
+      });
     expect(res.statusCode).toBe(201);
     linkId = res.body.id;
   });
