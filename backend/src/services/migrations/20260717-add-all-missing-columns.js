@@ -3,19 +3,26 @@ module.exports = {
     const { sequelize } = queryInterface;
     const query = sequelize.query.bind(sequelize);
 
-    // Subscribers
+    // ---------- Subscribers ----------
     await query(`ALTER TABLE "Subscribers" ADD COLUMN IF NOT EXISTS "subscribedAt" TIMESTAMP WITH TIME ZONE`);
 
-    // Petitions
+    // ---------- Petitions ----------
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "content" TEXT NOT NULL DEFAULT ''`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "target_emails" TEXT[] DEFAULT '{}'`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "type" VARCHAR(50) DEFAULT 'custom'`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "total_signatures" INTEGER DEFAULT 0`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "urgency" BOOLEAN DEFAULT false`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "signature_fields" JSONB DEFAULT '[]'`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "hidden" BOOLEAN DEFAULT false`);
 
-    // Links
+    // ---------- Links ----------
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "description" TEXT`);
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "category" VARCHAR(50) NOT NULL DEFAULT 'local'`);
+    await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true`);
+    await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+    await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
 
-    // News (tabla "News", modelo "Noticia")
+    // ---------- News ----------
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "description" TEXT`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "youtubeUrl" VARCHAR(255)`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "thumbnail" VARCHAR(255)`);
@@ -24,10 +31,10 @@ module.exports = {
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "campaignId" INTEGER REFERENCES "Campaigns"("id")`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "actionId" INTEGER REFERENCES "Actions"("id")`);
 
-    // Reports
+    // ---------- Reports ----------
     await query(`ALTER TABLE "Reports" ADD COLUMN IF NOT EXISTS "fileUrl" VARCHAR(255)`);
 
-    // Documents (tabla completa)
+    // ---------- Documents (tabla completa) ----------
     await query(`
       CREATE TABLE IF NOT EXISTS "Documents" (
         "id" SERIAL PRIMARY KEY,
@@ -42,7 +49,7 @@ module.exports = {
       )
     `);
 
-    // BDS (pluralizado por Sequelize como "BDs")
+    // ---------- BDS ----------
     await query(`
       CREATE TABLE IF NOT EXISTS "BDs" (
         "id" SERIAL PRIMARY KEY,
@@ -58,35 +65,21 @@ module.exports = {
       )
     `);
 
-    // Email Quota
+    // ---------- Email Quota ----------
     await query(`
       CREATE TABLE IF NOT EXISTS "email_quota" (
         "date" DATE PRIMARY KEY,
-        "sent_count" INTEGER DEFAULT 0
+        "sent_count" INTEGER DEFAULT 0,
+        "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
+    // Si la tabla ya existía sin columnas createdAt/updatedAt, las añadimos igualmente
+    await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+    await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
   },
 
   async down(queryInterface) {
-    const { sequelize } = queryInterface;
-    const query = sequelize.query.bind(sequelize);
-
-    await query(`ALTER TABLE "Subscribers" DROP COLUMN IF EXISTS "subscribedAt"`);
-    await query(`ALTER TABLE "petitions" DROP COLUMN IF EXISTS "content"`);
-    await query(`ALTER TABLE "petitions" DROP COLUMN IF EXISTS "target_emails"`);
-    await query(`ALTER TABLE "petitions" DROP COLUMN IF EXISTS "type"`);
-    await query(`ALTER TABLE "links" DROP COLUMN IF EXISTS "description"`);
-    await query(`ALTER TABLE "links" DROP COLUMN IF EXISTS "category"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "description"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "youtubeUrl"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "thumbnail"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "publishedAt"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "isNews"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "campaignId"`);
-    await query(`ALTER TABLE "News" DROP COLUMN IF EXISTS "actionId"`);
-    await query(`ALTER TABLE "Reports" DROP COLUMN IF EXISTS "fileUrl"`);
-    await query(`DROP TABLE IF EXISTS "Documents"`);
-    await query(`DROP TABLE IF EXISTS "BDs"`);
-    await query(`DROP TABLE IF EXISTS "email_quota"`);
+    // No implementamos down para no perder datos accidentalmente en producción
   }
 };
