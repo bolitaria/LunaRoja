@@ -33,8 +33,8 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // BDSs (original name) but we'll also create BDs as needed; ensure consistent
-    await queryInterface.createTable('BDSs', {
+    // BDs (table name matches model)
+    await queryInterface.createTable('BDs', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       name: { type: Sequelize.STRING, allowNull: false },
       description: { type: Sequelize.TEXT },
@@ -63,7 +63,7 @@ module.exports = {
       registrationLink: { type: Sequelize.STRING },
       recordingUrl: { type: Sequelize.STRING },
       campaignId: { type: Sequelize.INTEGER, references: { model: 'Campaigns', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'SET NULL' },
-      bdsId: { type: Sequelize.INTEGER, references: { model: 'BDSs', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'SET NULL' },
+      bdsId: { type: Sequelize.INTEGER, references: { model: 'BDs', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'SET NULL' },
       featuredImage: { type: Sequelize.STRING },
       groups: { type: Sequelize.JSON },
       documentLink: { type: Sequelize.STRING },
@@ -106,7 +106,7 @@ module.exports = {
     await queryInterface.createTable('UserBDS', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       userId: { type: Sequelize.INTEGER, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE' },
-      bdsId: { type: Sequelize.INTEGER, references: { model: 'BDSs', key: 'id' }, onDelete: 'CASCADE' },
+      bdsId: { type: Sequelize.INTEGER, references: { model: 'BDs', key: 'id' }, onDelete: 'CASCADE' },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
@@ -149,7 +149,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // News (model "Noticia") with all columns
+    // News (full columns)
     await queryInterface.createTable('News', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       title: { type: Sequelize.STRING, allowNull: false },
@@ -182,7 +182,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // petitions (with all columns that models expect)
+    // petitions (full columns)
     await queryInterface.createTable('petitions', {
       id: { type: Sequelize.UUID, defaultValue: Sequelize.UUIDV4, primaryKey: true },
       title: { type: Sequelize.STRING(200), allowNull: false },
@@ -199,8 +199,8 @@ module.exports = {
       emailTemplateId: { type: Sequelize.INTEGER, allowNull: true, references: { model: 'EmailTemplates', key: 'id' } },
       featured_image: { type: Sequelize.STRING, allowNull: true },
       created_by: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' } },
-      createdAt: { type: Sequelize.DATE, allowNull: false },
-      updatedAt: { type: Sequelize.DATE, allowNull: false },
+      created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW },
+      updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW },
     });
 
     // signature_hashes
@@ -222,7 +222,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // email_quota (correct structure)
+    // email_quota (with timestamps)
     await queryInterface.createTable('email_quota', {
       date: { type: Sequelize.DATEONLY, primaryKey: true },
       sent_count: { type: Sequelize.INTEGER, defaultValue: 0 },
@@ -279,6 +279,7 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
+    // Order matters because of foreign keys
     await queryInterface.dropTable('links');
     await queryInterface.dropTable('Documents');
     await queryInterface.dropTable('Reports');
@@ -296,7 +297,7 @@ module.exports = {
     await queryInterface.dropTable('UserCampaigns');
     await queryInterface.dropTable('ActionImages');
     await queryInterface.dropTable('Actions');
-    await queryInterface.dropTable('BDSs');
+    await queryInterface.dropTable('BDs');
     await queryInterface.dropTable('Campaigns');
     await queryInterface.dropTable('Users');
   },
