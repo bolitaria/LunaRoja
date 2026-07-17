@@ -3,7 +3,7 @@ module.exports = {
     const { sequelize } = queryInterface;
     const query = sequelize.query.bind(sequelize);
 
-    // ========== PETITIONS ==========
+    // ---- Petitions ----
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "external_url" VARCHAR(255)`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "email_body_template" TEXT`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "email_template_id" INTEGER REFERENCES "EmailTemplates"("id")`);
@@ -11,14 +11,14 @@ module.exports = {
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMPTZ DEFAULT NOW()`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW()`);
 
-    // ========== LINKS ==========
+    // ---- Links ----
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "description" TEXT`);
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "category" VARCHAR(50) NOT NULL DEFAULT 'local'`);
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true`);
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMPTZ DEFAULT NOW()`);
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW()`);
 
-    // ========== BDS (tabla que el modelo espera como "BDs") ==========
+    // ---- BDs ----
     await query(`
       CREATE TABLE IF NOT EXISTS "BDs" (
         "id" SERIAL PRIMARY KEY,
@@ -34,7 +34,7 @@ module.exports = {
       )
     `);
 
-    // ========== EMAIL_QUOTA (asegurar columnas y valores por defecto) ==========
+    // ---- Email Quota ----
     await query(`
       CREATE TABLE IF NOT EXISTS "email_quota" (
         "date" DATE PRIMARY KEY,
@@ -46,13 +46,10 @@ module.exports = {
     await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "sent_count" INTEGER DEFAULT 0`);
     await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ DEFAULT NOW()`);
     await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ DEFAULT NOW()`);
-    // Actualizar valores nulos si existen
     await query(`UPDATE "email_quota" SET "createdAt" = NOW() WHERE "createdAt" IS NULL`);
     await query(`UPDATE "email_quota" SET "updatedAt" = NOW() WHERE "updatedAt" IS NULL`);
-    await query(`ALTER TABLE "email_quota" ALTER COLUMN "createdAt" SET NOT NULL`);
-    await query(`ALTER TABLE "email_quota" ALTER COLUMN "updatedAt" SET NOT NULL`);
 
-    // ========== DOCUMENTS ==========
+    // ---- Documents ----
     await query(`
       CREATE TABLE IF NOT EXISTS "Documents" (
         "id" SERIAL PRIMARY KEY,
@@ -67,21 +64,19 @@ module.exports = {
       )
     `);
 
-    // ========== SUBSCRIBERS ==========
+    // ---- Subscribers ----
     await query(`ALTER TABLE "Subscribers" ADD COLUMN IF NOT EXISTS "subscribedAt" TIMESTAMP WITH TIME ZONE`);
 
-    // ========== NEWS ==========
+    // ---- News ----
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "description" TEXT`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "youtubeUrl" VARCHAR(255)`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "thumbnail" VARCHAR(255)`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "publishedAt" TIMESTAMPTZ DEFAULT NOW()`);
     await query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "isNews" BOOLEAN DEFAULT false`);
 
-    // ========== REPORTS ==========
+    // ---- Reports ----
     await query(`ALTER TABLE "Reports" ADD COLUMN IF NOT EXISTS "fileUrl" VARCHAR(255)`);
   },
 
-  async down(queryInterface) {
-    // Sin down para evitar pérdida de datos
-  }
+  async down(queryInterface) {}
 };
