@@ -6,7 +6,7 @@ module.exports = {
     // Subscribers
     await query(`ALTER TABLE "Subscribers" ADD COLUMN IF NOT EXISTS "subscribedAt" TIMESTAMP WITH TIME ZONE`);
 
-    // Petitions (todas las columnas)
+    // Petitions (todas las columnas que viste en tu esquema local)
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "content" TEXT NOT NULL DEFAULT ''`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "target_emails" TEXT[] DEFAULT '{}'`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "type" VARCHAR(50) DEFAULT 'custom'`);
@@ -17,6 +17,9 @@ module.exports = {
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "deadline" TIMESTAMP WITH TIME ZONE`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "email_body_template" TEXT`);
     await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "email_template_id" INTEGER REFERENCES "EmailTemplates"("id")`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "featured_image" VARCHAR(255)`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+    await query(`ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
 
     // Links
     await query(`ALTER TABLE "links" ADD COLUMN IF NOT EXISTS "description" TEXT`);
@@ -37,7 +40,7 @@ module.exports = {
     // Reports
     await query(`ALTER TABLE "Reports" ADD COLUMN IF NOT EXISTS "fileUrl" VARCHAR(255)`);
 
-    // Documents (tabla completa)
+    // Documents (tabla)
     await query(`CREATE TABLE IF NOT EXISTS "Documents" (
       "id" SERIAL PRIMARY KEY,
       "title" VARCHAR(255),
@@ -64,7 +67,7 @@ module.exports = {
       "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
     )`);
 
-    // Email Quota
+    // Email Quota (con las columnas createdAt y updatedAt que evitan el error de findOrCreate)
     await query(`CREATE TABLE IF NOT EXISTS "email_quota" (
       "date" DATE PRIMARY KEY,
       "sent_count" INTEGER DEFAULT 0,
@@ -72,11 +75,11 @@ module.exports = {
       "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     )`);
     await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "sent_count" INTEGER DEFAULT 0`);
+    await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+    await query(`ALTER TABLE "email_quota" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
   },
 
   async down(queryInterface) {
-    const { sequelize } = queryInterface;
-    const query = sequelize.query.bind(sequelize);
-    // No se implementa down para evitar pérdida accidental de datos
+    // sin implementación
   }
 };
