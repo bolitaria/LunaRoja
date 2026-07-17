@@ -13,7 +13,6 @@ const REPORTS_BASE = path.join(__dirname, '../../uploads/reports');
 
 exports.getAllImages = async (req, res) => {
   try {
-    // Solo para depuración en desarrollo, eliminar en producción o loggear con nivel debug
     if (process.env.NODE_ENV !== 'production') {
       console.log('=== getAllImages ===');
       console.log('req.user:', req.user ? { id: req.user.id, role: req.user.role } : 'no user');
@@ -55,19 +54,25 @@ exports.getAllImages = async (req, res) => {
 
     let reportFiles = [];
     if (!req.user || req.user.role === 'superadmin') {
-      const reports = await Report.findAll({
-        attributes: ['id', 'title', 'fileUrl', 'createdAt']
-      });
-      reportFiles = reports
-        .filter(r => r.fileUrl && r.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i))
-        .map(r => ({
-          id: `report-${r.id}`,
-          url: r.fileUrl,
-          relatedId: r.id,
-          relatedType: 'report',
-          relatedTitle: r.title,
-          createdAt: r.createdAt
-        }));
+      try {
+        const reports = await Report.findAll({
+          attributes: ['id', 'title', 'fileUrl', 'createdAt']
+        });
+        reportFiles = reports
+          .filter(r => r.fileUrl && r.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i))
+          .map(r => ({
+            id: `report-${r.id}`,
+            url: r.fileUrl,
+            relatedId: r.id,
+            relatedType: 'report',
+            relatedTitle: r.title,
+            createdAt: r.createdAt
+          }));
+      } catch (err) {
+        // La tabla Reports o la columna fileUrl puede no existir todavía (migraciones pendientes)
+        console.warn('Error obteniendo imágenes de reportes:', err.message);
+        reportFiles = [];
+      }
     }
 
     const allImages = [
