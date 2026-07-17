@@ -37,7 +37,7 @@ describe('Users API (admin operations)', () => {
       .send({
         username: uniqueName,
         password: 'securePass1',
-        email: `${uniqueName}@test.com`,   // ← email añadido
+        email: `${uniqueName}@test.com`,   // ← email obligatorio
         role: 'action_admin',
       });
     expect([201, 200]).toContain(res.statusCode);
