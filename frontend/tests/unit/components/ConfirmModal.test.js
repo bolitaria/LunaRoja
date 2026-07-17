@@ -1,6 +1,7 @@
+import '@testing-library/jest-dom';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import ConfirmModal from '../ConfirmModal';
+import ConfirmModal from '@/components/ConfirmModal';
 
 describe('ConfirmModal', () => {
   it('renders the confirmation actions and calls the handlers', () => {

@@ -19,17 +19,19 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/bin/corepack \
            /opt/yarn-*
 
+# Crear el usuario no root ANTES de usarlo
+RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
+
 # Copiar código fuente y entrypoint
 COPY src ./src
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Crear directorios de uploads necesarios y darles permisos al futuro usuario
+# Crear directorios de uploads necesarios y darles permisos al usuario ya existente
 RUN mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured && \
     chown -R nodejs:nodejs /app/uploads
 
-# Usuario no root
-RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
+# Cambiar al usuario no root
 USER nodejs
 
 ENTRYPOINT ["/entrypoint.sh"]

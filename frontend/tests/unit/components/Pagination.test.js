@@ -1,6 +1,7 @@
+import '@testing-library/jest-dom';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import Pagination from '../Pagination';
+import Pagination from '@/components/Pagination';
 
 describe('Pagination', () => {
   it('renders page controls and calls onPageChange when selecting a page', () => {

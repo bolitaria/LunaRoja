@@ -1,11 +1,17 @@
-const { defineConfig } = require("cypress");
+const { defineConfig } = require('cypress');
 
 module.exports = defineConfig({
-  allowCypressEnv: false,
-
   e2e: {
+    baseUrl: 'http://localhost:3000',       // ← dentro de e2e
+    supportFile: 'cypress/support/e2e.js',
+    specPattern: 'cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
     setupNodeEvents(on, config) {
-      // implement node event listeners here
+      // listeners de eventos opcionales
+      return config;
     },
   },
+  viewportWidth: 1280,
+  viewportHeight: 720,
+  video: false,
+  screenshotOnRunFailure: true,
 });
