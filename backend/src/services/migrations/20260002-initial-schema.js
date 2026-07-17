@@ -33,7 +33,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // BDSs
+    // BDSs (original name) but we'll also create BDs as needed; ensure consistent
     await queryInterface.createTable('BDSs', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       name: { type: Sequelize.STRING, allowNull: false },
@@ -111,12 +111,13 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // Subscribers
+    // Subscribers (with subscribedAt column)
     await queryInterface.createTable('Subscribers', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       email: { type: Sequelize.STRING, allowNull: false, unique: true },
       status: { type: Sequelize.STRING, defaultValue: 'active' },
       sendReminders: { type: Sequelize.BOOLEAN, defaultValue: true },
+      subscribedAt: { type: Sequelize.DATE },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
@@ -148,18 +149,22 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // News
+    // News (model "Noticia") with all columns
     await queryInterface.createTable('News', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       title: { type: Sequelize.STRING, allowNull: false },
-      content: { type: Sequelize.TEXT },
+      description: { type: Sequelize.TEXT },
+      youtubeUrl: { type: Sequelize.STRING },
+      thumbnail: { type: Sequelize.STRING },
+      publishedAt: { type: Sequelize.DATE, defaultValue: Sequelize.NOW },
+      isNews: { type: Sequelize.BOOLEAN, defaultValue: false },
       campaignId: { type: Sequelize.INTEGER, references: { model: 'Campaigns', key: 'id' }, onDelete: 'SET NULL' },
       actionId: { type: Sequelize.INTEGER, references: { model: 'Actions', key: 'id' }, onDelete: 'SET NULL' },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // EmailTemplates (incluye la columna variables)
+    // EmailTemplates
     await queryInterface.createTable('EmailTemplates', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       name: { type: Sequelize.STRING, allowNull: false },
@@ -177,13 +182,23 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // petitions
+    // petitions (with all columns that models expect)
     await queryInterface.createTable('petitions', {
-      id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      title: { type: Sequelize.STRING, allowNull: false },
-      description: { type: Sequelize.TEXT },
-      created_by: { type: Sequelize.INTEGER, references: { model: 'Users', key: 'id' }, onDelete: 'SET NULL' },
-      emailTemplateId: { type: Sequelize.INTEGER, references: { model: 'EmailTemplates', key: 'id' }, onDelete: 'SET NULL' },
+      id: { type: Sequelize.UUID, defaultValue: Sequelize.UUIDV4, primaryKey: true },
+      title: { type: Sequelize.STRING(200), allowNull: false },
+      content: { type: Sequelize.TEXT, allowNull: false, defaultValue: '' },
+      target_emails: { type: Sequelize.ARRAY(Sequelize.STRING), allowNull: false, defaultValue: [] },
+      total_signatures: { type: Sequelize.INTEGER, defaultValue: 0 },
+      signature_fields: { type: Sequelize.JSONB, allowNull: false, defaultValue: [] },
+      type: { type: Sequelize.ENUM('official','custom'), defaultValue: 'custom', allowNull: false },
+      external_url: { type: Sequelize.STRING, allowNull: true },
+      urgency: { type: Sequelize.BOOLEAN, defaultValue: false },
+      deadline: { type: Sequelize.DATE, allowNull: true },
+      hidden: { type: Sequelize.BOOLEAN, defaultValue: false },
+      email_body_template: { type: Sequelize.TEXT, allowNull: true },
+      emailTemplateId: { type: Sequelize.INTEGER, allowNull: true, references: { model: 'EmailTemplates', key: 'id' } },
+      featured_image: { type: Sequelize.STRING, allowNull: true },
+      created_by: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' } },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
@@ -192,7 +207,7 @@ module.exports = {
     await queryInterface.createTable('signature_hashes', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       hash: { type: Sequelize.STRING, allowNull: false },
-      petition_id: { type: Sequelize.INTEGER, references: { model: 'petitions', key: 'id' }, onDelete: 'CASCADE' },
+      petition_id: { type: Sequelize.UUID, references: { model: 'petitions', key: 'id' }, onDelete: 'CASCADE' },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
@@ -200,37 +215,64 @@ module.exports = {
     // email_queue
     await queryInterface.createTable('email_queue', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      petition_id: { type: Sequelize.INTEGER, references: { model: 'petitions', key: 'id' }, onDelete: 'CASCADE' },
+      petition_id: { type: Sequelize.UUID, references: { model: 'petitions', key: 'id' }, onDelete: 'CASCADE' },
       subscriberId: { type: Sequelize.INTEGER, references: { model: 'Subscribers', key: 'id' }, onDelete: 'CASCADE' },
       sent: { type: Sequelize.BOOLEAN, defaultValue: false },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // email_quota
+    // email_quota (correct structure)
     await queryInterface.createTable('email_quota', {
-      id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      date: { type: Sequelize.DATEONLY, allowNull: false },
-      count: { type: Sequelize.INTEGER, defaultValue: 0 },
-      createdAt: { type: Sequelize.DATE, allowNull: false },
-      updatedAt: { type: Sequelize.DATE, allowNull: false },
+      date: { type: Sequelize.DATEONLY, primaryKey: true },
+      sent_count: { type: Sequelize.INTEGER, defaultValue: 0 },
+      createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW },
+      updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW },
     });
 
     // Reports
     await queryInterface.createTable('Reports', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       title: { type: Sequelize.STRING, allowNull: false },
+      description: { type: Sequelize.TEXT },
       content: { type: Sequelize.TEXT },
+      fileUrl: { type: Sequelize.STRING },
+      type: { type: Sequelize.ENUM('blog','report'), defaultValue: 'blog', allowNull: false },
+      source: { type: Sequelize.STRING },
+      author: { type: Sequelize.STRING },
+      publishedAt: { type: Sequelize.DATE, defaultValue: Sequelize.NOW },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // links
-    await queryInterface.createTable('links', {
+    // Documents
+    await queryInterface.createTable('Documents', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      title: { type: Sequelize.STRING, allowNull: false },
-      url: { type: Sequelize.STRING, allowNull: false },
-      created_by: { type: Sequelize.INTEGER, references: { model: 'Users', key: 'id' }, onDelete: 'SET NULL' },
+      title: { type: Sequelize.STRING },
+      description: { type: Sequelize.TEXT },
+      fileUrl: { type: Sequelize.STRING },
+      type: { type: Sequelize.STRING },
+      campaignId: { type: Sequelize.INTEGER, references: { model: 'Campaigns', key: 'id' }, onDelete: 'SET NULL' },
+      actionId: { type: Sequelize.INTEGER, references: { model: 'Actions', key: 'id' }, onDelete: 'SET NULL' },
+      createdAt: { type: Sequelize.DATE, allowNull: false },
+      updatedAt: { type: Sequelize.DATE, allowNull: false },
+    });
+
+    // links (with ENUM and UUID id)
+    await queryInterface.sequelize.query(`
+      DO $$ BEGIN
+        CREATE TYPE "public"."enum_links_category" AS ENUM('local','nacional','europeo','internacional','literatura');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryInterface.createTable('links', {
+      id: { type: Sequelize.UUID, defaultValue: Sequelize.UUIDV4, primaryKey: true },
+      title: { type: Sequelize.STRING(200), allowNull: false },
+      url: { type: Sequelize.STRING(500), allowNull: false },
+      description: { type: Sequelize.TEXT },
+      category: { type: 'enum_links_category', allowNull: false, defaultValue: 'local' },
+      active: { type: Sequelize.BOOLEAN, defaultValue: true },
+      created_by: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' } },
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
@@ -238,6 +280,7 @@ module.exports = {
 
   down: async (queryInterface, Sequelize) => {
     await queryInterface.dropTable('links');
+    await queryInterface.dropTable('Documents');
     await queryInterface.dropTable('Reports');
     await queryInterface.dropTable('email_quota');
     await queryInterface.dropTable('email_queue');
