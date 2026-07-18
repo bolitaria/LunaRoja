@@ -58,6 +58,45 @@ describe('Auth API', () => {
         .send({ password: 'admin123' });
       expect(res.statusCode).toBe(400);
     });
+
+    test('Bloqueo de cuenta tras 5 intentos fallidos', async () => {
+      const username = `locktest_${Date.now()}`;
+      // Crear usuario
+      await request(API_URL)
+        .post('/api/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          username,
+          password: 'original123',
+          email: `${username}@test.com`,
+          role: 'action_admin',
+        });
+
+      // 5 intentos fallidos
+      for (let i = 0; i < 5; i++) {
+        await request(API_URL)
+          .post('/api/auth/login')
+          .send({ username, password: 'wrong' });
+      }
+
+      // Intento con contraseña correcta debe estar bloqueada
+      const res = await request(API_URL)
+        .post('/api/auth/login')
+        .send({ username, password: 'original123' });
+      expect(res.statusCode).toBe(403);
+      expect(res.body.message).toMatch(/bloqueada/);
+
+      // Limpiar
+      const usersRes = await request(API_URL)
+        .get('/api/users')
+        .set('Authorization', `Bearer ${adminToken}`);
+      const found = usersRes.body.find(u => u.username === username);
+      if (found) {
+        await request(API_URL)
+          .delete(`/api/users/${found.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+      }
+    });
   });
 
   // =========================
