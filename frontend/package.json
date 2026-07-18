@@ -61,6 +61,8 @@
       "test-exclude": {
         "minimatch": "^9.0.7"
       }
-    }
+    },
+    "picomatch": "4.0.4",
+    "sigstore": "4.1.1"
   }
 }

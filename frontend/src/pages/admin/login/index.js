@@ -44,6 +44,7 @@ export default function AdminLogin() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
               <input
                 type="text"
+                data-cy="username-input" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="input-field focus:ring-0 focus:border-gray-300"
