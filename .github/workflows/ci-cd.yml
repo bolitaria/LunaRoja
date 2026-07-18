@@ -160,7 +160,7 @@ jobs:
           JWT_SECRET: test_secret
           NODE_ENV: test
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD: 'admin123'                     # ← contraseña fija para E2E
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
@@ -169,7 +169,10 @@ jobs:
           node scripts/add-missing-columns.js
           sudo mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured
           node src/app.js &
-          sleep 5
+          for i in $(seq 1 30); do
+            curl -sSf http://localhost:5000/health > /dev/null && break
+            sleep 2
+          done
 
       - name: Build and start frontend
         run: |
@@ -177,7 +180,6 @@ jobs:
           npm ci
           npm run build
           nohup npm start &
-          # Esperar activamente a que el servidor responda
           for i in $(seq 1 30); do
             curl -sSf http://localhost:3000 > /dev/null && break
             sleep 2
@@ -191,7 +193,7 @@ jobs:
           wait-on: 'http://localhost:3000'
           wait-on-timeout: 60
         env:
-          CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          CYPRESS_ADMIN_PASSWORD: 'admin123'            # misma contraseña que usó el backend
 
   # =====================================================================
   # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER
@@ -261,6 +263,6 @@ jobs:
         with:
           image-ref: ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ matrix.service }}-${{ github.sha }}
           format: 'table'
-          exit-code: '0'                # Solo reporta, no falla por vulnerabilidades
+          exit-code: '0'                # Solo reporta, no falla por vulnerabilidades (hasta que estén corregidas)
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'

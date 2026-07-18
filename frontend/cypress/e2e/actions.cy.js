@@ -1,10 +1,6 @@
 describe('Actions CRUD', () => {
   before(() => {
-    cy.visit('/admin/login');
-    cy.get('[data-cy="username-input"]', { timeout: 10000 }).type('admin');
-    cy.get('input[name="password"]').type(Cypress.env('ADMIN_PASSWORD') || 'admin123');
-    cy.get('button[type="submit"]').click();
-    cy.url().should('include', '/admin/dashboard');
+    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
   });
 
   it('crea una nueva acción', () => {

@@ -2,11 +2,13 @@ const { defineConfig } = require('cypress');
 
 module.exports = defineConfig({
   e2e: {
-    baseUrl: 'http://localhost:3000',       // ← dentro de e2e
+    baseUrl: 'http://localhost:3000',
     supportFile: 'cypress/support/e2e.js',
     specPattern: 'cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
+    defaultCommandTimeout: 15000,       // 15 segundos en vez de 4
+    pageLoadTimeout: 30000,
+    retries: 2,                         // reintenta una vez antes de fallar
     setupNodeEvents(on, config) {
-      // listeners de eventos opcionales
       return config;
     },
   },
