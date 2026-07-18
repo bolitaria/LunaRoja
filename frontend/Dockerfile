@@ -34,24 +34,25 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copiar dependencias de producción y eliminar las de desarrollo
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-RUN npm prune --production
+# Copiar la salida standalone de Next.js (esto incluye server.js, node_modules y public)
+COPY --from=builder /app/.next/standalone ./
 
-# 🔒 Eliminar todo vestigio de npm global (corepack, yarn, node_modules globales)
-#    Esto erradica las vulnerabilidades que Trivy encuentra en picomatch y sigstore
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-*
-
-# Copiar archivos estáticos y la build de Next.js
+# Copiar los archivos estáticos y la carpeta public (requeridos por el servidor standalone)
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
 
 # Copiar iconos de Signal (si existen)
-COPY --from=builder /app/src/assets/icons /app/public/assets/icons
+COPY --from=builder /app/src/assets/icons ./public/assets/icons
+
+# 🔒 Eliminar todo vestigio de npm global (corepack, yarn, node_modules globales)
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-*
+
+# Ajustar permisos para el usuario nextjs
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 
-CMD ["npm", "start"]
+# El servidor standalone de Next.js se encuentra en la raíz del directorio de trabajo
+CMD ["node", "server.js"]

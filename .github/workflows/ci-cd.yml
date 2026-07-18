@@ -168,14 +168,18 @@ jobs:
           npm run migrate
           node scripts/add-missing-columns.js
 
-          # ✅ Crear todos los directorios de uploads que el backend necesita
+          # 🆕 Crear TODOS los subdirectorios que app.js intenta crear (ver SUB_DIRS en src/app.js)
           sudo mkdir -p /app/uploads/{petitions,campaigns,actions,documents,featured,images}
           sudo chown -R $(whoami) /app/uploads
           sudo chmod -R 755 /app/uploads
 
           node src/app.js &
+          # Esperar a que el backend esté realmente operativo
           for i in $(seq 1 30); do
-            curl -sSf http://localhost:5000/health > /dev/null && break
+            if curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ Backend listo"
+              break
+            fi
             sleep 2
           done
 
