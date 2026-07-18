@@ -196,21 +196,11 @@ describe('Auth API', () => {
       }
     });
 
-    test('Solicitar restablecimiento (comportamiento real del endpoint)', async () => {
+    test('Solicitar restablecimiento (usuario con email)', async () => {
       const res = await request(API_URL)
         .post('/api/auth/forgot-password')
         .send({ email: testEmail });
-
-      // Aceptamos 200 (éxito) o 400 (si el endpoint no está implementado completamente)
-      if (res.statusCode === 200) {
-        expect(res.statusCode).toBe(200);
-      } else {
-        console.warn(
-          `⚠️  forgot-password devolvió ${res.statusCode} (esperado 200). ` +
-          `El endpoint podría requerir configuración adicional. Test considerado OK.`
-        );
-        expect(true).toBe(true);
-      }
+      expect(res.statusCode).toBe(200);
     });
   });
 

@@ -38,7 +38,6 @@ exports.login = async (req, res) => {
 
     const token = user.generateJWT();
 
-    // Devolver solo el token en el JSON (sin cookies)
     res.json({
       message: 'Login exitoso',
       token,
@@ -55,45 +54,44 @@ exports.login = async (req, res) => {
   }
 };
 
-// ========================= LOGOUT =========================
 exports.logout = async (req, res) => {
-  // El frontend se encarga de eliminar el token de localStorage
   res.json({ message: 'Logout exitoso' });
 };
 
-// ========================= REFRESH TOKEN =========================
-// No se usa en este momento, pero lo dejamos preparado por si lo necesitas más adelante
 exports.refresh = async (req, res) => {
-  // Este método ya no se invoca, pero lo mantengo por compatibilidad
   res.status(501).json({ message: 'No implementado' });
 };
 
-// ========================= FORGOT PASSWORD =========================
+// ========================= FORGOT PASSWORD (CORREGIDO) =========================
 exports.forgotPassword = async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) return res.status(400).json({ message: 'Nombre de usuario requerido' });
-
-    const user = await User.findOne({ where: { username } });
-    if (!user) {
-      return res.json({ message: 'Si el usuario existe, recibirás un enlace en tu correo.' });
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'El correo electrónico es obligatorio' });
     }
 
-    const resetToken = user.generateResetToken();
-    await user.save({ fields: ['resetToken', 'resetTokenExpires'] });
+    const user = await User.findOne({ where: { email } });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/login/restablecer?token=${resetToken}`;
+    if (user) {
+      const resetToken = user.generateResetToken();
+      await user.save({ fields: ['resetToken', 'resetTokenExpires'] });
 
-    if (user.email) {
-      await sendPasswordResetEmail(user.email, resetUrl);
-    } else {
-      console.warn(`Usuario ${username} no tiene email configurado. No se pudo enviar el enlace.`);
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/login/restablecer?token=${resetToken}`;
+      
+      try {
+        await sendPasswordResetEmail(user.email, resetUrl);
+      } catch (emailError) {
+        console.error('Error al enviar el correo de restablecimiento:', emailError);
+      }
     }
 
-    res.json({ message: 'Si el usuario existe, recibirás un enlace en tu correo.' });
+    // Siempre responder 200 (no revelar si el email existe)
+    return res.status(200).json({
+      message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
+    });
   } catch (error) {
     console.error('Error en forgotPassword:', error);
-    res.status(500).json({ message: 'Error al procesar la solicitud' });
+    return res.status(500).json({ message: 'Error al procesar la solicitud' });
   }
 };
 
