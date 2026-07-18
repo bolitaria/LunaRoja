@@ -47,3 +47,4 @@ module.exports = {
     `);
   },
 };
+// force re-commit to ensure migration is applied
