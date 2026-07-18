@@ -168,8 +168,8 @@ jobs:
           npm run migrate
           node scripts/add-missing-columns.js
           sudo mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured
-          sudo chown -R $(whoami) /app/uploads       # ← añadido
-          sudo chmod -R 755 /app/uploads              # ← añadido
+          sudo chown -R $(whoami) /app/uploads
+          sudo chmod -R 755 /app/uploads
           node src/app.js &
           for i in $(seq 1 30); do
             curl -sSf http://localhost:5000/health > /dev/null && break
