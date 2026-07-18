@@ -1,7 +1,6 @@
 const { Sequelize } = require('sequelize');
 
 async function run() {
-  // Usar variables de entorno (mismas que CI define)
   const sequelize = new Sequelize({
     dialect: 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -13,7 +12,7 @@ async function run() {
   });
 
   try {
-    // 1. email_template_id en petitions
+    // 1. Añadir columna email_template_id a petitions (sin FK)
     await sequelize.query(`
       DO $$
       BEGIN
@@ -21,14 +20,13 @@ async function run() {
           SELECT 1 FROM information_schema.columns
           WHERE table_name = 'petitions' AND column_name = 'email_template_id'
         ) THEN
-          ALTER TABLE petitions ADD COLUMN email_template_id INTEGER
-            REFERENCES email_templates(id) ON DELETE SET NULL;
+          ALTER TABLE petitions ADD COLUMN email_template_id INTEGER;
         END IF;
       END
       $$;
     `);
 
-    // 2. createdAt y updatedAt en email_quota
+    // 2. Añadir timestamps a email_quota
     await sequelize.query(`
       DO $$
       BEGIN
