@@ -20,7 +20,6 @@ describe('Auth API', () => {
     adminToken = await login('admin', ADMIN_PASSWORD);
   });
 
-  // ========================= LOGIN =========================
   describe('POST /api/auth/login', () => {
     test('Login exitoso (admin)', async () => {
       const res = await request(API_URL)
@@ -61,7 +60,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= ME =========================
   describe('GET /api/users/me', () => {
     test('Usuario autenticado (admin) - con token Bearer', async () => {
       const res = await request(API_URL)
@@ -84,7 +82,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= ROLES Y PERMISOS =========================
   describe('Control de acceso por roles', () => {
     test('GET /api/users - superadmin puede listar', async () => {
       const res = await request(API_URL)
@@ -99,7 +96,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= CHANGE PASSWORD =========================
   describe('PUT /api/users/me/password', () => {
     let testUserToken;
     beforeAll(async () => {
@@ -155,7 +151,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= FORGOT/RESET PASSWORD =========================
   describe('POST /api/auth/forgot-password', () => {
     test('Solicitar restablecimiento de contraseña', async () => {
       const res = await request(API_URL)
@@ -166,7 +161,6 @@ describe('Auth API', () => {
     });
   });
 
-  // ========================= LOGOUT =========================
   describe('POST /api/auth/logout', () => {
     test('Logout exitoso con token válido', async () => {
       const res = await request(API_URL)
@@ -176,4 +170,3 @@ describe('Auth API', () => {
     });
   });
 });
-

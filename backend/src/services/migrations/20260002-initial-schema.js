@@ -222,7 +222,7 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
 
-    // email_quota (sin timestamps, el modelo no los necesita)
+    // email_quota
     await queryInterface.createTable('email_quota', {
       date: { type: Sequelize.DATEONLY, primaryKey: true },
       sent_count: { type: Sequelize.INTEGER, defaultValue: 0 },
