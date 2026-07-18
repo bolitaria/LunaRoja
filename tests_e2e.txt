@@ -1,0 +1,4 @@
+actions.cy.js
+campaigns.cy.js
+login.cy.js
+petitions.cy.js
