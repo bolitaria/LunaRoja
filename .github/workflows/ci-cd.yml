@@ -114,10 +114,10 @@ jobs:
         run: npm test
 
   # =====================================================================
-  # PRUEBAS END‑TO‑END CON CYPRESS
+  # PRUEBAS END‑TO‑END CON CYPRESS (🆕 corregido)
   # =====================================================================
   e2e-test:
-    needs: lint-and-test                   # solo se ejecuta si los tests unitarios/integración pasan
+    needs: lint-and-test
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -145,24 +145,30 @@ jobs:
         with:
           node-version: 22
 
-      # ---------- Backend ----------
       - name: Install backend dependencies
         run: cd backend && npm ci
 
-      - name: Setup database and start backend
+      - name: Setup database and start backend  # ← 🆕 ahora incluye DB_PASSWORD y demás
         env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+          JWT_SECRET: test_secret
+          NODE_ENV: test
+          SKIP_DB_SYNC: 'true'
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
           cd backend
           npm run migrate
           node scripts/add-missing-columns.js
           sudo mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured
-          NODE_ENV=test DB_HOST=localhost DB_PORT=5432 DB_USER=lunaroja DB_PASSWORD=lunaroja123 DB_NAME=lunaroja JWT_SECRET=test_secret SKIP_DB_SYNC=true ADMIN_PASSWORD=$ADMIN_PASSWORD node src/app.js &
+          node src/app.js &
           sleep 5
 
-      # ---------- Frontend ----------
       - name: Build and start frontend
         run: |
           cd frontend
@@ -180,7 +186,7 @@ jobs:
           CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
   # =====================================================================
-  # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER
+  # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER (🆕 corregido)
   # =====================================================================
   build-and-push:
     needs: lint-and-test
@@ -205,7 +211,7 @@ jobs:
         with:
           context: ./${{ matrix.service }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ matrix.service }}:${{ github.sha }}
 
   # =====================================================================
   # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
@@ -220,7 +226,7 @@ jobs:
       - name: Run Trivy on ${{ matrix.service }} image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ matrix.service }}:${{ github.sha }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
