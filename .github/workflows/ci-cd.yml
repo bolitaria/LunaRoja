@@ -73,6 +73,39 @@ jobs:
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
 
+      - name: Apply schema fixes for missing columns
+        if: matrix.service == 'backend'
+        run: |
+          PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME <<-SQL
+            DO \$\$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='petitions' AND column_name='email_template_id'
+              ) THEN
+                ALTER TABLE petitions ADD COLUMN email_template_id INTEGER
+                  REFERENCES email_templates(id) ON DELETE SET NULL;
+              END IF;
+              IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='email_quota' AND column_name='createdAt'
+              ) THEN
+                ALTER TABLE email_quota ADD COLUMN "createdAt" timestamptz NOT NULL DEFAULT now();
+              END IF;
+              IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='email_quota' AND column_name='updatedAt'
+              ) THEN
+                ALTER TABLE email_quota ADD COLUMN "updatedAt" timestamptz NOT NULL DEFAULT now();
+              END IF;
+            END \$\$;
+          SQL
+        env:
+          DB_HOST: localhost
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+
       - name: Create upload directories for backend tests
         if: matrix.service == 'backend'
         run: |
