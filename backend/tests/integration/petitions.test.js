@@ -1,7 +1,7 @@
 const request = require('supertest');
 const API_URL = process.env.API_URL || 'http://localhost:5000';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-jest.setTimeout(10000);
+jest.setTimeout(15000); // tiempo extra por los delays
 
 let adminToken, petitionId;
 
@@ -98,8 +98,11 @@ describe('Petitions API', () => {
     });
 
     test('Intentar firmar petición inexistente devuelve 404', async () => {
+      // Pequeña pausa para evitar rate limiter
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const res = await request(API_URL)
         .post('/api/petitions/99999/sign')
+        .set('Authorization', `Bearer ${adminToken}`)   // autenticado
         .send({ email: 'test@test.com', name: 'Test' });
       expect(res.statusCode).toBe(404);
     });
@@ -140,23 +143,29 @@ describe('Petitions API', () => {
     });
 
     test('Firmar petición con datos válidos', async () => {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // delay anti‑rate limit
       const res = await request(API_URL)
         .post(`/api/petitions/${signPetitionId}/sign`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ email: 'firma1@test.com', nombre: 'Juan' });
       expect(res.statusCode).toBe(201);
       expect(res.body.message).toContain('Firma registrada');
     });
 
     test('Evitar firma duplicada (mismo email)', async () => {
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const res = await request(API_URL)
         .post(`/api/petitions/${signPetitionId}/sign`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ email: 'firma1@test.com', nombre: 'Juan' });
       expect(res.statusCode).toBe(409);
     });
 
     test('Firma con campos requeridos faltantes', async () => {
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const res = await request(API_URL)
         .post(`/api/petitions/${signPetitionId}/sign`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ email: 'firma2@test.com' }); // falta 'nombre'
       expect(res.statusCode).toBe(400);
     });
