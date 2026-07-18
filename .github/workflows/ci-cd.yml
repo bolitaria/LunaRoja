@@ -114,7 +114,7 @@ jobs:
         run: npm test
 
   # =====================================================================
-  # PRUEBAS END‑TO‑END CON CYPRESS (🆕 corregido)
+  # PRUEBAS END‑TO‑END CON CYPRESS
   # =====================================================================
   e2e-test:
     needs: lint-and-test
@@ -148,7 +148,7 @@ jobs:
       - name: Install backend dependencies
         run: cd backend && npm ci
 
-      - name: Setup database and start backend  # ← 🆕 ahora incluye DB_PASSWORD y demás
+      - name: Setup database and start backend
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -186,7 +186,7 @@ jobs:
           CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
   # =====================================================================
-  # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER (🆕 corregido)
+  # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER
   # =====================================================================
   build-and-push:
     needs: lint-and-test
@@ -206,12 +206,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normalize repository name to lowercase
+        run: echo "REPO_LC=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ matrix.service }}:${{ github.sha }}
+          tags: ghcr.io/${{ env.REPO_LC }}/${{ matrix.service }}:${{ github.sha }}
 
   # =====================================================================
   # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
