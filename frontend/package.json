@@ -9,7 +9,8 @@
     "test:integration": "start-server-and-test start http://localhost:5000/health test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "jest --forceExit --detectOpenHandles 2>&1 | tee test-output.log && node -e \"var f=require('fs').readFileSync('test-output.log','utf8');var s=[],t=[];f.split('\\n').forEach(function(l){if(l.startsWith('FAIL '))s.push(l.replace('FAIL ','').trim());if(l.startsWith('  ● '))t.push(l.replace('  ● ','').trim())});console.log('\\n═══════════════════════════════════════');console.log('         RESUMEN DE PRUEBAS            ');console.log('═══════════════════════════════════════');if(s.length===0)console.log('✅ Todas las suites pasaron correctamente.');else{console.log('❌ '+s.length+' suite(s) fallida(s):');s.forEach(function(x){console.log('   - '+x)})}if(t.length>0){console.log('\\n❌ '+t.length+' test(s) individual(es) fallido(s):');t.forEach(function(x){console.log('   - '+x)})}console.log('═══════════════════════════════════════\\n')\""
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:coverage": "jest --coverage --forceExit --detectOpenHandles"
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -54,6 +55,14 @@
   },
   "overrides": {
     "uuid": "^11.1.1",
-    "minimatch": "^9.0.7"
+    "minimatch": "^9.0.7",
+    "test-exclude": {
+      "minimatch": "^9.0.7"
+    },
+    "babel-plugin-istanbul": {
+      "test-exclude": {
+        "minimatch": "^9.0.7"
+      }
+    }
   }
 }
