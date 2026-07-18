@@ -226,7 +226,7 @@ jobs:
   # =====================================================================
   # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
   # =====================================================================
-    scan-images:
+  scan-images:
     needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
