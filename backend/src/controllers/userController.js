@@ -80,7 +80,7 @@ exports.createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const currentUser = req.user;
-    const { username, password, role, campaignIds, actionIds } = req.body;
+    const { username, password, email, role, campaignIds, actionIds } = req.body;
 
     if (!username || !password || !role) {
       await t.rollback();
@@ -119,7 +119,17 @@ exports.createUser = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para crear usuarios' });
     }
 
-    const user = await User.create({ username, password, role }, { transaction: t });
+    const userData = {
+      username,
+      password,
+      role
+    };
+    // Agregar email solo si fue enviado (ahora es obligatorio en la BD)
+    if (email !== undefined) {
+      userData.email = email;
+    }
+
+    const user = await User.create(userData, { transaction: t });
 
     if (role === 'campaign_admin' && parsedCampaignIds.length > 0) {
       const campaigns = await Campaign.findAll({ where: { id: parsedCampaignIds }, transaction: t });
@@ -181,7 +191,7 @@ exports.updateUser = async (req, res) => {
       await t.rollback();
       return res.status(400).json({ message: 'ID inválido' });
     }
-    const { username, password, role, campaignIds, actionIds } = req.body;
+    const { username, password, email, role, campaignIds, actionIds } = req.body;
 
     const userToUpdate = await User.findByPk(userId, { transaction: t });
     if (!userToUpdate) {
@@ -233,6 +243,7 @@ exports.updateUser = async (req, res) => {
 
     if (username) userToUpdate.username = username;
     if (password) userToUpdate.password = password;
+    if (email !== undefined) userToUpdate.email = email;
     if (role) userToUpdate.role = role;
     await userToUpdate.save({ transaction: t });
 
@@ -328,12 +339,10 @@ exports.changeMyPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    // Validar que ambos campos estén presentes
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Debes proporcionar la contraseña actual y la nueva' });
     }
 
-    // Validar longitud mínima de la nueva contraseña
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
     }
@@ -349,12 +358,10 @@ exports.changeMyPassword = async (req, res) => {
       return res.status(400).json({ message: 'La contraseña actual no es correcta' });
     }
 
-    // Evitar que la nueva sea igual a la actual (opcional pero recomendado)
     if (currentPassword === newPassword) {
       return res.status(400).json({ message: 'La nueva contraseña debe ser diferente a la actual' });
     }
 
-    // Asignar la nueva contraseña (el hook beforeUpdate la hasheará)
     user.password = newPassword;
     await user.save();
 
