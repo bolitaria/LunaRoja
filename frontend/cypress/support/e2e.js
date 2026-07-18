@@ -1,3 +1,4 @@
+import 'cypress-file-upload';
 Cypress.Commands.add('loginAs', (username, password) => {
   cy.visit('/admin/login');
   cy.get('[data-cy="username-input"]', { timeout: 15000 }).type(username);
@@ -5,4 +6,4 @@ Cypress.Commands.add('loginAs', (username, password) => {
   cy.get('button[type="submit"]').click();
   cy.url({ timeout: 20000 }).should('not.include', '/admin/login');
   cy.location('pathname', { timeout: 20000 }).should('eq', '/admin/dashboard');
-});
+});import 'cypress-file-upload';

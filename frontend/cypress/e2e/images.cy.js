@@ -5,12 +5,11 @@ describe('Imágenes', () => {
 
   it('sube una imagen', () => {
     cy.visit('/admin/images');
-    cy.contains('Subir imagen').click(); // ajusta si hay un botón "Nueva imagen"
-    cy.get('input[type="file"]').attachFile('test-image.jpg');
+    cy.contains('Subir imagen').click(); // o el botón correspondiente
+    cy.get('input[type="file"]').attachFile('test-image.jpg'); // archivo en fixtures
     cy.get('button[type="submit"]').click();
     cy.contains('Imagen subida').should('exist');
   });
-});
 
   it('muestra la lista de imágenes', () => {
     cy.visit('/admin/images');
@@ -21,6 +20,7 @@ describe('Imágenes', () => {
   it('elimina una imagen', () => {
     cy.visit('/admin/images');
     cy.get('button[aria-label="Eliminar"]').first().click();
-    cy.get('button[type="submit"]').click();
+    cy.get('button[type="submit"]').click(); // confirmación
     cy.contains('eliminada').should('exist');
   });
+});
