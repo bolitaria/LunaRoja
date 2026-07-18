@@ -206,15 +206,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize repository name to lowercase
-        run: echo "REPO_LC=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Normalize owner to lowercase
+        run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
           push: true
-          tags: ghcr.io/${{ env.REPO_LC }}/${{ matrix.service }}:${{ github.sha }}
+          tags: ghcr.io/${{ env.OWNER_LC }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
 
   # =====================================================================
   # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
@@ -226,10 +226,13 @@ jobs:
       matrix:
         service: [backend, frontend]
     steps:
+      - name: Normalize owner to lowercase
+        run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Run Trivy on ${{ matrix.service }} image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ matrix.service }}:${{ github.sha }}
+          image-ref: ghcr.io/${{ env.OWNER_LC }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
