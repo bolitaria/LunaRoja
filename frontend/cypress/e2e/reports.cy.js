@@ -14,7 +14,7 @@ describe('Reportes', () => {
 
   it('edita un reporte', () => {
     cy.visit('/admin/reports');
-    cy.get('a[href*="/admin/reports/"][href*="/edit"]').first().click();
+    cy.get('a').contains('Editar').click();
     cy.get('input[name="title"]').clear().type('Reporte E2E Editado');
     cy.get('button[type="submit"]').click();
     cy.contains('actualizado').should('exist');
@@ -22,7 +22,7 @@ describe('Reportes', () => {
 
   it('elimina un reporte', () => {
     cy.visit('/admin/reports');
-    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button').contains('Eliminar').click();
     cy.get('button[type="submit"]').click();
     cy.contains('eliminado').should('exist');
   });

@@ -14,7 +14,7 @@ describe('Usuarios', () => {
 
   it('edita el rol de un usuario', () => {
     cy.visit('/admin/users');
-    cy.get('a[href*="/admin/users/"][href*="/edit"]').first().click();
+    cy.get('a').contains('Editar').click();
     cy.get('select[name="role"]').select('blog_admin');
     cy.get('button[type="submit"]').click();
     cy.contains('actualizado').should('exist');
@@ -22,7 +22,7 @@ describe('Usuarios', () => {
 
   it('elimina un usuario', () => {
     cy.visit('/admin/users');
-    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button').contains('Eliminar').click();
     cy.get('button[type="submit"]').click(); // confirmación
     cy.contains('eliminado').should('exist');
   });

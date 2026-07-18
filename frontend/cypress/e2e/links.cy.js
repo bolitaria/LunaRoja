@@ -11,7 +11,7 @@ describe('Enlaces', () => {
     cy.contains('Enlace creado').should('exist');
 
     cy.visit('/admin/links');
-    cy.get('a[href*="/admin/links/"][href*="/edit"]').first().click();
+    cy.get('a').contains('Editar').click();
     cy.get('input[name="title"]').clear().type('Enlace E2E Editado');
     cy.get('button[type="submit"]').click();
     cy.contains('actualizado').should('exist');
@@ -20,7 +20,7 @@ describe('Enlaces', () => {
 
   it('elimina un enlace', () => {
     cy.visit('/admin/links');
-    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button').contains('Eliminar').click();
     cy.get('button[type="submit"]').click();
     cy.contains('eliminado').should('exist');
   });

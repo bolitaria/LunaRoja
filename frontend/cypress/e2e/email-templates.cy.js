@@ -12,7 +12,7 @@ describe('Plantillas de email', () => {
     cy.contains('Plantilla creada').should('exist');
 
     cy.visit('/admin/email-templates');
-    cy.get('a[href*="/admin/email-templates/"][href*="/edit"]').first().click();
+    cy.get('a').contains('Editar').click();
     cy.get('input[name="name"]').clear().type('Plantilla E2E Editada');
     cy.get('button[type="submit"]').click();
     cy.contains('actualizada').should('exist');
@@ -21,7 +21,7 @@ describe('Plantillas de email', () => {
 
   it('elimina una plantilla', () => {
     cy.visit('/admin/email-templates');
-    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button').contains('Eliminar').click();
     cy.get('button[type="submit"]').click();
     cy.contains('eliminada').should('exist');
   });
