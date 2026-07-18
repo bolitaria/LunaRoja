@@ -47,7 +47,7 @@ COPY --from=builder /app/src/assets/icons ./public/assets/icons
 # 🔒 Eliminar todo vestigio de npm global (corepack, yarn, node_modules globales)
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-*
 
-# Ajustar permisos para el usuario nextjs
+# Ajustar permisos para que nextjs pueda leer todo
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs

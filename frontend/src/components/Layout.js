@@ -59,8 +59,6 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
         <title>{title}</title>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="icon" href="/logo.svg" type="image/svg+xml" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
         <link
           rel="stylesheet"
