@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [develop]
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   # =====================================================================
   # PRUEBAS UNITARIAS E INTEGRACIÓN (backend + frontend)
@@ -49,6 +45,8 @@ jobs:
         working-directory: ${{ matrix.service }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}      # ← forzar token
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
@@ -123,8 +121,6 @@ jobs:
   e2e-test:
     needs: lint-and-test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     services:
       postgres:
         image: postgres:14
@@ -148,7 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}      # ← forzar token
 
       - uses: actions/setup-node@v4
         with:
@@ -201,13 +197,16 @@ jobs:
     needs: lint-and-test
     runs-on: ubuntu-latest
     permissions:
-      packages: write
+      packages: write                              # ← solo este permiso extra
     if: github.event_name == 'push'
     strategy:
       matrix:
         service: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}      # ← forzar token
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to GitHub Container Registry
