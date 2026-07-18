@@ -14,7 +14,7 @@ describe('Peticiones (admin)', () => {
 
   it('edita una petición', () => {
     cy.visit('/admin/petitions');
-    cy.get('a').contains('Editar').click();
+    cy.get('a[href*="/edit"]').first().click();
     cy.get('input[name="title"]').clear().type('Petición E2E Editada');
     cy.get('button[type="submit"]').click();
     cy.contains('actualizada').should('exist');
@@ -22,7 +22,7 @@ describe('Peticiones (admin)', () => {
 
   it('elimina una petición', () => {
     cy.visit('/admin/petitions');
-    cy.get('button').contains('Eliminar').click();
+    cy.get('button[type="submit"]').contains(/eliminar/i).click();
     cy.get('button[type="submit"]').click(); // confirmación
     cy.contains('eliminada').should('exist');
   });

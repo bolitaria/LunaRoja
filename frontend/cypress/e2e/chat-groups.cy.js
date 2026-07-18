@@ -14,7 +14,7 @@ describe('Grupos de chat', () => {
 
   it('edita un grupo de chat', () => {
     cy.visit('/admin/chatGroups');
-    cy.get('a').contains('Editar').click();
+    cy.get('a[href*="/edit"]').first().click();
     cy.get('input[name="name"]').clear().type('Grupo Editado E2E');
     cy.get('button[type="submit"]').click();
     cy.contains('actualizado').should('exist');
@@ -22,7 +22,7 @@ describe('Grupos de chat', () => {
 
   it('elimina un grupo de chat', () => {
     cy.visit('/admin/chatGroups');
-    cy.get('button').contains('Eliminar').click();
+    cy.get('button[type="submit"]').contains(/eliminar/i).click();
     cy.get('button[type="submit"]').click();
     cy.contains('eliminado').should('exist');
   });

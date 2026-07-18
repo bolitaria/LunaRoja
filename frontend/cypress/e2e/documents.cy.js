@@ -20,7 +20,7 @@ describe('Documentos', () => {
 
   it('elimina un documento', () => {
     cy.visit('/admin/documents');
-    cy.get('button').contains('Eliminar').click();
+    cy.get('button[type="submit"]').contains(/eliminar/i).click();
     cy.get('button[type="submit"]').click(); // confirmación
     cy.contains('eliminado').should('exist');
   });

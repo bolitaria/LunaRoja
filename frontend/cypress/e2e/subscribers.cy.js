@@ -13,7 +13,7 @@ describe('Suscriptores', () => {
 
   it('elimina un suscriptor', () => {
     cy.visit('/admin/subscribers');
-    cy.get('button').contains('Eliminar').click();
+    cy.get('button[type="submit"]').contains(/eliminar/i).click();
     cy.get('button[type="submit"]').click();
     cy.contains('eliminado').should('exist');
   });

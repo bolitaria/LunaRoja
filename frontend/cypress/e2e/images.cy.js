@@ -19,7 +19,7 @@ describe('Imágenes', () => {
 
   it('elimina una imagen', () => {
     cy.visit('/admin/images');
-    cy.get('button').contains('Eliminar').click();
+    cy.get('button[type="submit"]').contains(/eliminar/i).click();
     cy.get('button[type="submit"]').click(); // confirmación
     cy.contains('eliminada').should('exist');
   });
