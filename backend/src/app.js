@@ -108,6 +108,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.',
+  skip: (req) => process.env.NODE_ENV === 'test', // ← desactiva en pruebas
 });
 app.use('/api', apiLimiter);
 
