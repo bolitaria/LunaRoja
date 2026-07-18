@@ -17,3 +17,10 @@ describe('Enlaces', () => {
     cy.contains('actualizado').should('exist');
   });
 });
+
+  it('elimina un enlace', () => {
+    cy.visit('/admin/links');
+    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button[type="submit"]').click();
+    cy.contains('eliminado').should('exist');
+  });

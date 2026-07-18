@@ -17,3 +17,10 @@ describe('Noticias', () => {
     cy.contains('actualizada').should('exist');
   });
 });
+
+  it('elimina una noticia', () => {
+    cy.visit('/admin/news');
+    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button[type="submit"]').click();
+    cy.contains('eliminada').should('exist');
+  });

@@ -18,3 +18,10 @@ describe('Plantillas de email', () => {
     cy.contains('actualizada').should('exist');
   });
 });
+
+  it('elimina una plantilla', () => {
+    cy.visit('/admin/email-templates');
+    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button[type="submit"]').click();
+    cy.contains('eliminada').should('exist');
+  });

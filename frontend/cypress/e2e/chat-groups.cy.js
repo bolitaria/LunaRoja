@@ -11,3 +11,18 @@ describe('Grupos de chat', () => {
     cy.contains('Grupo creado').should('exist');
   });
 });
+
+  it('edita un grupo de chat', () => {
+    cy.visit('/admin/chatGroups');
+    cy.get('a[href*="/admin/chatGroups/"][href*="/edit"]').first().click();
+    cy.get('input[name="name"]').clear().type('Grupo Editado E2E');
+    cy.get('button[type="submit"]').click();
+    cy.contains('actualizado').should('exist');
+  });
+
+  it('elimina un grupo de chat', () => {
+    cy.visit('/admin/chatGroups');
+    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button[type="submit"]').click();
+    cy.contains('eliminado').should('exist');
+  });

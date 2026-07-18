@@ -10,3 +10,10 @@ describe('Suscriptores', () => {
     cy.get('table').should('exist');
   });
 });
+
+  it('elimina un suscriptor', () => {
+    cy.visit('/admin/subscribers');
+    cy.get('button[aria-label="Eliminar"]').first().click();
+    cy.get('button[type="submit"]').click();
+    cy.contains('eliminado').should('exist');
+  });
