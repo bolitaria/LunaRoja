@@ -5,9 +5,9 @@ module.exports = defineConfig({
     baseUrl: 'http://localhost:3000',
     supportFile: 'cypress/support/e2e.js',
     specPattern: 'cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
-    defaultCommandTimeout: 15000,       // 15 segundos en vez de 4
+    defaultCommandTimeout: 15000,
     pageLoadTimeout: 30000,
-    retries: 2,                         // reintenta una vez antes de fallar
+    retries: 2,
     setupNodeEvents(on, config) {
       return config;
     },

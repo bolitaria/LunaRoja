@@ -39,6 +39,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 RUN npm prune --production
 
+# 🔒 Eliminar todo vestigio de npm global (corepack, yarn, node_modules globales)
+#    Esto erradica las vulnerabilidades que Trivy encuentra en picomatch y sigstore
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-*
+
 # Copiar archivos estáticos y la build de Next.js
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
