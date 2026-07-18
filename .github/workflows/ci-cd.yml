@@ -194,8 +194,8 @@ jobs:
     needs: lint-and-test
     runs-on: ubuntu-latest
     permissions:
-      contents: read        # requerido para actions/checkout
-      packages: write       # requerido para publicar en GHCR
+      contents: read
+      packages: write
     if: github.event_name == 'push'
     strategy:
       matrix:
@@ -211,15 +211,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize owner to lowercase
-        run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Normalize repository owner and name to lowercase
+        run: |
+          echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "REPO_LC=$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
           push: true
-          tags: ghcr.io/${{ env.OWNER_LC }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
+          tags: ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ matrix.service }}-${{ github.sha }}
 
   # =====================================================================
   # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
@@ -227,17 +229,21 @@ jobs:
   scan-images:
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       matrix:
         service: [backend, frontend]
     steps:
-      - name: Normalize owner to lowercase
-        run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Normalize owner and repo to lowercase
+        run: |
+          echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "REPO_LC=$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Run Trivy on ${{ matrix.service }} image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ env.OWNER_LC }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
+          image-ref: ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ matrix.service }}-${{ github.sha }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
