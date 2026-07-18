@@ -1,10 +1,13 @@
-'use strict';
+// Script para añadir columnas faltantes en CI (email_template_id, createdAt/updatedAt)
+const { Sequelize } = require('sequelize');
+const config = require('../config/database'); // Ajusta si tu config se exporta de otra forma
 
-/** @type {import('sequelize-cli').Migration} */
-module.exports = {
-  async up(queryInterface, Sequelize) {
+async function run() {
+  const sequelize = new Sequelize(config);
+
+  try {
     // Añadir email_template_id a petitions si no existe
-    await queryInterface.sequelize.query(`
+    await sequelize.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (
@@ -19,7 +22,7 @@ module.exports = {
     `);
 
     // Añadir createdAt y updatedAt a email_quota si no existen
-    await queryInterface.sequelize.query(`
+    await sequelize.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (
@@ -37,15 +40,15 @@ module.exports = {
       END
       $$;
     `);
-  },
 
-  async down(queryInterface, Sequelize) {
-    await queryInterface.sequelize.query(`
-      ALTER TABLE petitions DROP COLUMN IF EXISTS email_template_id;
-      ALTER TABLE email_quota DROP COLUMN IF EXISTS "createdAt";
-      ALTER TABLE email_quota DROP COLUMN IF EXISTS "updatedAt";
-    `);
-  },
-};
-// force re-commit to ensure migration is applied
-// force commit
+    console.log('✅ Columnas faltantes agregadas correctamente.');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error al agregar columnas:', error);
+    process.exit(1);
+  } finally {
+    await sequelize.close();
+  }
+}
+
+run();
