@@ -94,7 +94,7 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
                 />
               </div>
               {/* TÍTULO CON EL NUEVO COLOR #E30613 (rojo BDS) */}
-              <span className="text-4xl text-[#E30613] hidden sm:inline leading-tight font-title">
+              <span className="text-5xl text-[#E30613] hidden sm:inline leading-tight font-title">
                 Voces Palestinas por la Justicia
               </span>
             </Link>

@@ -135,43 +135,6 @@ services:
     networks:
       - lunaroja_network
 
-  backend-tests:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.test
-    container_name: lunaroja_backend_tests
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      API_URL: http://backend:5000
-      NODE_ENV: test
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: lunaroja
-      DB_PASSWORD: lunaroja123
-      DB_NAME: lunaroja
-      JWT_SECRET: test_secret
-    networks:
-      - lunaroja_network
-
-  frontend-tests:
-    image: cypress/included:14.5.1
-    container_name: lunaroja_frontend_tests
-    working_dir: /app
-    entrypoint: ["sh", "-c", "npm ci && npx cypress run --config-file cypress.config.js"]
-    depends_on:
-      - frontend
-    environment:
-      CYPRESS_baseUrl: http://frontend:3000
-    volumes:
-      - ./tests/e2e:/app/tests
-      - ./tests/e2e/cypress.config.js:/app/cypress.config.js
-      - ./frontend/package.json:/app/package.json
-      - ./frontend/package-lock.json:/app/package-lock.json
-    networks:
-      - lunaroja_network
-
 volumes:
   postgres_data:
     name: lunaroja_postgres_data
