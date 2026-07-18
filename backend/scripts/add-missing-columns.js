@@ -1,12 +1,19 @@
-// Script para añadir columnas faltantes en CI (email_template_id, createdAt/updatedAt)
 const { Sequelize } = require('sequelize');
-const config = require('../config/database'); // Ajusta si tu config se exporta de otra forma
 
 async function run() {
-  const sequelize = new Sequelize(config);
+  // Usar variables de entorno (mismas que CI define)
+  const sequelize = new Sequelize({
+    dialect: 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 5432,
+    username: process.env.DB_USER || 'lunaroja',
+    password: process.env.DB_PASSWORD || 'lunaroja123',
+    database: process.env.DB_NAME || 'lunaroja',
+    logging: false,
+  });
 
   try {
-    // Añadir email_template_id a petitions si no existe
+    // 1. email_template_id en petitions
     await sequelize.query(`
       DO $$
       BEGIN
@@ -21,7 +28,7 @@ async function run() {
       $$;
     `);
 
-    // Añadir createdAt y updatedAt a email_quota si no existen
+    // 2. createdAt y updatedAt en email_quota
     await sequelize.query(`
       DO $$
       BEGIN
@@ -41,10 +48,9 @@ async function run() {
       $$;
     `);
 
-    console.log('✅ Columnas faltantes agregadas correctamente.');
-    process.exit(0);
+    console.log('✅ Columnas agregadas correctamente.');
   } catch (error) {
-    console.error('❌ Error al agregar columnas:', error);
+    console.error('❌ Error al agregar columnas:', error.message);
     process.exit(1);
   } finally {
     await sequelize.close();
