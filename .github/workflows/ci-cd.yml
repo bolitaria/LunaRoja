@@ -191,6 +191,8 @@ jobs:
   build-and-push:
     needs: lint-and-test
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     if: github.event_name == 'push'
     strategy:
       matrix:
