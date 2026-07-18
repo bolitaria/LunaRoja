@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from 'next/dynamic';
-import 'react-quill/dist/quill.snow.css';
+import 'react-quill-new/dist/quill.snow.css';
 import {
   FaPlus, FaSave, FaEye, FaTimes, FaEnvelope, FaPencilAlt, FaImage, FaLock,
   FaPalette, FaExternalLinkAlt
@@ -13,7 +13,7 @@ import {
 import Handlebars from 'handlebars';
 import Link from 'next/link';
 
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
 const quillModules = {
   toolbar: [
