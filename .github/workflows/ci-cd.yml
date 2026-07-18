@@ -7,6 +7,9 @@ on:
     branches: [develop]
 
 jobs:
+  # =====================================================================
+  # PRUEBAS UNITARIAS E INTEGRACIÓN (backend + frontend)
+  # =====================================================================
   lint-and-test:
     runs-on: ubuntu-latest
     services:
@@ -110,6 +113,75 @@ jobs:
         if: matrix.service == 'frontend'
         run: npm test
 
+  # =====================================================================
+  # PRUEBAS END‑TO‑END CON CYPRESS
+  # =====================================================================
+  e2e-test:
+    needs: lint-and-test                   # solo se ejecuta si los tests unitarios/integración pasan
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lunaroja
+          POSTGRES_PASSWORD: lunaroja123
+          POSTGRES_DB: lunaroja
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ---------- Backend ----------
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Setup database and start backend
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          cd backend
+          npm run migrate
+          node scripts/add-missing-columns.js
+          sudo mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured
+          NODE_ENV=test DB_HOST=localhost DB_PORT=5432 DB_USER=lunaroja DB_PASSWORD=lunaroja123 DB_NAME=lunaroja JWT_SECRET=test_secret SKIP_DB_SYNC=true ADMIN_PASSWORD=$ADMIN_PASSWORD node src/app.js &
+          sleep 5
+
+      # ---------- Frontend ----------
+      - name: Build and start frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          npm start &
+          sleep 10
+
+      - name: Run Cypress E2E tests
+        uses: cypress-io/github-action@v5
+        with:
+          working-directory: frontend
+          config: baseUrl=http://localhost:3000
+        env:
+          CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+
+  # =====================================================================
+  # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER
+  # =====================================================================
   build-and-push:
     needs: lint-and-test
     runs-on: ubuntu-latest
@@ -135,6 +207,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/lunaroja-${{ matrix.service }}:${{ github.sha }}
 
+  # =====================================================================
+  # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
+  # =====================================================================
   scan-images:
     needs: build-and-push
     runs-on: ubuntu-latest
