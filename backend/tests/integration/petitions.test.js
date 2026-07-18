@@ -1,7 +1,7 @@
 const request = require('supertest');
 const API_URL = process.env.API_URL || 'http://localhost:5000';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-jest.setTimeout(15000); // tiempo extra por los delays
+jest.setTimeout(15000);
 
 let adminToken, petitionId;
 
@@ -21,7 +21,6 @@ afterAll(async () => {
 });
 
 describe('Petitions API', () => {
-  // ========== Crear petición básica ==========
   test('Crear petición', async () => {
     const res = await request(API_URL)
       .post('/api/petitions')
@@ -53,7 +52,6 @@ describe('Petitions API', () => {
     expect(res.statusCode).toBe(200);
   });
 
-  // ========== Edge cases ==========
   describe('Edge cases en peticiones', () => {
     test('Crear petición sin título debe fallar', async () => {
       const res = await request(API_URL)
@@ -98,17 +96,15 @@ describe('Petitions API', () => {
     });
 
     test('Intentar firmar petición inexistente devuelve 404', async () => {
-      // Pequeña pausa para evitar rate limiter
       await new Promise(resolve => setTimeout(resolve, 1000));
       const res = await request(API_URL)
         .post('/api/petitions/99999/sign')
-        .set('Authorization', `Bearer ${adminToken}`)   // autenticado
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ email: 'test@test.com', name: 'Test' });
       expect(res.statusCode).toBe(404);
     });
   });
 
-  // ========== Firmas ==========
   describe('Firmas de peticiones', () => {
     let signPetitionId;
 
@@ -143,7 +139,7 @@ describe('Petitions API', () => {
     });
 
     test('Firmar petición con datos válidos', async () => {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // delay anti‑rate limit
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const res = await request(API_URL)
         .post(`/api/petitions/${signPetitionId}/sign`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -166,7 +162,7 @@ describe('Petitions API', () => {
       const res = await request(API_URL)
         .post(`/api/petitions/${signPetitionId}/sign`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ email: 'firma2@test.com' }); // falta 'nombre'
+        .send({ email: 'firma2@test.com' });
       expect(res.statusCode).toBe(400);
     });
   });
