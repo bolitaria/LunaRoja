@@ -37,7 +37,7 @@ export default function Subscribe() {
             </h1>
             <div className="h-1 w-full max-w-xs mx-auto bg-green-600 mt-3"></div>
             <p className="text-lg text-gray-600 mt-4 max-w-xl mx-auto">
-              Recibe nuestras novedades, acciones y campañas directamente en tu correo.
+              Recibe nuestras novedades, acciones y campañas directamente en tu correo
             </p>
           </div>
 

@@ -167,7 +167,7 @@ export default function Galeria() {
       <Head><title>Galería Multimedia - Voces Palestinas por la Justicia</title></Head>
       <div className="container mx-auto px-4 py-8 pb-16">
         <h1 className="text-4xl font-bold mb-4 text-center text-gray-700">Galería Multimedia</h1>
-        <p className="text-center text-gray-500 mb-10 max-w-xl mx-auto">Explora las galerias de imágenes de las campañas y de las acciones que hemos llevado a cabo</p>
+        <p className="text-center text-gray-500 mb-10 max-w-xl mx-auto">Explora las imágenes de las campañas y acciones que hemos llevado a cabo</p>
 
         {/* Filtros de categoría */}
         <div className="flex justify-center mb-6">

@@ -94,30 +94,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Galería */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Galería</h2>
-          {loading ? (
-            <p className="text-center text-gray-600">Cargando galería...</p>
-          ) : gallery.length === 0 ? (
-            <p className="text-center text-gray-600">{errors.gallery || 'No hay imágenes disponibles.'}</p>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {gallery.map((item) => (
-                <GalleryCard key={item.id} item={item} />
-              ))}
-            </div>
-          )}
-          <div className="text-center mt-8">
-            <Link href="/galeria" className="text-red-700 font-semibold hover:underline">
-              Ver toda la galería →
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Últimas Acciones */}
+      {/* Últimas Acciones – SIN patrón */}
       <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Últimas Acciones</h2>
@@ -140,7 +117,41 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Últimas Noticias */}
+      {/* Galería – CON patrón original (solo SVG, sin color extra) */}
+      <section className="py-16 bg-white border-t border-gray-200 relative">
+        {/* Fondo con patrón SVG original, muy sutil */}
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage: 'url("/palestinePattern.svg")',
+            backgroundRepeat: 'repeat',
+            backgroundSize: 'auto',
+            backgroundPosition: 'center',
+            opacity: 0.025, 
+          }}
+        />
+        <div className="container mx-auto px-4 relative z-10">
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Galería</h2>
+          {loading ? (
+            <p className="text-center text-gray-600">Cargando galería...</p>
+          ) : gallery.length === 0 ? (
+            <p className="text-center text-gray-600">{errors.gallery || 'No hay imágenes disponibles.'}</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {gallery.map((item) => (
+                <GalleryCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+          <div className="text-center mt-8">
+            <Link href="/galeria" className="text-red-700 font-semibold hover:underline">
+              Ver toda la galería →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Últimas Noticias – SIN patrón, vuelta a la normalidad */}
       <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Últimas Noticias</h2>

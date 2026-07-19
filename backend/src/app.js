@@ -34,6 +34,7 @@ const petitionsRoutes = require('./routes/petitionsRoutes');
 const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
 const linksRoutes = require('./routes/linksRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const colectivosAfinesRoutes = require('./routes/colectivosAfinesRoutes');
 
 dotenv.config();
 
@@ -42,7 +43,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // ---------- Directorios de subida ----------
 const UPLOADS_BASE = '/app/uploads';
-const SUB_DIRS = ['featured', 'images', 'documents', 'petitions'];
+const SUB_DIRS = ['featured', 'images', 'documents', 'petitions', 'colectivos'];
 
 if (!fs.existsSync(UPLOADS_BASE)) {
   fs.mkdirSync(UPLOADS_BASE, { recursive: true });
@@ -108,7 +109,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.',
-  skip: (req) => process.env.NODE_ENV === 'test', // ← desactiva en pruebas
+  skip: (req) => process.env.NODE_ENV === 'test',
 });
 app.use('/api', apiLimiter);
 
@@ -145,6 +146,7 @@ app.use('/api/bds', bdsRoutes);
 app.use('/api/petitions', petitionsRoutes);
 app.use('/api/email-templates', emailTemplateRoutes);
 app.use('/api/links', linksRoutes);
+app.use('/api/colectivosAfines', colectivosAfinesRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' });
@@ -182,16 +184,13 @@ const ensureColumnsExist = async () => {
 
 const ensureAdmin = async () => {
   try {
-    // Contraseña desde variable de entorno; fallback solo para desarrollo local
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-
     let admin = await db.User.findOne({ where: { username: 'admin' } });
 
     if (!admin) {
-      // El hook beforeCreate del modelo se encarga de hashear
       await db.User.create({
         username: 'admin',
-        password: adminPassword,          // Texto plano, seguro gracias al hook
+        password: adminPassword,
         email: 'admin@example.com',
         role: 'superadmin',
       });
@@ -199,8 +198,7 @@ const ensureAdmin = async () => {
     } else {
       const match = await bcrypt.compare(adminPassword, admin.password);
       if (!match) {
-        // Actualizamos contraseña; el hook beforeUpdate la hasheará
-        admin.password = adminPassword;   // Texto plano
+        admin.password = adminPassword;
         await admin.save();
         console.log('🔑 Contraseña de admin actualizada');
       } else {
@@ -297,6 +295,17 @@ const runInitialMigrations = async () => {
   }
 };
 
+// 👇 NUEVA FUNCIÓN para sincronizar la tabla de Colectivos Afines
+const ensureColectivosAfinesTable = async () => {
+  try {
+    const ColectivoAfines = require('./models/ColectivosAfines');
+    await ColectivoAfines.sync({ alter: true });
+    console.log('✅ Tabla colectivos_afines sincronizada');
+  } catch (err) {
+    console.error('❌ Error al sincronizar tabla colectivos_afines:', err);
+  }
+};
+
 const startServer = async () => {
   try {
     await initEmailService();
@@ -304,18 +313,17 @@ const startServer = async () => {
     await initSessionCache().catch(err => console.warn('Session cache unavailable:', err.message));
     await runInitialMigrations();
 
-    // Sincronización condicional (solo en desarrollo, no en CI)
     if (process.env.SKIP_DB_SYNC !== 'true') {
-      const syncOptions = isProduction ? { alter: true } : { alter: true };
+      const syncOptions = { alter: true };
       await db.sequelize.sync(syncOptions);
       console.log('✅ Database synchronized');
     } else {
       console.log('⏩ Sincronización de BD omitida (SKIP_DB_SYNC=true)');
     }
 
-    // Estas funciones siempre se ejecutan, pero manejan errores internamente
     await ensureColumnsExist();
     await ensureAdmin();
+    await ensureColectivosAfinesTable();   // <-- sincroniza la nueva tabla
     await ensureDefaultPetitionTemplate();
 
     require('./jobs/reminderJob');

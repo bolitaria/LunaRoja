@@ -27,13 +27,12 @@ const isValidId = (val) => {
  */
 const safeFilePath = (filePath, baseDir) => {
   if (!filePath) return null;
-  const resolved = path.resolve(baseDir, path.basename(filePath));
-  const normalized = path.normalize(resolved);
-  const baseNormalized = path.normalize(baseDir);
-  if (!normalized.startsWith(baseNormalized)) {
+  const absoluteBase = path.resolve(baseDir);          // garantiza ruta absoluta
+  const resolved = path.resolve(absoluteBase, path.basename(filePath));
+  if (!resolved.startsWith(absoluteBase + path.sep)) { // verifica que no escape
     return null;
   }
-  return normalized;
+  return resolved;
 };
 
 /**

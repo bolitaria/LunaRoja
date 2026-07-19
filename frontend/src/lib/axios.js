@@ -1,18 +1,25 @@
 import axios from 'axios';
 
+// Usamos ruta relativa para que Next.js reescriba las peticiones al backend
+// (requiere tener configurados los rewrites en next.config.js)
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+  baseURL: '/api',
+  withCredentials: true,      // si usas cookies para refresh tokens
   headers: { 'Content-Type': 'application/json' },
 });
 
+// ── Interceptor de petición ──
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
       try {
-        const token = localStorage.getItem('token');
+        // Ajusta 'auth_token' según cómo guardes el token al hacer login
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // CSRF para firmas de peticiones (se mantiene igual)
         if (
           (config.method === 'post' || config.method === 'put') &&
           config.url?.includes('/petitions/') &&
@@ -24,7 +31,7 @@ api.interceptors.request.use(
           }
         }
       } catch (err) {
-        console.warn('Error al leer tokens de almacenamiento local:', err);
+        console.warn('Error al leer tokens de almacenamiento:', err);
       }
     }
     return config;
@@ -32,6 +39,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// ── Interceptor de respuesta ──
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -42,6 +50,7 @@ api.interceptors.response.use(
       window.location.pathname !== '/admin/login'
     ) {
       try {
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('token');
         window.location.href = '/admin/login';
       } catch (err) {
@@ -52,6 +61,7 @@ api.interceptors.response.use(
   }
 );
 
+// ── Helper para CSRF (sin cambios) ──
 export async function fetchCsrfToken() {
   try {
     const res = await api.get('/petitions/csrf-token');

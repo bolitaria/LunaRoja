@@ -17,7 +17,8 @@ const EmailQueue = require('./EmailQueue');
 const EmailQuota = require('./EmailQuota');
 const Report = require('./Report');
 const EmailTemplate = require('./EmailTemplate');
-const Link = require('./Link'); // ✅ NUEVO MODELO
+const Link = require('./Link');
+const ColectivoAfines = require('./ColectivosAfines'); 
 
 // ============================================================
 // ASOCIACIONES EXISTENTES
@@ -117,5 +118,6 @@ module.exports = {
   EmailQuota,
   Report,
   EmailTemplate,
-  Link, 
+  Link,
+  ColectivoAfines, 
 };
