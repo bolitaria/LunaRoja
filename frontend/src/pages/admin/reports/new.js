@@ -21,6 +21,11 @@ const quillModules = {
   ],
 };
 
+// Clases reutilizables con letra grande y foco sutil
+const inputClass =
+  "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
+const selectClass = inputClass;
+
 export default function NewReport() {
   const { user } = useAuth();
   const router = useRouter();
@@ -34,6 +39,9 @@ export default function NewReport() {
   });
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // 🆕 Control de método de contenido
+  const [contentMethod, setContentMethod] = useState('write'); // 'write' o 'pdf'
 
   const isBlogAdmin = user?.role === 'blog_admin';
   const hasContent = form.content.trim().length > 0;
@@ -62,8 +70,13 @@ export default function NewReport() {
       toast.warning('Los reportes requieren al menos una fuente oficial');
       return;
     }
-    if (!hasContent && !hasFile) {
-      toast.warning('Debes escribir contenido o adjuntar un archivo');
+    // Validación según método elegido
+    if (contentMethod === 'write' && !hasContent) {
+      toast.warning('Debes escribir contenido antes de guardar');
+      return;
+    }
+    if (contentMethod === 'pdf' && !hasFile) {
+      toast.warning('Debes adjuntar un archivo PDF');
       return;
     }
 
@@ -72,11 +85,11 @@ export default function NewReport() {
       const formData = new FormData();
       formData.append('title', form.title.trim());
       formData.append('description', form.description.trim());
-      formData.append('content', form.content);
-      formData.append('type', isBlogAdmin ? 'blog' : form.type); // blog_admin siempre tipo blog
+      formData.append('content', contentMethod === 'write' ? form.content : '');
+      formData.append('type', isBlogAdmin ? 'blog' : form.type);
       if (form.source) formData.append('source', form.source.trim());
       if (form.author) formData.append('author', form.author.trim());
-      if (file) formData.append('file', file);
+      if (contentMethod === 'pdf' && file) formData.append('file', file);
 
       await api.post('/reports', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -100,120 +113,157 @@ export default function NewReport() {
             {isBlogAdmin ? 'Nuevo Blog' : 'Nueva Entrada (Blog/Reporte)'}
           </h2>
 
-          {/* Tipo: solo visible si NO es blog_admin */}
+          {/* Tipo (solo si no es blog_admin) */}
           {!isBlogAdmin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
-              <select name="type" value={form.type} onChange={handleChange} className="w-full border p-2 rounded">
+              <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
+              <select name="type" value={form.type} onChange={handleChange} className={selectClass}>
                 <option value="blog">📝 Blog (interno)</option>
                 <option value="report">📄 Reporte (externo)</option>
               </select>
             </div>
           )}
 
+          {/* Título */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
             <input
               type="text"
               name="title"
               value={form.title}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              className={inputClass}
             />
           </div>
 
+          {/* Descripción breve */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción breve (opcional)</label>
+            <label className="block text-base font-medium text-gray-700 mb-1">Descripción breve (opcional)</label>
             <textarea
               name="description"
               value={form.description}
               onChange={handleChange}
               rows="2"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              className={inputClass}
             />
           </div>
 
-          {/* Fuente solo para reportes (no blog_admin) */}
+          {/* Fuente (solo para reportes no blog_admin) */}
           {!isBlogAdmin && form.type === 'report' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fuente(s) oficial(es) *</label>
+              <label className="block text-base font-medium text-gray-700 mb-1">Fuente(s) oficial(es) *</label>
               <input
                 name="source"
                 value={form.source}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+                className={inputClass}
                 placeholder="URL o nombre de la fuente"
               />
             </div>
           )}
 
+          {/* Autor */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Autor (opcional)</label>
+            <label className="block text-base font-medium text-gray-700 mb-1">Autor (opcional)</label>
             <input
               name="author"
               value={form.author}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+              className={inputClass}
               placeholder="Tu nombre o seudónimo"
             />
           </div>
 
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">✍️</span>
-              <h3 className="font-medium text-gray-800">Contenido enriquecido</h3>
-              {hasContent && <span className="text-xs text-green-600 ml-2">✓</span>}
+          {/* 🆕 Selector de método de contenido */}
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-2">Contenido</label>
+            <div className="flex gap-6 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="contentMethod"
+                  value="write"
+                  checked={contentMethod === 'write'}
+                  onChange={() => setContentMethod('write')}
+                  className="text-fuchsia-600 focus:ring-fuchsia-500"
+                />
+                <span className="text-base">Escribir manualmente</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="contentMethod"
+                  value="pdf"
+                  checked={contentMethod === 'pdf'}
+                  onChange={() => setContentMethod('pdf')}
+                  className="text-fuchsia-600 focus:ring-fuchsia-500"
+                />
+                <span className="text-base">Subir PDF</span>
+              </label>
             </div>
-            <ReactQuill
-              theme="snow"
-              value={form.content}
-              onChange={handleContentChange}
-              modules={quillModules}
-              placeholder="Escribe aquí..."
-              className="bg-white"
-            />
+
+            {/* Área condicional */}
+            {contentMethod === 'write' ? (
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">✍️</span>
+                  <h3 className="font-medium text-gray-800">Editor de texto</h3>
+                  {hasContent && <span className="text-xs text-green-600 ml-2">✓</span>}
+                </div>
+                <ReactQuill
+                  theme="snow"
+                  value={form.content}
+                  onChange={handleContentChange}
+                  modules={quillModules}
+                  placeholder="Escribe aquí..."
+                  className="bg-white"
+                />
+              </div>
+            ) : (
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">📎</span>
+                  <h3 className="font-medium text-gray-800">Archivo PDF</h3>
+                  {hasFile && <span className="text-xs text-green-600 ml-2">✓</span>}
+                </div>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleChange}
+                  className="w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100"
+                />
+                {file && <p className="mt-2 text-base text-fuchsia-700">📄 {file.name}</p>}
+              </div>
+            )}
           </div>
 
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">📎</span>
-              <h3 className="font-medium text-gray-800">Adjuntar archivo</h3>
-              {hasFile && <span className="text-xs text-green-600 ml-2">✓</span>}
-            </div>
-            <input
-              type="file"
-              onChange={handleChange}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100"
-            />
-            {file && <p className="mt-1 text-sm text-fuchsia-700">📄 {file.name}</p>}
-          </div>
-
+          {/* Botones */}
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center justify-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-sm font-medium"
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-base font-medium"
             >
               {loading ? 'Creando...' : 'Crear Entrada'}
             </button>
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              className="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-base font-medium"
             >
               Cancelar
             </button>
           </div>
         </form>
 
-        {/* Vista previa */}
+        {/* Vista previa (sin cambios) */}
         <div className="lg:w-1/3">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-6">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Vista previa</h3>
             {!form.title && !hasContent && !hasFile ? (
-              <p className="text-gray-400 text-sm">Completa el formulario para ver la vista previa.</p>
+              <p className="text-gray-400 text-base">Completa el formulario para ver la vista previa.</p>
             ) : (
               <div className="space-y-3">
                 <div>
@@ -228,10 +278,10 @@ export default function NewReport() {
                 {form.description && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
-                    <p className="text-gray-700 text-sm">{form.description}</p>
+                    <p className="text-gray-700 text-base">{form.description}</p>
                   </div>
                 )}
-                {hasContent && (
+                {contentMethod === 'write' && hasContent && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Contenido</h4>
                     <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: form.content }} />
@@ -239,7 +289,11 @@ export default function NewReport() {
                 )}
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Archivo</h4>
-                  {file ? <p className="text-sm text-fuchsia-600">📎 {file.name}</p> : <p className="text-sm text-gray-400">Sin archivo</p>}
+                  {contentMethod === 'pdf' && file ? (
+                    <p className="text-base text-fuchsia-600">📎 {file.name}</p>
+                  ) : (
+                    <p className="text-base text-gray-400">Sin archivo</p>
+                  )}
                 </div>
               </div>
             )}

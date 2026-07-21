@@ -34,9 +34,14 @@ const run = async () => {
   await runMigrations();
 };
 
-run()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+// Solo ejecutar si el script se invoca directamente (no en tests)
+if (require.main === module) {
+  run()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
+
+module.exports = { run };

@@ -11,6 +11,8 @@ const BDS = sequelize.define('BDS', {
   groups: { type: DataTypes.JSON },
   documentLink: { type: DataTypes.STRING },
   document: { type: DataTypes.STRING },
-}, { timestamps: true });
+}, { timestamps: true,
+    tableName: 'BDSs'
+ });
 
 module.exports = BDS;

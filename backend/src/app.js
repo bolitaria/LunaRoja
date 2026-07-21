@@ -323,11 +323,18 @@ const startServer = async () => {
 
     await ensureColumnsExist();
     await ensureAdmin();
-    await ensureColectivosAfinesTable();   // <-- sincroniza la nueva tabla
+    await ensureColectivosAfinesTable();
     await ensureDefaultPetitionTemplate();
 
+    // Solo iniciar el job de recordatorios (no afecta)
     require('./jobs/reminderJob');
-    require('./jobs/emailQueueJob');
+
+    // 👇 Iniciar el job de emailQueue solo si NO se están saltando los correos
+    if (process.env.SKIP_EMAILS !== 'true' && process.env.NODE_ENV !== 'test') {
+      require('./jobs/emailQueueJob');
+    } else {
+      console.log('📧 Job de cola de correos omitido (SKIP_EMAILS=true o NODE_ENV=test)');
+    }
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);

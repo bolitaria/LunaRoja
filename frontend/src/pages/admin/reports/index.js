@@ -64,7 +64,10 @@ function AdminReports() {
   };
 
   const total = reports.length;
-  const filtered = reports.filter(r => r.title.toLowerCase().includes(searchTerm.toLowerCase()));
+  // ✅ Corrección: usar optional chaining para evitar error si title es undefined
+  const filtered = reports.filter(r => 
+    r.title?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -155,7 +158,7 @@ function AdminReports() {
                       <FaEdit className="w-5 h-5" />
                     </Link>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{report.title}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{report.title || 'Sin título'}</td>
                   <td className="px-6 py-4 hidden sm:table-cell">
                     <span className={`inline-block px-2 py-1 text-xs rounded-full ${report.type === 'report' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                       {report.type === 'report' ? 'Reporte' : 'Blog'}

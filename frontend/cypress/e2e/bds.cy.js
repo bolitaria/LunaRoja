@@ -1,27 +1,27 @@
 describe('BDS', () => {
   beforeEach(() => {
-    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
+    cy.visit('/admin/login');
+    cy.findByLabelText('Usuario').type('admin');
+    cy.findByLabelText('Contraseña').type('admin123');
+    cy.findByRole('button', { name: /ingresar/i }).click();
   });
 
   it('crea, edita y elimina una empresa BDS', () => {
-    // Crear
     cy.visit('/admin/bds/new');
-    cy.get('input[name="title"]').type('Empresa E2E');
-    cy.get('textarea[name="content"]').type('Descripción de prueba');
-    cy.get('button[type="submit"]').click();
-    cy.contains('Empresa creada').should('exist');
+    cy.findByLabelText('Nombre *').type('BDS Cypress');
+    cy.findByLabelText('Descripción').type('Descripción BDS');
+    cy.findByRole('button', { name: /crear campaña bds/i }).click();
+    cy.contains('Campaña BDS creada').should('exist');
 
-    // Editar (asumimos que redirige al listado, tomamos el primer enlace de edición)
     cy.visit('/admin/bds');
     cy.get('a[href*="/edit"]').first().click();
-    cy.get('input[name="title"]').clear().type('Empresa E2E Editada');
-    cy.get('button[type="submit"]').click();
+    cy.findByLabelText('Nombre *').clear().type('BDS Editada');
+    cy.findByRole('button', { name: /guardar cambios/i }).click();
     cy.contains('actualizada').should('exist');
 
-    // Eliminar (volver al listado, eliminar la primera)
     cy.visit('/admin/bds');
-    cy.get('button[type="submit"]').contains(/eliminar/i).click();
-    cy.get('button[type="submit"]').click(); // confirmación
+    cy.get('[title="Eliminar"]').first().click();
+    cy.findByRole('button', { name: /eliminar/i }).click();
     cy.contains('eliminada').should('exist');
   });
 });

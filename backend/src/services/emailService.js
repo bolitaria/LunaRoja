@@ -7,22 +7,17 @@ const path = require('path');
 // HELPERS DE SEGURIDAD (prevención de XSS en href)
 // ==========================================================
 
-// Helper que solo genera un enlace si la URL es segura (http://, https://, mailto:)
 handlebars.registerHelper('safeLink', function(url, text) {
-  if (typeof url !== 'string' || url.trim() === '') {
-    return text || '';
-  }
+  if (typeof url !== 'string' || url.trim() === '') return text || '';
   const safe = /^(https?:\/\/|mailto:)/i.test(url.trim());
   if (safe) {
     const escapedUrl = handlebars.escapeExpression(url);
     const escapedText = text ? handlebars.escapeExpression(text) : escapedUrl;
     return new handlebars.SafeString(`<a href="${escapedUrl}">${escapedText}</a>`);
   }
-  // Si no es seguro, solo devolvemos el texto (sin enlace)
   return text || '';
 });
 
-// Helper para concatenar strings (útil para construir URLs)
 handlebars.registerHelper('concat', function(...args) {
   return args.slice(0, -1).join('');
 });
@@ -70,7 +65,6 @@ handlebars.registerHelper('formatDate', function(date) {
 async function loadTemplates() {
   const templateNames = ['welcome', 'goodbye', 'campaign', 'action', 'reminder', 'passwordReset', 'donation_available'];
   const templatesDir = path.join(__dirname, '../templates/emails');
-
   for (const name of templateNames) {
     try {
       const content = await fs.readFile(path.join(templatesDir, `${name}.hbs`), 'utf8');
@@ -84,17 +78,19 @@ async function loadTemplates() {
 }
 
 const initEmailService = async () => {
-  if (!loadingPromise) {
-    loadingPromise = loadTemplates();
-  }
+  if (!loadingPromise) loadingPromise = loadTemplates();
   await loadingPromise;
   console.log('✅ Email templates loaded');
 };
 
 const sendEmail = async (to, subject, templateName, context = {}) => {
-  if (!templatesLoaded) {
-    await initEmailService();
+  // ── PROTECCIÓN PARA PRUEBAS ──
+  if (process.env.NODE_ENV === 'test' || process.env.SKIP_EMAILS === 'true') {
+    console.log(`[TEST MOCK EMAIL] To: ${to}, Subject: ${subject}, Template: ${templateName}`);
+    return;
   }
+
+  if (!templatesLoaded) await initEmailService();
 
   if (templateName === 'custom' && context.body) {
     if (!transporter) {
@@ -160,7 +156,6 @@ const sendGoodbyeEmail = (email) =>
   sendEmail(email, 'Voces Palestinas por la Justicia – Lamentamos que te vayas', 'goodbye', {});
 
 const sendCampaignNotification = (email, campaign) => {
-  // Construir la URL completa de la campaña para que la plantilla pueda usar {{{safeLink campaign.url ...}}}
   const campaignUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/campanas/${campaign.id}`;
   return sendEmail(email, `Nueva campaña: ${campaign.name}`, 'campaign', {
     campaign: { ...campaign, url: campaignUrl }
@@ -198,15 +193,28 @@ const petitionTransporter = nodemailer.createTransport({
   },
 });
 
-async function sendPetitionAlert(petition, signerData) {
+async function sendPetitionAlert(petition, signerData, template = null, colors = null) {
   if (!petition.target_emails || !petition.target_emails.length) return;
 
+  // Si se proporciona plantilla y colores, usar envío avanzado con colores personalizados
+  if (template && colors) {
+    try {
+      const EmailTemplate = require('../models/EmailTemplate'); // evitar dependencia circular
+      const tpl = await EmailTemplate.findByPk(template.id);
+      if (tpl) {
+        return sendEmailWithTemplate(petition.target_emails, tpl, { ...signerData, petition }, colors);
+      }
+    } catch (err) {
+      console.error('Error al enviar con plantilla personalizada:', err);
+    }
+  }
+
+  // Fallback al formato anterior
   const subject = `Nueva firma en "${petition.title}"`;
   let dataRows = '';
   for (const [label, value] of Object.entries(signerData)) {
     dataRows += `<tr><td style="padding:4px 8px;border:1px solid #ddd;"><strong>${label}</strong></td><td style="padding:4px 8px;border:1px solid #ddd;">${value}</td></tr>`;
   }
-
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px;">
       <h2>Alguien ha firmado tu petición</h2>
@@ -214,7 +222,6 @@ async function sendPetitionAlert(petition, signerData) {
       <p>Total de firmas hasta ahora: <strong>${petition.total_signatures}</strong></p>
       <hr><a href="${process.env.FRONTEND_URL}/petition/${petition.id}">Ver petición</a>
     </div>`;
-
   try {
     await petitionTransporter.sendMail({
       from: `"${process.env.BREVO_FROM_NAME}" <${process.env.BREVO_FROM_EMAIL}>`,
@@ -233,15 +240,20 @@ async function sendPetitionAlert(petition, signerData) {
   }
 }
 
-// Función para enviar correo con una plantilla de la base de datos (nuevo)
-const sendEmailWithTemplate = async (to, template, data) => {
+const sendEmailWithTemplate = async (to, template, data, customColors = null) => {
   const subjectCompiled = handlebars.compile(template.subject)(data);
   let htmlCompiled = handlebars.compile(template.body)(data);
+  const colors = customColors || {
+    headerColor: template.headerColor,
+    buttonColor: template.buttonColor,
+    footerColor: template.footerColor,
+    backgroundColor: template.backgroundColor,
+  };
   htmlCompiled = htmlCompiled
-    .replace(/--header-color/g, template.headerColor)
-    .replace(/--button-color/g, template.buttonColor)
-    .replace(/--footer-color/g, template.footerColor)
-    .replace(/--bg-color/g, template.backgroundColor);
+    .replace(/--header-color/g, colors.headerColor)
+    .replace(/--button-color/g, colors.buttonColor)
+    .replace(/--footer-color/g, colors.footerColor)
+    .replace(/--bg-color/g, colors.backgroundColor);
   return sendEmail(to, subjectCompiled, 'custom', { body: htmlCompiled });
 };
 

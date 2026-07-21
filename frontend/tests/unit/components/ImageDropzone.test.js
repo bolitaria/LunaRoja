@@ -1,19 +1,18 @@
-import '@testing-library/jest-dom';
 import React from 'react';
+import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ImageDropzone from '@/components/ImageDropzone';
 
-test('muestra el área de subida', () => {
+test('shows upload area', () => {
   render(<ImageDropzone />);
-  expect(screen.getByText('Subir imagen')).toBeInTheDocument();
+  expect(screen.getByText(/Subir imagen/)).toBeInTheDocument();
 });
 
-test('llama a onImageChange al seleccionar un archivo', () => {
-  const onImageChange = jest.fn();
-  render(<ImageDropzone onImageChange={onImageChange} />);
-  const file = new File(['dummy'], 'test.png', { type: 'image/png' });
-  // El input file está oculto, lo obtenemos por su etiqueta
-  const input = screen.getByLabelText(/subir imagen/i).closest('label').querySelector('input[type="file"]');
-  fireEvent.change(input, { target: { files: [file] } });
-  expect(onImageChange).toHaveBeenCalled();
+test('shows preview and remove button when imagePreview is set', () => {
+  const handleRemove = jest.fn();
+  render(<ImageDropzone imagePreview="/preview.jpg" onRemove={handleRemove} />);
+  // The button's accessible name is "Vista previa" (derived from the img alt text)
+  const removeBtn = screen.getByRole('button', { name: /Vista previa/i });
+  fireEvent.click(removeBtn);
+  expect(handleRemove).toHaveBeenCalled();
 });

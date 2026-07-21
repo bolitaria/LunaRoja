@@ -51,13 +51,21 @@ export default function EditPetition() {
   const [imagePreview, setImagePreview] = useState(null);
   const [currentImage, setCurrentImage] = useState(null);
 
+  // Colores personalizados (cargados desde la petición)
+  const [customColors, setCustomColors] = useState({
+    headerColor: '#b91c1c',
+    buttonColor: '#16a34a',
+    footerColor: '#1f2937',
+    backgroundColor: '#f3f4f6',
+  });
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Modal de vista previa
   const [showPreview, setShowPreview] = useState(false);
 
-  // Plantilla nueva
+  // Plantilla nueva (igual que en new.js)
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
@@ -106,6 +114,13 @@ export default function EditPetition() {
         if (p.featured_image) {
           setCurrentImage(p.featured_image);
         }
+        // Cargar colores personalizados si existen
+        setCustomColors({
+          headerColor: p.headerColor || '#b91c1c',
+          buttonColor: p.buttonColor || '#16a34a',
+          footerColor: p.footerColor || '#1f2937',
+          backgroundColor: p.backgroundColor || '#f3f4f6',
+        });
       } catch (error) {
         toast.error('Error al cargar la petición');
       } finally {
@@ -163,14 +178,7 @@ export default function EditPetition() {
     setPublicGroups(updated);
   };
 
-  const handleTemplateChange = (e) => {
-    const { name, value } = e.target;
-    setNewTemplate(prev => {
-      const updated = { ...prev, [name]: value };
-      compileTemplatePreview(updated.body, updated);
-      return updated;
-    });
-  };
+  // Lógica del creador de plantillas (idéntica a new.js)
   const compileTemplatePreview = (body, colors) => {
     try {
       const template = Handlebars.compile(body);
@@ -192,6 +200,16 @@ export default function EditPetition() {
       setTemplatePreview(`<div style="color:red">Error: ${error.message}</div>`);
     }
   };
+
+  const handleTemplateChange = (e) => {
+    const { name, value } = e.target;
+    setNewTemplate(prev => {
+      const updated = { ...prev, [name]: value };
+      compileTemplatePreview(updated.body, updated);
+      return updated;
+    });
+  };
+
   const saveAndSelectTemplate = async () => {
     if (!newTemplate.name || !newTemplate.subject || !newTemplate.body) {
       toast.warning('Nombre, asunto y cuerpo son obligatorios');
@@ -212,6 +230,21 @@ export default function EditPetition() {
       toast.error(error.response?.data?.message || 'Error al crear plantilla');
     } finally {
       setCreatingTemplate(false);
+    }
+  };
+
+  // Al seleccionar plantilla en edición, cargar colores por defecto de la misma
+  const handleTemplateSelect = (e) => {
+    const templateId = e.target.value;
+    setForm(prev => ({ ...prev, emailTemplateId: templateId }));
+    const selected = templates.find(t => t.id === parseInt(templateId));
+    if (selected) {
+      setCustomColors({
+        headerColor: selected.headerColor || '#b91c1c',
+        buttonColor: selected.buttonColor || '#16a34a',
+        footerColor: selected.footerColor || '#1f2937',
+        backgroundColor: selected.backgroundColor || '#f3f4f6',
+      });
     }
   };
 
@@ -252,6 +285,11 @@ export default function EditPetition() {
       payload.content = editorContent;
       payload.email_template_id = form.emailTemplateId;
       payload.target_emails = recipientEmails;
+      // Incluir colores personalizados
+      payload.headerColor = customColors.headerColor;
+      payload.buttonColor = customColors.buttonColor;
+      payload.footerColor = customColors.footerColor;
+      payload.backgroundColor = customColors.backgroundColor;
     } else {
       payload.external_url = form.externalUrl.trim();
     }
@@ -375,13 +413,40 @@ export default function EditPetition() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Plantilla de email *</label>
                 <div className="flex items-center gap-2">
-                  <select name="emailTemplateId" value={form.emailTemplateId} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500">
+                  <select name="emailTemplateId" value={form.emailTemplateId} onChange={handleTemplateSelect} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500">
                     <option value="">Selecciona una plantilla</option>
                     {templates.map(tpl => (<option key={tpl.id} value={tpl.id}>{tpl.name}</option>))}
                   </select>
                   <button type="button" onClick={() => setShowTemplateCreator(true)} className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
                     <FaPlus className="w-3.5 h-3.5" /> Nueva plantilla
                   </button>
+                </div>
+                {/* Selectores de color */}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color cabecera</label>
+                    <input type="color" value={customColors.headerColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, headerColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color botón</label>
+                    <input type="color" value={customColors.buttonColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, buttonColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color footer</label>
+                    <input type="color" value={customColors.footerColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, footerColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Fondo general</label>
+                    <input type="color" value={customColors.backgroundColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
                 </div>
               </div>
               <div>

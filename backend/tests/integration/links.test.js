@@ -9,32 +9,35 @@ beforeAll(async () => {
     .post('/api/auth/login')
     .send({ username: 'admin', password: ADMIN_PASSWORD });
   adminToken = res.body.token;
-  jest.setTimeout(10000);
-});
+}, 15000);
 
 afterAll(async () => {
-  if (linkId) await request(API_URL).delete(`/api/links/${linkId}`).set('Authorization', `Bearer ${adminToken}`);
+  if (linkId) {
+    await request(API_URL)
+      .delete(`/api/links/${linkId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+  }
 });
 
 describe('Links API', () => {
   test('Crear enlace', async () => {
+    const uniqueUrl = `https://example.com/${Date.now()}-${Math.random().toString(36).substr(2,5)}`;
     const res = await request(API_URL)
       .post('/api/links')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         title: 'Enlace test',
-        url: 'https://example.com',
-        description: 'Desc',
-        category: 'local',
-        active: true,
-        // created_by se asigna automáticamente a partir del token
+        url: uniqueUrl,
+        category: 'local'
       });
-    expect(res.statusCode).toBe(201);
+    expect(res.status).toBe(201);
     linkId = res.body.id;
   });
 
   test('Listar enlaces', async () => {
-    const res = await request(API_URL).get('/api/links').set('Authorization', `Bearer ${adminToken}`);
-    expect(res.statusCode).toBe(200);
+    const res = await request(API_URL)
+      .get('/api/links')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
   });
 });

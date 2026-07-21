@@ -1,3 +1,4 @@
+// backend/src/controllers/userController.js (completo y corregido)
 const User = require('../models/User');
 const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
@@ -19,9 +20,7 @@ exports.getMe = async (req, res) => {
         { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
       ]
     });
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     res.json(user);
   } catch (error) {
     console.error('Error en getMe:', error);
@@ -59,8 +58,8 @@ exports.getAllUsers = async (req, res) => {
         id: { [Op.in]: userIds }
       };
     } else if (currentUser.role === 'action_admin' || currentUser.role === 'bds_admin') {
-      // Estos roles no pueden listar usuarios
-      return res.json([]);
+      // ✅ CORRECCIÓN: devolver 403 en lugar de array vacío
+      return res.status(403).json({ message: 'No tienes permiso para ver la lista de usuarios' });
     }
 
     const users = await User.findAll({
@@ -119,15 +118,8 @@ exports.createUser = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para crear usuarios' });
     }
 
-    const userData = {
-      username,
-      password,
-      role
-    };
-    // Agregar email solo si fue enviado (ahora es obligatorio en la BD)
-    if (email !== undefined) {
-      userData.email = email;
-    }
+    const userData = { username, password, role };
+    if (email !== undefined) userData.email = email;
 
     const user = await User.create(userData, { transaction: t });
 
@@ -138,10 +130,7 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ message: 'Alguna campaña no existe' });
       }
       const userCampaignsData = parsedCampaignIds.map(campaignId => ({
-        userId: user.id,
-        campaignId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        userId: user.id, campaignId, createdAt: new Date(), updatedAt: new Date()
       }));
       await UserCampaign.bulkCreate(userCampaignsData, { transaction: t });
     }
@@ -153,10 +142,7 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ message: 'Alguna acción no existe' });
       }
       const userActionsData = parsedActionIds.map(actionId => ({
-        userId: user.id,
-        actionId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        userId: user.id, actionId, createdAt: new Date(), updatedAt: new Date()
       }));
       await UserAction.bulkCreate(userActionsData, { transaction: t });
     }
@@ -192,7 +178,6 @@ exports.updateUser = async (req, res) => {
       return res.status(400).json({ message: 'ID inválido' });
     }
     const { username, password, email, role, campaignIds, actionIds } = req.body;
-
     const userToUpdate = await User.findByPk(userId, { transaction: t });
     if (!userToUpdate) {
       await t.rollback();
@@ -251,10 +236,7 @@ exports.updateUser = async (req, res) => {
       await UserCampaign.destroy({ where: { userId }, transaction: t });
       if (parsedCampaignIds.length > 0) {
         const userCampaignsData = parsedCampaignIds.map(campaignId => ({
-          userId,
-          campaignId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          userId, campaignId, createdAt: new Date(), updatedAt: new Date()
         }));
         await UserCampaign.bulkCreate(userCampaignsData, { transaction: t });
       }
@@ -264,10 +246,7 @@ exports.updateUser = async (req, res) => {
       await UserAction.destroy({ where: { userId }, transaction: t });
       if (parsedActionIds.length > 0) {
         const userActionsData = parsedActionIds.map(actionId => ({
-          userId,
-          actionId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          userId, actionId, createdAt: new Date(), updatedAt: new Date()
         }));
         await UserAction.bulkCreate(userActionsData, { transaction: t });
       }
@@ -295,13 +274,8 @@ exports.deleteUser = async (req, res) => {
   try {
     const currentUser = req.user;
     const userId = parseInt(req.params.id);
-    if (!isValidId(userId)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
-
-    if (userId === 1) {
-      return res.status(403).json({ message: 'No se puede eliminar el superadministrador principal' });
-    }
+    if (!isValidId(userId)) return res.status(400).json({ message: 'ID inválido' });
+    if (userId === 1) return res.status(403).json({ message: 'No se puede eliminar el superadministrador principal' });
 
     const userToDelete = await User.findByPk(userId);
     if (!userToDelete) return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -334,37 +308,29 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-// ========================= CHANGE MY PASSWORD (MEJORADO) =========================
+// ========================= CHANGE MY PASSWORD =========================
 exports.changeMyPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Debes proporcionar la contraseña actual y la nueva' });
     }
-
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
     }
 
     const userId = req.user.id;
     const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'La contraseña actual no es correcta' });
-    }
-
+    if (!isMatch) return res.status(400).json({ message: 'La contraseña actual no es correcta' });
     if (currentPassword === newPassword) {
       return res.status(400).json({ message: 'La nueva contraseña debe ser diferente a la actual' });
     }
 
     user.password = newPassword;
     await user.save();
-
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (error) {
     console.error('Error en changeMyPassword:', error);

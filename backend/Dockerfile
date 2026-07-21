@@ -12,7 +12,7 @@ COPY package*.json ./
 # Instalar dependencias de producción
 RUN npm ci --only=production --no-audit --no-fund && npm cache clean --force
 
-# 🔥 ELIMINAR npm y sus dependencias globales (fuente de los 12 HIGH)
+# 🔥 ELIMINAR npm y sus dependencias globales (fuente de vulnerabilidades)
 RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/bin/npm \
            /usr/local/bin/npx \

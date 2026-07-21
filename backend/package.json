@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "test": "jest --forceExit --detectOpenHandles",
-    "test:integration": "start-server-and-test start http://localhost:5000/health test",
-    "test:auth": "jest __tests__/auth.test.js --forceExit --detectOpenHandles",
+    "test:integration": "jest --forceExit --detectOpenHandles tests/integration",
+    "test:unit": "jest tests/unit",
     "migrate": "node src/services/migrationRunner.js up",
     "migrate:status": "node src/services/migrationRunner.js status"
   },
@@ -38,21 +38,23 @@
   },
   "overrides": {
     "cross-spawn": "7.0.6",
-    "glob": "10.5.0",
-    "minimatch": "^9.0.7",
     "sigstore": "4.1.1",
-    "tar": "7.5.15",
-    "uuid": "^14.0.1"
+    "tar": "7.5.15"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
     "jest": "^30.4.2",
     "nodemon": "^3.0.1",
+    "sequelize-mock": "^0.10.2",
     "start-server-and-test": "^2.1.5",
     "supertest": "^7.2.2"
   },
   "jest": {
     "testEnvironment": "node",
-    "transformIgnorePatterns": ["/node_modules/(?!(uuid)/)"]
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(uuid)/)"
+    ],
+    "setupFiles": ["<rootDir>/tests/jest.setup.js"],
+    "testTimeout": 30000
   }
 }

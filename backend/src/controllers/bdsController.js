@@ -52,9 +52,21 @@ exports.createBDS = async (req, res) => {
   try {
     let { name, description, color, groups, documentLink } = req.body;
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
-    if (groups && typeof groups === 'string') {
-      try { groups = JSON.parse(groups); } catch (e) { groups = null; }
+
+    // Sanitize groups – must be an array, otherwise use []
+    if (groups !== undefined) {
+      if (typeof groups === 'string') {
+        try {
+          groups = JSON.parse(groups);
+        } catch (e) {
+          groups = [];
+        }
+      }
+      if (!Array.isArray(groups)) groups = [];
+    } else {
+      groups = [];
     }
+
     let imageUrl = null;
     if (req.files && req.files.image && req.files.image.length > 0) {
       imageUrl = `/uploads/bds/${req.files.image[0].filename}`;
@@ -63,12 +75,17 @@ exports.createBDS = async (req, res) => {
     if (req.files && req.files.document && req.files.document.length > 0) {
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
+
     const bds = await BDS.create({
-      name, description: description || '', color: color || '#E53E3E',
-      imageUrl, groups: groups || [], documentLink: documentLink || null, document: documentPath,
+      name,
+      description: description || '',
+      color: color || '#E53E3E',
+      imageUrl,
+      groups,
+      documentLink: documentLink || null,
+      document: documentPath,
     });
 
-    // Notificaciones: enviamos como si fuera una campaña
     try {
       const campaignData = {
         name: bds.name,
@@ -108,10 +125,21 @@ exports.updateBDS = async (req, res) => {
     } else if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
+
     let { name, description, color, groups, documentLink } = req.body;
-    if (groups && typeof groups === 'string') {
-      try { groups = JSON.parse(groups); } catch (e) { groups = null; }
+
+    // Sanitize groups
+    if (groups !== undefined) {
+      if (typeof groups === 'string') {
+        try {
+          groups = JSON.parse(groups);
+        } catch (e) {
+          groups = [];
+        }
+      }
+      if (!Array.isArray(groups)) groups = [];
     }
+
     let imageUrl = bds.imageUrl;
     if (req.files && req.files.image && req.files.image.length > 0) {
       if (bds.imageUrl) deleteFileSafe(bds.imageUrl, BDS_BASE);
@@ -122,10 +150,13 @@ exports.updateBDS = async (req, res) => {
       if (bds.document) deleteFileSafe(bds.document, DOCUMENTS_BASE);
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
+
     await bds.update({
       name: name || bds.name,
       description: description !== undefined ? description : bds.description,
-      color: color || bds.color, imageUrl, groups: groups || [],
+      color: color || bds.color,
+      imageUrl,
+      groups: groups !== undefined ? groups : bds.groups,
       documentLink: documentLink !== undefined ? documentLink : bds.documentLink,
       document: documentPath,
     });

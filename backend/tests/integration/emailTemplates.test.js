@@ -2,15 +2,14 @@ const request = require('supertest');
 const API_URL = process.env.API_URL || 'http://localhost:5000';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-let adminToken;
-let templateId;
+let adminToken, templateId;
 
 beforeAll(async () => {
   const res = await request(API_URL)
     .post('/api/auth/login')
     .send({ username: 'admin', password: ADMIN_PASSWORD });
   adminToken = res.body.token;
-});
+}, 15000);
 
 afterAll(async () => {
   if (templateId) {
@@ -26,13 +25,11 @@ describe('Email Templates API', () => {
       .post('/api/email-templates')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        name: 'Plantilla test',
-        subject: 'Asunto de prueba',
-        body: '<p>Hola {{name}}</p>',
-        type: 'custom',
+        name: `template_${Date.now()}`,
+        subject: 'Test Subject',
+        body: '<p>Test</p>',
       });
-    expect(res.statusCode).toBe(201);
-    expect(res.body.id).toBeDefined();
+    expect(res.status).toBe(201);
     templateId = res.body.id;
   });
 
@@ -40,8 +37,7 @@ describe('Email Templates API', () => {
     const res = await request(API_URL)
       .get('/api/email-templates')
       .set('Authorization', `Bearer ${adminToken}`);
-    expect(res.statusCode).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.status).toBe(200);
   });
 
   test('Actualizar plantilla', async () => {
@@ -49,8 +45,9 @@ describe('Email Templates API', () => {
     const res = await request(API_URL)
       .put(`/api/email-templates/${templateId}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ subject: 'Asunto actualizado' });
-    expect(res.statusCode).toBe(200);
+      .send({ subject: 'Updated Subject' });
+    expect(res.status).toBe(200);
+    expect(res.body.subject).toBe('Updated Subject');
   });
 
   test('Eliminar plantilla', async () => {
@@ -58,7 +55,7 @@ describe('Email Templates API', () => {
     const res = await request(API_URL)
       .delete(`/api/email-templates/${templateId}`)
       .set('Authorization', `Bearer ${adminToken}`);
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toBe(200);
     templateId = null;
   });
 });

@@ -1,7 +1,7 @@
-import api from '../../../lib/axios';
+import api from '../../lib/axios';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import AdminLayout from '../../../components/AdminLayout';
-import { useAuth } from '../../../context/AuthContext';
+import AdminLayout from '../../components/AdminLayout';
+import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import { FaChevronLeft, FaChevronRight, FaFilter, FaTimes } from 'react-icons/fa';
 

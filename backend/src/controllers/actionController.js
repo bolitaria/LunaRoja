@@ -19,12 +19,11 @@ const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 function processUploadedFiles(req) {
   const files = req.files || [];
   const result = {
-    featuredImage: null,   // objeto file o null
-    images: [],            // array de objetos file
-    documents: [],         // array de { file, name, isPublic }
+    featuredImage: null,
+    images: [],
+    documents: [],
   };
 
-  // Extraer nombres de documentos desde req.body
   const docNames = {};
   const docIsPublic = {};
   Object.keys(req.body).forEach(key => {
@@ -40,14 +39,12 @@ function processUploadedFiles(req) {
     }
   });
 
-  // Procesar cada archivo
   files.forEach(file => {
     if (file.fieldname === 'featuredImage') {
       result.featuredImage = file;
     } else if (file.fieldname === 'images') {
       result.images.push(file);
     } else if (file.fieldname && file.fieldname.startsWith('documents[')) {
-      // Extraer índice del campo: documents[0][file] -> 0
       const match = file.fieldname.match(/documents\[(\d+)\]\[file\]/);
       if (match) {
         const idx = parseInt(match[1]);
@@ -60,7 +57,6 @@ function processUploadedFiles(req) {
     }
   });
 
-  // Ordenar documentos por índice (si es necesario)
   result.documents.sort((a, b) => {
     const aIdx = parseInt(a.file.fieldname.match(/documents\[(\d+)\]/)[1]);
     const bIdx = parseInt(b.file.fieldname.match(/documents\[(\d+)\]/)[1]);
@@ -100,8 +96,18 @@ exports.getAllActions = async (req, res) => {
     if (parsedCampaignId) where.campaignId = parsedCampaignId;
     if (parsedBdsId) where.bdsId = parsedBdsId;
 
+    // ✅ Sanitización de paginación (una sola vez)
+    let { limit, offset } = req.query;
+    limit = parseInt(limit) || 20;
+    offset = parseInt(offset) || 0;
+    if (limit < 1) limit = 20;
+    if (limit > 100) limit = 100;
+    if (offset < 0) offset = 0;
+
     const actions = await Action.findAll({
       where,
+      limit,
+      offset,
       order: [['datetime', 'DESC']],
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
@@ -178,13 +184,11 @@ exports.createAction = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para crear acciones' });
     }
 
-    // Validar existencia de BDS si se asigna
     if (parsedBdsId) {
       const bdsExists = await BDS.findByPk(parsedBdsId);
       if (!bdsExists) return res.status(400).json({ message: 'La Campaña BDS indicada no existe' });
     }
 
-    // Sanitizar coordenadas
     if (latitude !== undefined && latitude !== null && latitude !== '') {
       latitude = parseFloat(latitude);
       if (isNaN(latitude)) latitude = null;
@@ -194,7 +198,6 @@ exports.createAction = async (req, res) => {
       if (isNaN(longitude)) longitude = null;
     } else longitude = null;
 
-    // ─── PROCESAR ARCHIVOS SUBIDOS ───
     const uploaded = processUploadedFiles(req);
 
     let featuredImage = null;
@@ -203,13 +206,11 @@ exports.createAction = async (req, res) => {
     }
 
     let documentPath = null;
-    // Tomar el primer documento público (si existe)
     const publicDoc = uploaded.documents.find(d => d.isPublic === true);
     if (publicDoc) {
       documentPath = `/uploads/documents/${publicDoc.file.filename}`;
     }
 
-    // ─── CREAR ACCIÓN ───
     const action = await Action.create({
       title,
       description: description || '',
@@ -232,7 +233,6 @@ exports.createAction = async (req, res) => {
       document: documentPath,
     });
 
-    // ─── IMÁGENES ADICIONALES ───
     if (uploaded.images.length > 0) {
       const imagePromises = uploaded.images.map((file, index) => {
         const url = `/uploads/actions/${file.filename}`;
@@ -241,15 +241,6 @@ exports.createAction = async (req, res) => {
       await Promise.all(imagePromises);
     }
 
-    // ─── DOCUMENTOS ADICIONALES (privados y públicos) ───
-    // Si hay más documentos, podrías guardarlos en una tabla Document, pero la estructura actual
-    // solo soporta un documento público (campo 'document') y los privados no se guardan.
-    // Por ahora, solo guardamos el primer documento público. Si quieres guardar todos, necesitarás
-    // crear una tabla Document o almacenarlos como JSON. Pero para mantener compatibilidad,
-    // usamos el campo 'document' para el primer documento público.
-    // (En el frontend, los documentos privados solo aparecen en la vista previa del admin)
-
-    // ─── NOTIFICACIONES ───
     try {
       const campaign = await action.getCampaign().catch(() => null);
       if (campaign) {
@@ -266,7 +257,6 @@ exports.createAction = async (req, res) => {
       console.error('Error al enviar notificaciones de acción:', emailError);
     }
 
-    // ─── RECORDATORIOS ───
     try {
       const reminderSubscribers = await Subscriber.findAll({ where: { status: 'active', sendReminders: true } });
       const actionDate = new Date(datetime);
@@ -318,14 +308,13 @@ exports.updateAction = async (req, res) => {
     let parsedCampaignId = toInt(campaignId);
     let parsedBdsId = toInt(bdsId);
 
-    // Permisos
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
       if (!allowedCampaignIds.includes(action.campaignId)) {
         return res.status(403).json({ message: 'No tienes permiso para editar esta acción' });
       }
-      parsedCampaignId = action.campaignId; // Forzar mantener la campaña original
+      parsedCampaignId = action.campaignId;
     } else if (req.user.role === 'bds_admin') {
       const userBDS = await UserBDS.findAll({ where: { userId: req.user.id } });
       const allowedBdsIds = userBDS.map(ub => ub.bdsId);
@@ -347,7 +336,6 @@ exports.updateAction = async (req, res) => {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
 
-    // Validar BDS si se cambia (solo superadmin puede cambiar realmente)
     if (parsedBdsId && parsedBdsId !== action.bdsId && req.user.role === 'superadmin') {
       const bdsExists = await BDS.findByPk(parsedBdsId);
       if (!bdsExists) return res.status(400).json({ message: 'La Campaña BDS indicada no existe' });
@@ -355,7 +343,6 @@ exports.updateAction = async (req, res) => {
       parsedBdsId = action.bdsId;
     }
 
-    // Sanitizar coordenadas
     if (latitude !== undefined && latitude !== null && latitude !== '') {
       latitude = parseFloat(latitude);
       if (isNaN(latitude)) latitude = null;
@@ -369,7 +356,6 @@ exports.updateAction = async (req, res) => {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
 
-    // ─── PROCESAR ARCHIVOS SUBIDOS ───
     const uploaded = processUploadedFiles(req);
 
     let featuredImage = action.featuredImage;
@@ -389,7 +375,6 @@ exports.updateAction = async (req, res) => {
       documentPath = `/uploads/documents/${publicDoc.file.filename}`;
     }
 
-    // ─── ACTUALIZAR ACCIÓN ───
     await action.update({
       title: title || action.title,
       description: description !== undefined ? description : action.description,
@@ -412,7 +397,6 @@ exports.updateAction = async (req, res) => {
       document: documentPath,
     });
 
-    // ─── IMÁGENES ADICIONALES ───
     if (uploaded.images.length > 0) {
       const currentImageCount = action.images ? action.images.length : 0;
       const imagePromises = uploaded.images.map((file, index) => {

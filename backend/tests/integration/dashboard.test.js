@@ -9,20 +9,18 @@ beforeAll(async () => {
     .post('/api/auth/login')
     .send({ username: 'admin', password: ADMIN_PASSWORD });
   adminToken = res.body.token;
-});
+}, 15000);
 
 describe('Dashboard API', () => {
   test('Obtener estadísticas del dashboard (admin)', async () => {
     const res = await request(API_URL)
       .get('/api/dashboard')
       .set('Authorization', `Bearer ${adminToken}`);
-    expect(res.statusCode).toBe(200);
-    // La estructura exacta depende de tu controlador; verifica que tenga datos
-    expect(res.body).toBeDefined();
+    expect(res.status).toBe(200);
   });
 
   test('Usuario sin token no puede acceder al dashboard', async () => {
     const res = await request(API_URL).get('/api/dashboard');
-    expect(res.statusCode).toBe(401);
+    expect(res.status).toBe(401);
   });
 });

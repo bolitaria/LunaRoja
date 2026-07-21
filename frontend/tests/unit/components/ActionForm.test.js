@@ -1,22 +1,43 @@
-import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ActionForm from '@/components/ActionForm';
 
-describe('ActionForm', () => {
-  it('renderiza campos obligatorios', () => {
+jest.mock('next/router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
+
+describe('ActionForm – business logic', () => {
+  test('shows online fields when locationType is online', () => {
     render(<ActionForm />);
-    expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/descripción/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/categoría/i)).toBeInTheDocument();
+    const typeSelect = screen.getByLabelText(/tipo de ubicación/i);
+    fireEvent.change(typeSelect, { target: { value: 'online' } });
+    expect(screen.getByPlaceholderText('https://forms.gle/...')).toBeInTheDocument();
   });
 
-  it('llama a onSubmit al enviar', () => {
-    const onSubmit = jest.fn();
-    render(<ActionForm onSubmit={onSubmit} />);
+  test('shows map‑related fields when presencial', () => {
+    render(<ActionForm />);
+    const typeSelect = screen.getByLabelText(/tipo de ubicación/i);
+    fireEvent.change(typeSelect, { target: { value: 'presencial' } });
+    expect(screen.getByLabelText(/nombre del lugar/i)).toBeInTheDocument();
+  });
+
+  test('validates required fields on submit', async () => {
+    const mockSubmit = jest.fn();
+    render(<ActionForm onSubmit={mockSubmit} />);
+    fireEvent.click(screen.getByRole('button', { name: /crear/i }));
+    await waitFor(() => {
+      // The HTML5 required validation will prevent submit, but we can check that the callback is NOT called
+      expect(mockSubmit).not.toHaveBeenCalled();
+    });
+  });
+
+  test('calls onSubmit with correct data when all required fields filled', async () => {
+    const mockSubmit = jest.fn();
+    render(<ActionForm onSubmit={mockSubmit} />);
     fireEvent.change(screen.getByLabelText(/título/i), { target: { value: 'Test' } });
-    fireEvent.change(screen.getByLabelText(/fecha y hora/i), { target: { value: '2026-12-31T10:00' } });
-    fireEvent.click(screen.getByRole('button', { name: /crear acción/i }));
-    expect(onSubmit).toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/fecha y hora/i), { target: { value: '2025-12-31T10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /crear/i }));
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: 'Test' }));
+    });
   });
 });

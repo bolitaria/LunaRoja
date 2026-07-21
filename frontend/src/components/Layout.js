@@ -67,7 +67,9 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
         <link rel="stylesheet" />
         <link rel="stylesheet" />
-        {/* Ya no cargamos Google Maps, usamos Leaflet (OpenStreetMap) */}
+        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+          <script async defer />
+        )}
       </Head>
 
       <div className="flex flex-col min-h-screen bg-stone-100">
@@ -178,7 +180,7 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
                 {/* Columna izquierda: logos de colectivos afines */}
                 <div
                   className="justify-self-start self-stretch flex items-start"
-                  style={{ maxWidth: 'calc(50% - 4rem)' }}
+                  style={{ maxWidth: 'calc(50% - 4rem)' }}   // más ancho para hasta 4 columnas
                   aria-label="Logos de colectivos afines"
                 >
                   <div className="w-full px-1 py-4">

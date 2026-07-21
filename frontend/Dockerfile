@@ -3,6 +3,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
+RUN npm install lodash-es@4.17.21
 
 # Stage 2: Builder
 FROM node:22-alpine AS builder
@@ -34,25 +35,24 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copiar la salida standalone de Next.js (esto incluye server.js, node_modules y public)
+# Copiar la salida standalone de Next.js
 COPY --from=builder /app/.next/standalone ./
 
-# Copiar los archivos estáticos y la carpeta public (requeridos por el servidor standalone)
+# Copiar archivos estáticos y public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
 # Copiar iconos de Signal (si existen)
 COPY --from=builder /app/src/assets/icons ./public/assets/icons
 
-# 🔒 Eliminar todo vestigio de npm global (corepack, yarn, node_modules globales)
+# 🔒 Eliminar todo vestigio de npm global
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-*
 
-# Ajustar permisos para que nextjs pueda leer todo
+# Ajustar permisos
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 
-# El servidor standalone de Next.js se encuentra en la raíz del directorio de trabajo
 CMD ["node", "server.js"]

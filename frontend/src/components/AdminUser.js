@@ -1,14 +1,14 @@
-import api from '../../../lib/axios';
+import api from '../lib/axios';
 import { useState, useEffect } from 'react';
-import AdminLayout from '../../../components/AdminLayout';
+import AdminLayout from './AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash, FaEdit, FaTrash, FaFileExport, FaSearch, FaPlus } from 'react-icons/fa';
-import { useAuth } from '../../../context/AuthContext';
-import { exportInfo } from '../../../utils/exportInfo';
-import Pagination from '../../../components/Pagination';
-import ConfirmModal from '../../../components/ConfirmModal';
+import { useAuth } from '../context/AuthContext';
+import { exportInfo } from '../utils/exportInfo';
+import Pagination from './Pagination';
+import ConfirmModal from './ConfirmModal';
 
 function AdminUsers() {
   const { user: currentUser } = useAuth();

@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  webpack: (config) => {
+    config.resolve.alias["lodash-es"] = "lodash";
+    return config;
+  },
   output: 'standalone',
 
   async rewrites() {

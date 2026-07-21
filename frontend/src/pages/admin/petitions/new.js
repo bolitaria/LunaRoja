@@ -50,10 +50,18 @@ export default function NewPetition() {
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Modal de vista previa de la petición
+  // Colores personalizados
+  const [customColors, setCustomColors] = useState({
+    headerColor: '#b91c1c',
+    buttonColor: '#16a34a',
+    footerColor: '#1f2937',
+    backgroundColor: '#f3f4f6',
+  });
+
+  // Modal de vista previa
   const [showPreview, setShowPreview] = useState(false);
 
-  // ---------- Creador de plantilla ----------
+  // Creador de plantilla
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
@@ -91,6 +99,21 @@ export default function NewPetition() {
 
   const handleContentChange = (value) => setForm(prev => ({ ...prev, content: value }));
 
+  // Al seleccionar plantilla, cargar colores por defecto
+  const handleTemplateSelect = (e) => {
+    const templateId = e.target.value;
+    setForm(prev => ({ ...prev, emailTemplateId: templateId }));
+    const selected = templates.find(t => t.id === parseInt(templateId));
+    if (selected) {
+      setCustomColors({
+        headerColor: selected.headerColor || '#b91c1c',
+        buttonColor: selected.buttonColor || '#16a34a',
+        footerColor: selected.footerColor || '#1f2937',
+        backgroundColor: selected.backgroundColor || '#f3f4f6',
+      });
+    }
+  };
+
   const addEmail = () => {
     const email = emailInput.trim();
     if (!email) return;
@@ -115,7 +138,7 @@ export default function NewPetition() {
     setPublicGroups(updated);
   };
 
-  // ---------- Lógica del creador de plantillas ----------
+  // Lógica del creador de plantillas
   const compileTemplatePreview = (body, colors) => {
     try {
       const template = Handlebars.compile(body);
@@ -207,6 +230,11 @@ export default function NewPetition() {
       payload.content = editorContent;
       payload.email_template_id = form.emailTemplateId;
       payload.target_emails = recipientEmails;
+      // Colores personalizados
+      payload.headerColor = customColors.headerColor;
+      payload.buttonColor = customColors.buttonColor;
+      payload.footerColor = customColors.footerColor;
+      payload.backgroundColor = customColors.backgroundColor;
     } else {
       payload.external_url = form.externalUrl.trim();
     }
@@ -322,13 +350,40 @@ export default function NewPetition() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Plantilla de email *</label>
                 <div className="flex items-center gap-2">
-                  <select name="emailTemplateId" value={form.emailTemplateId} onChange={handleChange} required className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500">
+                  <select name="emailTemplateId" value={form.emailTemplateId} onChange={handleTemplateSelect} required className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500">
                     <option value="">Selecciona una plantilla</option>
                     {templates.map(tpl => (<option key={tpl.id} value={tpl.id}>{tpl.name}</option>))}
                   </select>
                   <button type="button" onClick={() => setShowTemplateCreator(true)} className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
                     <FaPlus className="w-3.5 h-3.5" /> Nueva plantilla
                   </button>
+                </div>
+                {/* Selectores de color */}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color cabecera</label>
+                    <input type="color" value={customColors.headerColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, headerColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color botón</label>
+                    <input type="color" value={customColors.buttonColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, buttonColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color footer</label>
+                    <input type="color" value={customColors.footerColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, footerColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Fondo general</label>
+                    <input type="color" value={customColors.backgroundColor}
+                      onChange={(e) => setCustomColors(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      className="w-full h-10 border rounded-lg" />
+                  </div>
                 </div>
               </div>
               <div>
@@ -355,7 +410,7 @@ export default function NewPetition() {
             </div>
           )}
 
-          {/* Grupos públicos (comunes) */}
+          {/* Grupos públicos */}
           <div className="border-t pt-4">
             <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2"><span>💬</span> Grupos de chat públicos</h3>
             <p className="text-xs text-gray-400 mb-2">Estos grupos aparecerán en la página pública.</p>
@@ -391,7 +446,7 @@ export default function NewPetition() {
           </button>
         </form>
 
-        {/* Botón para abrir vista previa */}
+        {/* Vista previa */}
         <div className="lg:w-1/3 flex flex-col items-center">
           <button
             type="button"
@@ -403,7 +458,7 @@ export default function NewPetition() {
         </div>
       </div>
 
-      {/* MODAL de vista previa de la petición */}
+      {/* MODAL vista previa */}
       {showPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4" onClick={() => setShowPreview(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -437,7 +492,7 @@ export default function NewPetition() {
         </div>
       )}
 
-      {/* ---------- MODAL CREACIÓN DE PLANTILLA ---------- */}
+      {/* MODAL creación de plantilla */}
       {showTemplateCreator && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => setShowTemplateCreator(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>

@@ -2,25 +2,24 @@ const request = require('supertest');
 const API_URL = process.env.API_URL || 'http://localhost:5000';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
+let adminToken, createdActionId;
+
+beforeAll(async () => {
+  const res = await request(API_URL)
+    .post('/api/auth/login')
+    .send({ username: 'admin', password: ADMIN_PASSWORD });
+  adminToken = res.body.token;
+}, 15000);
+
+afterAll(async () => {
+  if (createdActionId) {
+    await request(API_URL)
+      .delete(`/api/actions/${createdActionId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+  }
+});
+
 describe('Actions API', () => {
-  let adminToken;
-  let createdActionId;
-
-  beforeAll(async () => {
-    const res = await request(API_URL)
-      .post('/api/auth/login')
-      .send({ username: 'admin', password: ADMIN_PASSWORD });
-    adminToken = res.body.token;
-  });
-
-  afterAll(async () => {
-    if (createdActionId) {
-      await request(API_URL)
-        .delete(`/api/actions/${createdActionId}`)
-        .set('Authorization', `Bearer ${adminToken}`);
-    }
-  });
-
   test('Crear acción', async () => {
     const res = await request(API_URL)
       .post('/api/actions')

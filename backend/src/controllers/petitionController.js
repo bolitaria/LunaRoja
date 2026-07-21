@@ -1,6 +1,7 @@
+// backend/src/controllers/petitionController.js (versión completa y corregida)
 const { Petition, SignatureHash } = require('../models');
 const { buildSignatureSchema } = require('../utils/dynamicValidation');
-const { sendPetitionAlert } = require('../services/emailService');
+const { sendPetitionAlert, sendEmailWithTemplate } = require('../services/emailService');
 const sequelize = require('../config/database');
 const createError = require('http-errors');
 const crypto = require('crypto');
@@ -29,12 +30,10 @@ function parseSignatureFields(input) {
   return input;
 }
 
-// Helper para aceptar camelCase y snake_case
 function getField(body, camelKey, snakeKey) {
   return body[camelKey] !== undefined ? body[camelKey] : body[snakeKey];
 }
 
-// ✅ Guarda la imagen dentro del volumen Docker (/app/uploads/petitions)
 async function saveBase64Image(base64String) {
   if (!base64String) return null;
   const matches = base64String.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
@@ -58,24 +57,25 @@ exports.createPetition = async (req, res, next) => {
     const urgency = req.body.urgency;
     const deadline = req.body.deadline;
     const hidden = req.body.hidden;
-    const emailBodyTemplate = req.body.emailBodyTemplate || req.body.email_body_template;
     const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
+    // ✅ COLORES PERSONALIZADOS
+    const headerColor = req.body.headerColor || null;
+    const buttonColor = req.body.buttonColor || null;
+    const footerColor = req.body.footerColor || null;
+    const backgroundColor = req.body.backgroundColor || null;
 
-    // Imagen: archivo (multer) o base64
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : null;
     if (!featuredImage && req.body.imageBase64) {
       try {
         featuredImage = await saveBase64Image(req.body.imageBase64);
-      } catch (err) {
-        console.error('Error guardando imagen base64:', err);
-      }
+      } catch (err) { console.error('Error guardando imagen base64:', err); }
     }
 
     if (!title) throw createError(400, 'El título es obligatorio');
 
-    // Peticiones oficiales / externas
+    // Peticiones externas
     if (type === 'official' || type === 'external') {
       if (!externalUrl || externalUrl.trim() === '') {
         throw createError(400, 'La URL externa es obligatoria para peticiones externas');
@@ -90,10 +90,11 @@ exports.createPetition = async (req, res, next) => {
         urgency: urgency || false,
         deadline: (deadline && deadline !== '' && deadline !== 'Invalid date') ? deadline : null,
         hidden: hidden || false,
-        email_body_template: emailBodyTemplate || null,
         emailTemplateId: emailTemplateId || null,
         featured_image: featuredImage,
         created_by: req.user.id,
+        // colores
+        headerColor, buttonColor, footerColor, backgroundColor,
       });
       return res.status(201).json({ id: petition.id });
     }
@@ -112,10 +113,10 @@ exports.createPetition = async (req, res, next) => {
       urgency: urgency || false,
       deadline: (deadline && deadline !== '' && deadline !== 'Invalid date') ? deadline : null,
       hidden: hidden || false,
-      email_body_template: emailBodyTemplate || null,
       emailTemplateId: emailTemplateId || null,
       featured_image: featuredImage,
       created_by: req.user.id,
+      headerColor, buttonColor, footerColor, backgroundColor,
     });
     res.status(201).json({ id: petition.id });
   } catch (err) { next(err); }
@@ -124,7 +125,7 @@ exports.createPetition = async (req, res, next) => {
 exports.getPetition = async (req, res, next) => {
   try {
     const petition = await Petition.findByPk(req.params.id, {
-      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at'],
+      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at', 'headerColor', 'buttonColor', 'footerColor', 'backgroundColor'],
     });
     if (!petition) throw createError(404, 'Petición no encontrada');
     res.json(petition);
@@ -152,8 +153,29 @@ exports.signPetition = async (req, res, next) => {
     petition.total_signatures += 1;
     await petition.save({ transaction });
     await transaction.commit();
+
     const emailData = {};
     petition.signature_fields.forEach(f => { emailData[f.label || f.name] = value[f.name] || ''; });
+
+    // Usar plantilla y colores personalizados
+    if (petition.emailTemplateId) {
+      try {
+        const EmailTemplate = require('../models/EmailTemplate');
+        const template = await EmailTemplate.findByPk(petition.emailTemplateId);
+        if (template) {
+          const colors = {
+            headerColor: petition.headerColor || template.headerColor,
+            buttonColor: petition.buttonColor || template.buttonColor,
+            footerColor: petition.footerColor || template.footerColor,
+            backgroundColor: petition.backgroundColor || template.backgroundColor,
+          };
+          await sendEmailWithTemplate(petition.target_emails, template, { ...emailData, petition });
+          return res.status(201).json({ message: 'Firma registrada con éxito', total: petition.total_signatures });
+        }
+      } catch (err) { console.error('Error enviando email con plantilla:', err); }
+    }
+
+    // Fallback: envío estático
     sendPetitionAlert(petition, emailData).catch(err => console.error('Error enviando correo:', err));
     res.status(201).json({ message: 'Firma registrada con éxito', total: petition.total_signatures });
   } catch (err) {
@@ -175,18 +197,19 @@ exports.updatePetition = async (req, res, next) => {
     const urgency = req.body.urgency;
     const deadline = req.body.deadline;
     const hidden = req.body.hidden;
-    const emailBodyTemplate = req.body.emailBodyTemplate || req.body.email_body_template;
     const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
+    const headerColor = req.body.headerColor !== undefined ? req.body.headerColor : petition.headerColor;
+    const buttonColor = req.body.buttonColor !== undefined ? req.body.buttonColor : petition.buttonColor;
+    const footerColor = req.body.footerColor !== undefined ? req.body.footerColor : petition.footerColor;
+    const backgroundColor = req.body.backgroundColor !== undefined ? req.body.backgroundColor : petition.backgroundColor;
 
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : petition.featured_image;
     if (!req.file && req.body.imageBase64) {
       try {
         featuredImage = await saveBase64Image(req.body.imageBase64) || petition.featured_image;
-      } catch (err) {
-        console.error('Error guardando imagen base64:', err);
-      }
+      } catch (err) { console.error('Error guardando imagen base64:', err); }
     }
 
     const isExternal = type === 'official' || type === 'external';
@@ -201,9 +224,9 @@ exports.updatePetition = async (req, res, next) => {
       urgency: urgency !== undefined ? urgency : petition.urgency,
       deadline: (deadline && deadline !== '' && deadline !== 'Invalid date') ? deadline : petition.deadline,
       hidden: hidden !== undefined ? hidden : petition.hidden,
-      email_body_template: emailBodyTemplate !== undefined ? emailBodyTemplate : petition.email_body_template,
       emailTemplateId: emailTemplateId !== undefined ? emailTemplateId : petition.emailTemplateId,
       featured_image: featuredImage,
+      headerColor, buttonColor, footerColor, backgroundColor,
     });
     res.json({ id: petition.id });
   } catch (err) { next(err); }

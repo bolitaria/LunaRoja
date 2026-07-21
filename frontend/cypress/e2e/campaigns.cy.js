@@ -1,29 +1,31 @@
 describe('Campañas', () => {
   beforeEach(() => {
-    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
+    cy.visit('/admin/login');
+    cy.findByLabelText('Usuario').type('admin');
+    cy.findByLabelText('Contraseña').type('admin123');
+    cy.findByRole('button', { name: /ingresar/i }).click();
   });
 
-  it('permite crear una campaña nueva', () => {
+  it('crea una campaña nueva', () => {
     cy.visit('/admin/campaigns/new');
-    cy.get('input[name="name"]').type('Campaña E2E');
-    cy.get('textarea[name="description"]').type('Descripción');
-    cy.get('button[type="submit"]').click();
-    cy.contains('Campaña creada correctamente').should('exist');
+    cy.findByLabelText('Nombre *').type('Campaña Cypress');
+    cy.findByLabelText('Descripción').type('Descripción campaña');
+    cy.findByRole('button', { name: /crear campaña/i }).click();
+    cy.contains('Campaña creada').should('exist');
   });
-});
+
   it('edita una campaña existente', () => {
-    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
     cy.visit('/admin/campaigns');
     cy.get('a[href*="/edit"]').first().click();
-    cy.get('input[name="name"]').clear().type('Campaña E2E Editada');
-    cy.get('button[type="submit"]').click();
+    cy.findByLabelText('Nombre *').clear().type('Editada Cypress');
+    cy.findByRole('button', { name: /actualizar campaña/i }).click();
     cy.contains('Campaña actualizada').should('exist');
   });
 
   it('elimina una campaña', () => {
-    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
     cy.visit('/admin/campaigns');
-    cy.get('button[type="submit"]').contains(/eliminar/i).click();
-    cy.get('button[type="submit"]').click(); // confirmación
-    cy.contains('eliminada').should('exist');
+    cy.get('[title="Eliminar"]').first().click();
+    cy.findByRole('button', { name: /eliminar/i }).click();
+    cy.contains('Campaña eliminada').should('exist');
   });
+});

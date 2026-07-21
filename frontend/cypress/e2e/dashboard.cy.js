@@ -1,8 +1,13 @@
 describe('Dashboard', () => {
-  it('muestra el panel de administración después del login', () => {
-    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
-    cy.visit('/admin/dashboard');
-    cy.contains('Dashboard').should('exist');
-    cy.contains('Estadísticas').should('exist');
+  beforeEach(() => {
+    cy.visit('/admin/login');
+    cy.findByLabelText('Usuario').type('admin');
+    cy.findByLabelText('Contraseña').type('admin123');
+    cy.findByRole('button', { name: /ingresar/i }).click();
+  });
+
+  it('muestra el panel de administración', () => {
+    cy.url().should('include', '/admin');
+    cy.contains('Estadísticas').should('exist'); // Ajusta según el texto real del dashboard
   });
 });

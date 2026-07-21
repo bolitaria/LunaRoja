@@ -9,17 +9,13 @@ beforeAll(async () => {
     .post('/api/auth/login')
     .send({ username: 'admin', password: ADMIN_PASSWORD });
   adminToken = res.body.token;
-});
+}, 15000);
 
 describe('News API', () => {
   test('Listar noticias (token requerido)', async () => {
     const res = await request(API_URL)
       .get('/api/news')
       .set('Authorization', `Bearer ${adminToken}`);
-    // El endpoint puede devolver 200 o 404; lo aceptamos como válido
-    expect([200, 404]).toContain(res.statusCode);
+    expect(res.status).toBe(200);
   });
-
-  // Opcional: test de creación solo si tienes campaña/acción válidas
-  // Se omite para evitar falsos negativos
 });

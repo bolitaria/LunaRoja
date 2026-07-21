@@ -1,5 +1,3 @@
-import ExcelJS from 'exceljs';
-
 function downloadBlob(blob, filename) {
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -32,19 +30,17 @@ function exportAsCSV(data, headers, filename) {
 }
 
 async function exportAsExcel(data, headers, filename) {
+  const ExcelJS = await import('exceljs');  // Importación dinámica
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Datos');
 
-  // Agregar cabecera
   worksheet.addRow(headers);
 
-  // Agregar filas de datos
   data.forEach(row => {
     const values = headers.map(h => row[h] ?? '');
     worksheet.addRow(values);
   });
 
-  // Generar buffer y descargar
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   downloadBlob(blob, filename);
@@ -66,7 +62,7 @@ export function exportInfo(data, headers, filename, format = 'csv') {
   
   switch (format) {
     case 'xlsx':
-      exportAsExcel(data, headers, fullFilename);   // ahora es async pero no necesitamos await porque el download se dispara automáticamente
+      exportAsExcel(data, headers, fullFilename);
       break;
     case 'txt':
       exportAsTXT(data, headers, fullFilename);

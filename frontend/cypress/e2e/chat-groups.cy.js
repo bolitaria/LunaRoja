@@ -1,28 +1,31 @@
 describe('Grupos de chat', () => {
   beforeEach(() => {
-    cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
+    cy.visit('/admin/login');
+    cy.findByLabelText('Usuario').type('admin');
+    cy.findByLabelText('Contraseña').type('admin123');
+    cy.findByRole('button', { name: /ingresar/i }).click();
   });
 
   it('crea un grupo de chat', () => {
-    cy.visit('/admin/chatGroups/new');
-    cy.get('input[name="name"]').type('Grupo E2E');
-    cy.get('input[name="inviteLink"]').type('https://chat.example.com');
-    cy.get('button[type="submit"]').click();
+    cy.visit('/admin/chat-groups/new');
+    cy.findByLabelText('Enlace de invitación *').type('https://chat.whatsapp.com/invite');
+    cy.findByLabelText('Plataforma').select('whatsapp');
+    cy.findByRole('button', { name: /crear grupo/i }).click();
     cy.contains('Grupo creado').should('exist');
   });
-});
 
   it('edita un grupo de chat', () => {
-    cy.visit('/admin/chatGroups');
+    cy.visit('/admin/chat-groups');
     cy.get('a[href*="/edit"]').first().click();
-    cy.get('input[name="name"]').clear().type('Grupo Editado E2E');
-    cy.get('button[type="submit"]').click();
+    cy.findByLabelText('Enlace de invitación *').clear().type('https://t.me/nuevo');
+    cy.findByRole('button', { name: /guardar/i }).click();
     cy.contains('actualizado').should('exist');
   });
 
   it('elimina un grupo de chat', () => {
-    cy.visit('/admin/chatGroups');
-    cy.get('button[type="submit"]').contains(/eliminar/i).click();
-    cy.get('button[type="submit"]').click();
+    cy.visit('/admin/chat-groups');
+    cy.get('[title="Eliminar"]').first().click();
+    cy.findByRole('button', { name: /eliminar/i }).click();
     cy.contains('eliminado').should('exist');
   });
+});

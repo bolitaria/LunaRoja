@@ -1,21 +1,39 @@
 const request = require('supertest');
 const API_URL = process.env.API_URL || 'http://localhost:5000';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-jest.setTimeout(10000);
 
-let adminToken, petitionId;
+let adminToken, petitionId, emailTemplateId;
 
 beforeAll(async () => {
   const res = await request(API_URL)
     .post('/api/auth/login')
     .send({ username: 'admin', password: ADMIN_PASSWORD });
   adminToken = res.body.token;
-});
+
+  const templateRes = await request(API_URL)
+    .post('/api/email-templates')
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({
+      name: 'template_test_' + Date.now(),
+      subject: 'Test Subject',
+      body: '<p>Test body {{username}}</p>',
+      headerColor: '#b91c1c',
+      buttonColor: '#16a34a',
+      footerColor: '#1f2937',
+      backgroundColor: '#f3f4f6',
+    });
+  emailTemplateId = templateRes.body.id;
+}, 15000);
 
 afterAll(async () => {
   if (petitionId) {
     await request(API_URL)
       .delete(`/api/petitions/${petitionId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+  }
+  if (emailTemplateId) {
+    await request(API_URL)
+      .delete(`/api/email-templates/${emailTemplateId}`)
       .set('Authorization', `Bearer ${adminToken}`);
   }
 });
@@ -27,18 +45,12 @@ describe('Petitions API', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         title: 'Petición test',
-        content: 'Contenido',
+        description: 'Desc',
+        type: 'internal',
         target_emails: ['test@example.com'],
-        total_signatures: 0,
-        signature_fields: [],
-        type: 'custom',
-        external_url: '',
-        urgency: true,
-        deadline: new Date(Date.now() + 86400000).toISOString(),
-        hidden: false,
-        email_body_template: '',
-        emailTemplateId: 1,
-        featured_image: '',
+        emailTemplateId,
+        signature_fields: [{ name: 'Nombre', type: 'text', required: true }],
+        content: '<p>Contenido</p>',
         created_by: 1,
       });
     expect(res.statusCode).toBe(201);
@@ -58,15 +70,11 @@ describe('Petitions API', () => {
         .post('/api/petitions')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          content: 'Sin título',
+          type: 'internal',
           target_emails: ['test@example.com'],
-          total_signatures: 0,
-          signature_fields: [],
-          type: 'custom',
-          urgency: false,
-          hidden: false,
-          email_body_template: '',
-          emailTemplateId: 1,
+          emailTemplateId,
+          signature_fields: [{ name: 'Nombre', type: 'text', required: true }],
+          content: '<p>Contenido</p>',
         });
       expect(res.statusCode).toBe(400);
     });
@@ -76,16 +84,12 @@ describe('Petitions API', () => {
         .post('/api/petitions')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          title: 'Petición con emails string',
-          content: 'Contenido',
-          target_emails: 'correo@example.com, otro@example.com',
-          total_signatures: 0,
-          signature_fields: [],
-          type: 'custom',
-          urgency: false,
-          hidden: false,
-          email_body_template: '',
-          emailTemplateId: 1,
+          title: 'Test emails',
+          type: 'internal',
+          target_emails: 'a@b.com,c@d.com',
+          emailTemplateId,
+          signature_fields: [{ name: 'Nombre', type: 'text', required: true }],
+          content: '<p>Test</p>',
         });
       expect(res.statusCode).toBe(201);
       if (res.body.id) {
