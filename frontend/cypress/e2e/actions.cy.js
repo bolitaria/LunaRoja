@@ -1,8 +1,8 @@
 describe('Acciones', () => {
   beforeEach(() => {
     cy.visit('/admin/login');
-    cy.findByLabelText('Usuario').type('admin');
-    cy.findByLabelText('Contraseña').type('admin123'); // Ajusta a tu contraseña
+    cy.get('[data-cy="username-input"]').type('admin');
+    cy.get('input[type="password"]').type('admin123'); // Ajusta a tu contraseña
     cy.findByRole('button', { name: /ingresar/i }).click();
     cy.url().should('include', '/admin');
   });
