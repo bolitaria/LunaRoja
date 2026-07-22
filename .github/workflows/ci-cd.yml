@@ -123,6 +123,7 @@ jobs:
       - name: Start backend server (with health check)
         if: matrix.service == 'backend'
         run: |
+          sudo mkdir -p /app/uploads && sudo chmod 777 /app/uploads
           node src/app.js > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do
             if curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
@@ -247,7 +248,7 @@ jobs:
           })();
           "
 
-          mkdir -p uploads/petitions uploads/campaigns uploads/actions uploads/documents uploads/featured
+          sudo mkdir -p /app/uploads && sudo chmod 777 /app/uploads
 
           node src/app.js > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do
