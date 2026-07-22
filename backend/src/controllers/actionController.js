@@ -15,7 +15,6 @@ const FEATURED_BASE = path.join(__dirname, '../../uploads/featured');
 const ACTIONS_BASE = path.join(__dirname, '../../uploads/actions');
 const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
-// ─── HELPER: Procesar archivos subidos ───
 function processUploadedFiles(req) {
   const files = req.files || [];
   const result = {
@@ -66,7 +65,6 @@ function processUploadedFiles(req) {
   return result;
 }
 
-// ─── GET ALL ACTIONS ───
 exports.getAllActions = async (req, res) => {
   try {
     const { campaignId, bdsId } = req.query;
@@ -96,7 +94,6 @@ exports.getAllActions = async (req, res) => {
     if (parsedCampaignId) where.campaignId = parsedCampaignId;
     if (parsedBdsId) where.bdsId = parsedBdsId;
 
-    // ✅ Sanitización de paginación (una sola vez)
     let { limit, offset } = req.query;
     limit = parseInt(limit) || 20;
     offset = parseInt(offset) || 0;
@@ -122,7 +119,6 @@ exports.getAllActions = async (req, res) => {
   }
 };
 
-// ─── GET ACTION BY ID ───
 exports.getActionById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -142,7 +138,6 @@ exports.getActionById = async (req, res) => {
   }
 };
 
-// ─── CREATE ACTION ───
 exports.createAction = async (req, res) => {
   try {
     let {
@@ -167,7 +162,6 @@ exports.createAction = async (req, res) => {
       return res.status(400).json({ message: 'Para acciones online, el enlace de registro es obligatorio' });
     }
 
-    // Validar permisos según rol
     if (req.user.role === 'campaign_admin') {
       const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
       const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
@@ -286,7 +280,6 @@ exports.createAction = async (req, res) => {
   }
 };
 
-// ─── UPDATE ACTION ───
 exports.updateAction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -416,7 +409,6 @@ exports.updateAction = async (req, res) => {
   }
 };
 
-// ─── DELETE ACTION ───
 exports.deleteAction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -452,7 +444,6 @@ exports.deleteAction = async (req, res) => {
   }
 };
 
-// ─── DELETE ACTION IMAGE ───
 exports.deleteActionImage = async (req, res) => {
   try {
     const { imageId } = req.params;

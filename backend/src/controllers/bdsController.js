@@ -10,6 +10,28 @@ const path = require('path');
 const BDS_BASE = path.join(__dirname, '../../uploads/bds');
 const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
 
+// Helper para convertir cadenas vacías en null o arrays válidos
+function sanitizeOptionalFields(body) {
+  const fields = ['imageUrl', 'documentLink', 'document', 'color', 'description'];
+  fields.forEach(f => {
+    if (body[f] === '' || body[f] === undefined) {
+      body[f] = null;
+    }
+  });
+  // groups debe ser array o null
+  if (body.groups !== undefined) {
+    if (typeof body.groups === 'string') {
+      try {
+        body.groups = JSON.parse(body.groups);
+      } catch {
+        body.groups = [];
+      }
+    }
+    if (!Array.isArray(body.groups)) body.groups = [];
+  }
+  return body;
+}
+
 exports.getAllBDS = async (req, res) => {
   try {
     let where = {};
@@ -50,28 +72,18 @@ exports.getBDSById = async (req, res) => {
 
 exports.createBDS = async (req, res) => {
   try {
+    req.body = sanitizeOptionalFields(req.body);
     let { name, description, color, groups, documentLink } = req.body;
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
 
-    // Sanitize groups – must be an array, otherwise use []
-    if (groups !== undefined) {
-      if (typeof groups === 'string') {
-        try {
-          groups = JSON.parse(groups);
-        } catch (e) {
-          groups = [];
-        }
-      }
-      if (!Array.isArray(groups)) groups = [];
-    } else {
-      groups = [];
-    }
+    // groups ya fue sanitizado, si es null lo dejamos como array vacío
+    if (!groups) groups = [];
 
-    let imageUrl = null;
+    let imageUrl = req.body.imageUrl || null;
     if (req.files && req.files.image && req.files.image.length > 0) {
       imageUrl = `/uploads/bds/${req.files.image[0].filename}`;
     }
-    let documentPath = null;
+    let documentPath = req.body.document || null;
     if (req.files && req.files.document && req.files.document.length > 0) {
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
@@ -126,38 +138,35 @@ exports.updateBDS = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
+    req.body = sanitizeOptionalFields(req.body);
     let { name, description, color, groups, documentLink } = req.body;
 
-    // Sanitize groups
-    if (groups !== undefined) {
-      if (typeof groups === 'string') {
-        try {
-          groups = JSON.parse(groups);
-        } catch (e) {
-          groups = [];
-        }
-      }
-      if (!Array.isArray(groups)) groups = [];
-    }
+    // Mantener valores existentes si no se envían
+    name = name !== undefined ? name : bds.name;
+    description = description !== undefined ? description : bds.description;
+    color = color || bds.color;
+    groups = groups !== undefined ? groups : bds.groups;
+    documentLink = documentLink !== undefined ? documentLink : bds.documentLink;
 
-    let imageUrl = bds.imageUrl;
+    let imageUrl = req.body.imageUrl !== undefined ? req.body.imageUrl : bds.imageUrl;
     if (req.files && req.files.image && req.files.image.length > 0) {
       if (bds.imageUrl) deleteFileSafe(bds.imageUrl, BDS_BASE);
       imageUrl = `/uploads/bds/${req.files.image[0].filename}`;
     }
-    let documentPath = bds.document;
+
+    let documentPath = req.body.document !== undefined ? req.body.document : bds.document;
     if (req.files && req.files.document && req.files.document.length > 0) {
       if (bds.document) deleteFileSafe(bds.document, DOCUMENTS_BASE);
       documentPath = `/uploads/documents/${req.files.document[0].filename}`;
     }
 
     await bds.update({
-      name: name || bds.name,
-      description: description !== undefined ? description : bds.description,
-      color: color || bds.color,
+      name,
+      description,
+      color,
       imageUrl,
-      groups: groups !== undefined ? groups : bds.groups,
-      documentLink: documentLink !== undefined ? documentLink : bds.documentLink,
+      groups,
+      documentLink,
       document: documentPath,
     });
     res.json(bds);
