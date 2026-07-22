@@ -1,0 +1,28 @@
+# Entorno virtual Python
+env/
+
+# Dependencias Node
+node_modules/
+
+# Builds y cachés
+.next/
+dist/
+build/
+
+# Uploads y BD
+database/
+uploads/
+backend/uploads/
+
+# IDE y sistema
+.git/
+.idea/
+.vscode/
+*.log
+
+# Tests y cobertura
+coverage/
+.nyc_output/
+
+# CI/CD (ya excluido)
+.github/

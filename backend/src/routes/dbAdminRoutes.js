@@ -1,21 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const dbAdminController = require('../controllers/dbAdminController');
-const authMiddleware = require('../middlewares/auth');
+const { authenticate: authMiddleware } = require('../middlewares/auth');         
 const { isSuperAdmin } = require('../middlewares/authorize');
 
-router.use(authMiddleware, isSuperAdmin);
+// Proteger todas las rutas con autenticación y rol superadmin
+router.use(authMiddleware);
+router.use(isSuperAdmin);
 
-// Información general
+// Ruta raíz → GET /api/database (información general de la BD)
+router.get('/', dbAdminController.getDatabaseInfo);
+
+// Información detallada (alias /info también funciona)
 router.get('/info', dbAdminController.getDatabaseInfo);
-router.get('/table/:tableName/indexes', dbAdminController.getTableIndexes);
 
-// Índices duplicados
-router.get('/check-duplicates', dbAdminController.checkDuplicates);
-router.post('/clean-duplicates', dbAdminController.cleanDuplicates);
+// Índices de una tabla
+router.get('/tables/:tableName/indexes', dbAdminController.getTableIndexes);
 
-// Backup y migraciones
+// Backup (descarga de un dump SQL)
 router.get('/backup', dbAdminController.backup);
-router.post('/migrate', dbAdminController.runMigrations);
+
+// Ejecutar migraciones pendientes
+router.post('/migrations', dbAdminController.runMigrations);
 
 module.exports = router;

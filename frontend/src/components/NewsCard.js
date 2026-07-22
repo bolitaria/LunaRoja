@@ -1,7 +1,10 @@
 import Link from 'next/link';
 
 export default function NewsCard({ noticia, campaign, action }) {
+  if (!noticia) return null;
+
   const getYoutubeId = (url) => {
+    if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
@@ -18,18 +21,23 @@ export default function NewsCard({ noticia, campaign, action }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
       <Link href={`/noticias/${noticia.id}`}>
+        {/* Título y fecha en la misma línea */}
+        <div className="flex justify-between items-start p-4 pb-2">
+          <h3 className="font-semibold text-lg line-clamp-2 flex-1 mr-2">{noticia.title}</h3>
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            {new Date(noticia.publishedAt).toLocaleDateString()}
+          </span>
+        </div>
+
+        {/* Miniatura del vídeo */}
         <div className="relative pb-56 bg-gray-200">
           <img src={thumbnail} alt={noticia.title} className="absolute inset-0 w-full h-full object-cover" />
         </div>
-        <div className="p-4">
-          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{noticia.title}</h3>
+        <div className="p-4 pt-2">
           <p className="text-gray-600 text-sm line-clamp-3">{noticia.description}</p>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <p className="text-xs text-gray-400">
-              {new Date(noticia.publishedAt).toLocaleDateString()}
-            </p>
             {newsTag && (
               <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
                 {newsTag}

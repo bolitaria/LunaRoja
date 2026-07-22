@@ -2,6 +2,7 @@ const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
 const Action = require('../models/Action');
 
+// Verifica que el usuario sea superadmin
 const isSuperAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'superadmin') {
     next();
@@ -10,6 +11,16 @@ const isSuperAdmin = (req, res, next) => {
   }
 };
 
+// Verifica que el usuario sea blog_admin o superadmin
+const isBlogAdmin = (req, res, next) => {
+  if (req.user && (req.user.role === 'blog_admin' || req.user.role === 'superadmin')) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Acceso denegado. Se requiere rol de blog_admin o superior.' });
+  }
+};
+
+// Middleware para verificar acceso a una campaña específica
 const canAccessCampaign = async (req, res, next) => {
   try {
     const user = req.user;
@@ -28,6 +39,7 @@ const canAccessCampaign = async (req, res, next) => {
   }
 };
 
+// Middleware para verificar acceso a una acción específica
 const canAccessAction = async (req, res, next) => {
   try {
     const user = req.user;
@@ -53,4 +65,4 @@ const canAccessAction = async (req, res, next) => {
   }
 };
 
-module.exports = { isSuperAdmin, canAccessCampaign, canAccessAction };
+module.exports = { isSuperAdmin, isBlogAdmin, canAccessCampaign, canAccessAction };

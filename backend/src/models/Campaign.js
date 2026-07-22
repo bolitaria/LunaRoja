@@ -22,6 +22,19 @@ const Campaign = sequelize.define('Campaign', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  // Nuevos campos
+  groups: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  documentLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  document: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

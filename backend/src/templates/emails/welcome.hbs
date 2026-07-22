@@ -2,32 +2,129 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Bienvenid@ a Voces Palestinas por la Justicia</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenid@ a Voces Palestinas</title>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background-color: #b91c1c; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; }
-    .footer { font-size: 12px; text-align: center; margin-top: 20px; color: #777; }
-    .button { background-color: #b91c1c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
+    body { font-family: 'Inter', Arial, sans-serif; margin:0; background:#f3f4f6; }
+    .container { max-width:640px; width:100%; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; }
+    .header { background:#b91c1c; padding:32px 24px; text-align:center; }
+    .header img { width:220px; max-width:80%; height:auto; }
+    .content { padding:36px 28px; color:#1f2937; line-height:1.7; font-size:18px; text-align:center; }
+    .title { color:#b91c1c; font-size:28px; font-weight:700; margin:0 0 12px; }
+    .subtitle { color:#4b5563; font-size:20px; margin:0 0 24px; }
+    .btn {
+      display:inline-block; background:#16a34a; color:#ffffff; font-weight:600;
+      text-decoration:none; padding:12px 0; border-radius:10px; font-size:17px;
+      text-align:center; width:100%; box-sizing:border-box;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .footer { background:#1f2937; padding:28px 24px; text-align:center; font-size:14px; color:#d1d5db; }
+    .footer a { color:#fca5a5; text-decoration:none; }
+    .divider { border-top:1px solid #e5e7eb; margin:28px 0; }
+    .unsubscribe-note { font-size:13px; color:#9ca3af; margin-top:24px; }
+    .unsubscribe-note a { color:#9ca3af; text-decoration:underline; }
+
+    .feature-table { margin:24px 0; width:100%; }
+    .feature-table td { padding:0 12px 20px 12px; vertical-align:top; }
+    .feature-icon { width:40px; text-align:center; }
+    .feature-icon svg { width:24px; height:24px; fill:#16a34a; }
+    .feature-text { text-align:left; font-size:16px; }
+
+    .btn-grid { width:100%; }
+    .btn-grid td { width:50%; padding:8px; }
+
+    .gallery-link { display:inline-block; color:#b91c1c; text-decoration:none; font-weight:600; font-size:16px; margin-top:16px; }
+    .gallery-link svg { width:20px; height:20px; fill:#b91c1c; vertical-align:middle; margin-right:4px; }
+
+    .instagram-link { display:inline-block; color:#b91c1c; text-decoration:none; font-weight:600; font-size:16px; margin-top:8px; }
+    .instagram-link svg { width:20px; height:20px; fill:#b91c1c; vertical-align:middle; margin-right:4px; }
+
+    @media (max-width:480px) {
+      .content { padding:24px 18px; }
+      .btn { padding:12px 0; font-size:16px; }
+      .btn-grid td { display:block; width:100% !important; padding:8px 0; }
+      .feature-table td { display:block; width:100% !important; padding:8px 0; }
+      .feature-icon { float:left; margin-right:10px; }
+    }
   </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>¡Bienvenido a Voces Palestinas por la Justicia!</h1>
-    </div>
-    <div class="content">
-      <p>Hola {{username}},</p>
-      <p>Gracias por suscribirte a nuestras novedades. A partir de ahora recibirás información sobre campañas, acciones y eventos importantes que organizamos.</p>
-      <p>Si en algún momento deseas dejar de recibir estos correos, puedes hacer clic en el enlace de desuscripción al final de cada mensaje.</p>
-      <p>¡Gracias por formar parte de esta comunidad!</p>
-      <p>Un abrazo,<br>Equipo de Voces Palestinas por la Justicia</p>
-    </div>
-    <div class="footer">
-      <p>Si no solicitaste este correo, ignóralo.</p>
-      <p><a href="{{unsubscribeLink}}">Darse de baja</a></p>
-    </div>
-  </div>
+<body style="background:#f3f4f6; padding:30px 0;">
+  <table role="presentation" class="container">
+    <tr>
+      <td class="header">
+        <h1 style="color:#ffffff; font-size:24px; margin:0;">Voces Palestinas por la Justicia</h1>
+      </td>
+    </tr>
+    <tr>
+      <td class="content">
+        <h1 class="title">¡Bienvenid@, {{username}}!</h1>
+        <p class="subtitle">Gracias por unirte a <strong>Voces Palestinas por la Justicia</strong>.</p>
+        <p>Las ideas que nacen de la verdad no mueren. Te mantendremos al tanto de nuestras campañas, acciones y noticias.</p>
+
+        <h2 style="color:#1f2937; font-size:22px; font-weight:600; margin:32px 0 16px;">Lo que recibirás</h2>
+        <table class="feature-table" cellpadding="0" cellspacing="0">
+          <tr>
+            <td class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 8H4a2 2 0 00-2 2v4a2 2 0 002 2h1v4a1 1 0 001.6.8L12 16h5a2 2 0 002-2v-4a2 2 0 00-2-2h-5zM4 10h8v4H4v-4zm10 5.5V8.5l4 1.5v2l-4 1.5z"/></svg>
+            </td>
+            <td class="feature-text"><strong>Campañas y acciones</strong> Protestas, marchas, boicots, talleres, webinars…</td>
+          </tr>
+          <tr>
+            <td class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H4a2 2 0 00-2 2v16a2 2 0 002 2zm0-2V4h16v16H4zm2-4h12v2H6v-2zm0-4h12v2H6v-2zm0-4h12v2H6V8z"/></svg>
+            </td>
+            <td class="feature-text"><strong>Noticias y análisis</strong> Artículos sobre Palestina, BDS, derechos humanos y actualidad.</td>
+          </tr>
+          <tr>
+            <td class="feature-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </td>
+            <td class="feature-text"><strong>Recordatorios (si los activas)</strong> Un día antes de cada acción, recibirás un aviso.</td>
+          </tr>
+        </table>
+
+        <div class="divider"></div>
+
+        <h2 style="color:#1f2937; font-size:22px; font-weight:600; margin:0 0 16px;">Explora nuestra web</h2>
+        <table role="presentation" class="btn-grid" cellpadding="0" cellspacing="0">
+          <tr>
+            <td><a href="{{frontendUrl}}/acciones" class="btn">Acciones</a></td>
+            <td><a href="{{frontendUrl}}/campanas" class="btn">Campañas</a></td>
+          </tr>
+          <tr>
+            <td><a href="{{frontendUrl}}/noticias" class="btn">Noticias</a></td>
+            <td><a href="{{frontendUrl}}/reports" class="btn">Reportes</a></td>
+          </tr>
+        </table>
+
+        <a href="{{frontendUrl}}/galeria" class="gallery-link">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Galería
+        </a>
+
+        <br/>
+        <a href="https://www.instagram.com/stories/voces_palestinas_malaga" class="instagram-link">
+          <svg fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+          </svg>
+          @voces_palestinas_malaga
+        </a>
+
+        <p class="unsubscribe-note">
+          Si no deseas recibir estos correos, puedes {{{safeLink unsubscribeLink "darte de baja"}}}.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td class="footer">
+        <p style="margin:0 0 12px;">© {{currentYear}} Voces Palestinas por la Justicia</p>
+        <a href="https://www.instagram.com/stories/voces_palestinas_malaga" style="text-decoration:none;">
+          <svg fill="currentColor" viewBox="0 0 24 24" width="24" height="24" style="color:#d1d5db; vertical-align:middle;">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+          </svg>
+        </a>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

@@ -1,61 +1,33 @@
+import api from '../../../lib/axios';
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
-import { withAuth } from '../../../lib/auth';
-import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
+import { exportInfo } from '../../../utils/exportInfo';
+import Pagination from '../../../components/Pagination';
+import ConfirmModal from '../../../components/ConfirmModal';
+import ActionPreview from '../../../components/ActionPreview';
+import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye } from 'react-icons/fa';
 
 function AdminActions() {
   const [actions, setActions] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-
-  const fetchActions = async () => {
-    try {
-      console.log('Token usado para acciones:', token);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      console.log('Acciones recibidas:', res.data);
-      setActions(res.data);
-    } catch (error) {
-      console.error('Error al cargar acciones:', error);
-      toast.error('Error al cargar acciones');
-    }
-  };
-
-  const fetchCampaigns = async () => {
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setCampaigns(res.data);
-    } catch (error) {
-      toast.error('Error al cargar campañas');
-    }
-  };
-
-  useEffect(() => {
-    Promise.all([fetchActions(), fetchCampaigns()]).then(() => setLoading(false));
-  }, []);
-
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar acción?')) return;
-    try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/actions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Acción eliminada');
-      fetchActions();
-    } catch (error) {
-      toast.error('Error al eliminar');
-    }
-  };
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterCampaignId, setFilterCampaignId] = useState('');
+  const [filterLocationType, setFilterLocationType] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selected, setSelected] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [previewAction, setPreviewAction] = useState(null);
+  const [exportFormat, setExportFormat] = useState('csv');
+  const itemsPerPage = 10;
 
   const categoryLabels = {
     webinar: 'Webinar', talk: 'Charla', protest: 'Manifestación',
@@ -63,105 +35,280 @@ function AdminActions() {
     solidarity_action: 'Acción Solidaria', workshop: 'Taller'
   };
 
+  const fetchActions = async () => {
+    try {
+      const res = await api.get('/actions');
+      const sorted = res.data.sort((a, b) => {
+        if (a.urgent && !b.urgent) return -1;
+        if (!a.urgent && b.urgent) return 1;
+        return new Date(b.datetime) - new Date(a.datetime);
+      });
+      setActions(sorted);
+    } catch (error) {
+      toast.error('Error al cargar acciones');
+    }
+  };
+
+  const fetchCampaigns = async () => {
+    try {
+      const res = await api.get('/campaigns');
+      setCampaigns(res.data);
+    } catch (error) {
+      console.warn('No se pudieron cargar campañas', error);
+      setCampaigns([]);
+    }
+  };
+
+  useEffect(() => {
+    Promise.all([fetchActions(), fetchCampaigns()]).then(() => setLoading(false));
+  }, []);
+
+  const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
+  const executeDelete = async () => {
+    const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
+    try {
+      await Promise.all(ids.map(id => api.delete(`/actions/${id}`)));
+      toast.success(`${ids.length} acción(es) eliminada(s)`);
+      setSelected([]);
+      fetchActions();
+    } catch (error) {
+      toast.error('Error al eliminar');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
+    }
+  };
+
+  const exportSelectedCSV = () => {
+    const selectedActions = actions.filter(a => selected.includes(a.id));
+    const headers = ['title', 'category', 'datetime', 'locationType', 'placeName', 'campaign', 'status', 'isBDS'];
+    const data = selectedActions.map(a => ({
+      title: a.title,
+      category: categoryLabels[a.category] || a.category,
+      datetime: new Date(a.datetime).toLocaleString(),
+      locationType: a.locationType === 'online' ? 'Online' : (a.placeName || 'Presencial'),
+      placeName: a.placeName || '',
+      campaign: a.campaignId ? campaigns.find(c => c.id === a.campaignId)?.name || '' : '',
+      status: new Date(a.datetime) < new Date() ? 'Pasado' : 'Próximo',
+      isBDS: a.bdsId ? 'Sí' : 'No'
+    }));
+    exportInfo(data, headers, 'acciones_seleccionadas', exportFormat);
+  };
+
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
+  const now = new Date();
+
+  const filteredActions = actions.filter(action => {
+    if (searchTerm && !action.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (filterCategory && action.category !== filterCategory) return false;
+    if (filterCampaignId && action.campaignId !== filterCampaignId) return false;
+    if (filterLocationType && action.locationType !== filterLocationType) return false;
+    if (filterStatus) {
+      const isPast = new Date(action.datetime) < now;
+      if (filterStatus === 'upcoming' && isPast) return false;
+      if (filterStatus === 'past' && !isPast) return false;
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredActions.length / itemsPerPage);
+  const paginatedActions = filteredActions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const total = actions.length;
+  const upcomingCount = actions.filter(a => new Date(a.datetime) >= now).length;
+  const pastCount = total - upcomingCount;
+  const urgentCount = actions.filter(a => a.urgent).length;
+
+  const exportToCSV = () => {
+    const headers = ['title', 'category', 'datetime', 'locationType', 'placeName', 'campaign', 'status', 'isBDS'];
+    const data = filteredActions.map(a => ({
+      title: a.title,
+      category: categoryLabels[a.category] || a.category,
+      datetime: new Date(a.datetime).toLocaleString(),
+      locationType: a.locationType === 'online' ? 'Online' : (a.placeName || 'Presencial'),
+      placeName: a.placeName || '',
+      campaign: a.campaignId ? campaignMap[a.campaignId]?.name || '' : '',
+      status: new Date(a.datetime) < now ? 'Pasado' : 'Próximo',
+      isBDS: a.bdsId ? 'Sí' : 'No'
+    }));
+    exportInfo(data, headers, 'acciones', exportFormat);
+  };
+
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) setSelected(paginatedActions.map(a => a.id));
+    else setSelected([]);
+  };
+  const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    return url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_BASE_URL}${url}`;
+  };
 
   return (
-    <AdminLayout title="Administrar Acciones">
+    <AdminLayout title="Acciones">
       <ToastContainer />
-      {user && (user.role === 'superadmin' || user.role === 'campaign_admin') && (
-        <div className="mb-4">
-          <Link href="/admin/actions/new" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-            Nueva Acción
-          </Link>
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Eliminar acción"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} acciones seleccionadas?` : '¿Eliminar esta acción?')}
+        onConfirm={executeDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
+
+      {previewAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => setPreviewAction(null)}>
+          <div className="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-700">Vista previa de la acción</h3>
+              <button onClick={() => setPreviewAction(null)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+            </div>
+            <ActionPreview
+              form={previewAction}
+              featuredImage={getImageUrl(previewAction.featuredImage)}
+              images={previewAction.images ? previewAction.images.map(img => getImageUrl(img.url)) : []}
+            />
+          </div>
         </div>
       )}
 
+      {/* Métricas minimalistas */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex flex-wrap items-center gap-4 text-sm">
+        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Total</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{total}</span>
+        </button>
+        <button onClick={() => { setFilterStatus('upcoming'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Próximas</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{upcomingCount}</span>
+        </button>
+        <button onClick={() => { setFilterStatus('past'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Pasadas</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{pastCount}</span>
+        </button>
+        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Urgentes</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{urgentCount}</span>
+        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }} className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-600 focus:ring-1 focus:ring-purple-400">
+            <option value="">Todas las categorías</option>
+            {Object.entries(categoryLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+          <select value={filterCampaignId} onChange={(e) => { setFilterCampaignId(e.target.value); setCurrentPage(1); }} className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-600 focus:ring-1 focus:ring-purple-400">
+            <option value="">Todas las campañas</option>
+            {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Filtros de búsqueda y exportación */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          {user && (user.role === 'superadmin' || user.role === 'campaign_admin') && (
+            <Link href="/admin/actions/new" className="inline-flex items-center gap-1.5 text-sm font-medium border border-purple-300 text-purple-700 bg-white px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors shadow-sm">
+              Nueva Acción
+            </Link>
+          )}
+          {selected.length > 0 && (
+            <>
+              <button onClick={exportSelectedCSV} className="inline-flex items-center gap-1 text-sm border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-gray-600">
+                <FaFileExport className="w-3.5 h-3.5" /> Exportar ({selected.length})
+              </button>
+              <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+                <FaTrash /> Eliminar ({selected.length})
+              </button>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar…"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-400 text-sm w-48"
+            />
+          </div>
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="txt">Texto</option>
+          </select>
+          <button onClick={exportToCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
+            <FaFileExport className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {loading ? (
-        <p>Cargando...</p>
-      ) : actions.length === 0 ? (
-        <p>No hay acciones creadas.</p>
+        <p className="text-gray-500 text-sm">Cargando...</p>
+      ) : filteredActions.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg mb-2">No se encontraron acciones</p>
+          <p className="text-sm">Prueba a cambiar los filtros o crea una nueva acción.</p>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full">
-            <thead className="bg-gray-100">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left">Título</th>
-                <th className="px-6 py-3 text-left">Categoría</th>
-                <th className="px-6 py-3 text-left">Fecha/Hora</th>
-                <th className="px-6 py-3 text-left">Ubicación</th>
-                <th className="px-6 py-3 text-left">Campaña</th>
-                <th className="px-6 py-3 text-left">Estado</th>
                 <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-left">Título</th>
+                <th className="px-6 py-3 text-left hidden md:table-cell">Categoría</th>
+                <th className="px-6 py-3 text-left hidden lg:table-cell">Campaña</th>
+                <th className="px-6 py-3 text-left">Estado</th>
+                <th className="px-6 py-3 text-left">Tipo</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginatedActions.length > 0 && selected.length === paginatedActions.length} />
+                </th>
               </tr>
             </thead>
-            <tbody>
-              {actions.map(action => {
-                const actionDate = new Date(action.datetime);
-                const now = new Date();
-                const isPast = actionDate < now;
-                const campaign = campaignMap[action.campaignId];
-                // Construir URL de la imagen
-                let imageUrl = null;
-                if (action.featuredImage) {
-                  imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${action.featuredImage}`;
-                } else if (action.images && action.images.length > 0) {
-                  imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${action.images[0].url}`;
-                }
-                if (imageUrl) console.log('URL imagen:', imageUrl);
-                return (
-                  <tr key={action.id} className="border-t">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{action.title}</span>
-                        {imageUrl && (
-                          <img
-                            src={imageUrl}
-                            alt={action.title}
-                            className="h-8 w-8 object-cover rounded"
-                            onError={(e) => { 
-                              console.log('Error al cargar imagen:', imageUrl);
-                              e.target.style.display = 'none'; 
-                            }}
-                          />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{categoryLabels[action.category]}</td>
-                    <td className="px-6 py-4">{actionDate.toLocaleString()}</td>
-                    <td className="px-6 py-4">
-                      {action.locationType === 'online' ? 'Online' : action.placeName || 'Presencial'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {campaign ? (
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: campaign.color }}
-                          />
-                          <span className="font-semibold text-black">{campaign.name}</span>
-                        </div>
-                      ) : '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        isPast ? 'bg-gray-200' : 'bg-green-200 text-green-800'
-                      }`}>
-                        {isPast ? 'Pasado' : 'Próximo'}
+            <tbody className="divide-y divide-gray-100">
+              {paginatedActions.map(action => (
+                <tr key={action.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPreviewAction(action)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver">
+                        <FaEye className="w-5 h-5" />
+                      </button>
+                      <Link href={`/admin/actions/${action.id}/edit`} className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Editar">
+                        <FaEdit className="w-5 h-5" />
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{action.title}</td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{categoryLabels[action.category]}</td>
+                  <td className="px-6 py-4 hidden lg:table-cell text-gray-500">{campaignMap[action.campaignId]?.name || '-'}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${new Date(action.datetime) < now ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-800'}`}>
+                      {new Date(action.datetime) < now ? 'Pasado' : 'Próximo'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {action.bdsId ? (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+                        BDS
                       </span>
-                    </td>
-                    <td className="px-6 py-4 space-x-2">
-                      <Link href={`/admin/actions/${action.id}/edit`} className="text-blue-600 hover:underline">Editar</Link>
-                      <button onClick={() => handleDelete(action.id)} className="text-red-600 hover:underline">Eliminar</button>
-                    </td>
-                  </tr>
-                );
-              })}
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                        General
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <input type="checkbox" checked={selected.includes(action.id)} onChange={() => toggleOne(action.id)} />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       )}
     </AdminLayout>
   );
 }
 
-export default withAuth(AdminActions);
+export default AdminActions;

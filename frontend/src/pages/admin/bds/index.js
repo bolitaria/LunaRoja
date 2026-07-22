@@ -1,0 +1,258 @@
+// pages/admin/bds/index.js
+import api from '../../../lib/axios';
+import { useState, useEffect } from 'react';
+import AdminLayout from '../../../components/AdminLayout';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Link from 'next/link';
+import { useAuth } from '../../../context/AuthContext';
+import { exportInfo } from '../../../utils/exportInfo';
+import Pagination from '../../../components/Pagination';
+import ConfirmModal from '../../../components/ConfirmModal';
+import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye } from 'react-icons/fa';
+
+function AdminBDS() {
+  const [bdsList, setBdsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterHasActions, setFilterHasActions] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selected, setSelected] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exportFormat, setExportFormat] = useState('csv');
+  const itemsPerPage = 10;
+
+  const fetchBDS = async () => {
+    try {
+      const res = await api.get('/bds');
+      setBdsList(res.data);
+    } catch (error) {
+      toast.error('Error al cargar BDS');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchBDS(); }, []);
+
+  const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
+  const executeDelete = async () => {
+    const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
+    try {
+      await Promise.all(ids.map(id => api.delete(`/bds/${id}`)));
+      toast.success(`${ids.length} campaña(s) BDS eliminada(s)`);
+      setSelected([]); fetchBDS();
+    } catch (error) { toast.error('Error al eliminar'); }
+    finally { setShowDeleteModal(false); setDeleteTarget(null); }
+  };
+
+  // Aplicar filtros
+  const filtered = bdsList.filter(b => {
+    const matchSearch = b.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchSearch) return false;
+    if (filterStatus === 'active' && !b.active) return false;
+    if (filterStatus === 'inactive' && b.active) return false;
+    // Filtro por fecha de creación
+    const createdAt = new Date(b.createdAt);
+    if (dateFrom && createdAt < new Date(dateFrom)) return false;
+    if (dateTo && createdAt > new Date(dateTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const exportCSV = () => {
+    const headers = ['name', 'description', 'active', 'createdAt'];
+    const data = filtered.map(b => ({
+      name: b.name,
+      description: b.description || '',
+      active: b.active ? 'Activa' : 'Inactiva',
+      createdAt: new Date(b.createdAt).toLocaleDateString()
+    }));
+    exportInfo(data, headers, 'bds', exportFormat);
+  };
+
+  const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginated.map(b => b.id)); else setSelected([]); };
+  const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const isSuperAdmin = user && user.role === 'superadmin';
+  const total = bdsList.length;
+  const activeCount = bdsList.filter(b => b.active).length;
+  const inactiveCount = total - activeCount;
+
+  // Filtros rápidos de fecha
+  const setToday = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setDateFrom(today);
+    setDateTo(today);
+  };
+  const setLast7Days = () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    setDateFrom(sevenDaysAgo.toISOString().split('T')[0]);
+    setDateTo(today.toISOString().split('T')[0]);
+  };
+  const setLast30Days = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    setDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+    setDateTo(today.toISOString().split('T')[0]);
+  };
+  const clearDateFilter = () => {
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  return (
+    <AdminLayout title="Campañas BDS">
+      <ToastContainer />
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Eliminar Campaña BDS"
+        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} campañas?` : '¿Eliminar esta campaña?')}
+        onConfirm={executeDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
+
+      {/* ─── MÉTRICAS CON FILTROS DE ESTADO ─── */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-4 flex flex-wrap items-center gap-4 text-sm">
+        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Total</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{total}</span>
+        </button>
+        <button onClick={() => { setFilterStatus('active'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Activas</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{activeCount}</span>
+        </button>
+        <button onClick={() => { setFilterStatus('inactive'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-purple-700 transition-colors group">
+          <span className="text-xs text-gray-500 group-hover:text-purple-600">Inactivas</span>
+          <span className="font-bold text-gray-800 group-hover:text-purple-700">{inactiveCount}</span>
+        </button>
+      </div>
+
+      {/* ─── FILTROS DE FECHA ─── */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
+        <span className="text-gray-500 font-medium">Fecha de creación:</span>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          className="px-2 py-1 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-purple-400"
+          title="Desde"
+        />
+        <span className="text-gray-400">—</span>
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          className="px-2 py-1 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-purple-400"
+          title="Hasta"
+        />
+        <button onClick={setToday} className="px-2 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition">Hoy</button>
+        <button onClick={setLast7Days} className="px-2 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition">7d</button>
+        <button onClick={setLast30Days} className="px-2 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition">30d</button>
+        {(dateFrom || dateTo) && (
+          <button onClick={clearDateFilter} className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded-lg transition">✕</button>
+        )}
+      </div>
+
+      {/* ─── FILTROS Y ACCIONES ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <Link href="/admin/bds/new" className="inline-flex items-center gap-1.5 text-sm font-medium border border-purple-300 text-purple-700 bg-white px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors shadow-sm">
+              Nueva Campaña
+            </Link>
+          )}
+          {selected.length > 0 && (
+            <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+              <FaTrash /> Eliminar ({selected.length})
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar…"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-400 text-sm w-48"
+            />
+          </div>
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel</option>
+            <option value="txt">Texto</option>
+          </select>
+          <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
+            <FaFileExport className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-500 text-sm">Cargando...</p>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg mb-2">No se encontraron campañas BDS</p>
+          <p className="text-sm">Crea una nueva.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider text-xs font-semibold">
+              <tr>
+                <th className="px-6 py-3 text-left">Acciones</th>
+                <th className="px-6 py-3 text-left">Nombre</th>
+                <th className="px-6 py-3 text-left hidden sm:table-cell">Estado</th>
+                <th className="px-6 py-3 text-left hidden md:table-cell">Descripción</th>
+                <th className="px-6 py-3 text-right w-10">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {paginated.map(bds => (
+                <tr key={bds.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <Link href={`/admin/bds/${bds.id}`} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Ver">
+                        <FaEye className="w-5 h-5" />
+                      </Link>
+                      <Link href={`/admin/bds/${bds.id}/edit`} className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Editar">
+                        <FaEdit className="w-5 h-5" />
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{bds.name}</td>
+                  <td className="px-6 py-4 hidden sm:table-cell">
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${bds.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {bds.active ? 'Activa' : 'Inactiva'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{bds.description?.substring(0, 80)}{bds.description?.length > 80 ? '...' : ''}</td>
+                  <td className="px-6 py-4 text-right">
+                    <input type="checkbox" checked={selected.includes(bds.id)} onChange={() => toggleOne(bds.id)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
+
+export default AdminBDS;

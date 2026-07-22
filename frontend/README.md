@@ -1,66 +1,84 @@
-# Voices for Palestinian Justice - Frontend
+# LunaRoja Frontend
 
-Next.js application for the Voices for Palestinian Justice platform.
+The frontend for LunaRoja is a Next.js application that delivers the public experience and the administrative UI for the platform.
 
-## Technologies
+## Overview
 
-- Next.js 14+ (React)
-- React Hooks
-- Tailwind CSS (Styling)
-- Axios (HTTP client)
-- SWR (Data fetching and caching)
-- Context API (State management)
+This frontend provides:
 
-## Project Structure
+- Public-facing pages for campaigns, actions, news, gallery, and subscriptions
+- Administrative pages for managing content, users, subscribers, and operational workflows
+- Integration with the backend API using Axios and SWR
+- Responsive UI built with Tailwind CSS and reusable components
 
-```
+## Technology stack
+
+- Next.js
+- React
+- Tailwind CSS
+- Axios
+- SWR
+- React Hook Form
+- React Icons
+- React Toastify
+- React Select
+
+## Project structure
+
+```text
 src/
-├── components/       # Reusable React components
-├── pages/            # Next.js pages (including admin pages)
-├── context/          # React Context for authentication and global state
-├── lib/              # Utility libraries and helpers
-├── styles/           # Global CSS and Tailwind configuration
-└── hooks/            # Custom React hooks
+├── components/       # Reusable UI components
+├── context/          # Authentication and global state context
+├── hooks/            # Shared React hooks
+├── lib/              # API and utility modules
+├── pages/            # Next.js pages including admin routes
+├── public/           # Static assets
+└── styles/           # Global styles and Tailwind configuration
 ```
 
-## Installation and Setup
+## Setup
 
 ```bash
+cd frontend
 npm install
-cp .env.local.example .env.local
-# Edit NEXT_PUBLIC_API_URL to point to your backend
+cp .env.local .env.local.backup 2>/dev/null || true
+# Update configuration values in .env.local as needed
 npm run dev
 ```
 
-## Available Scripts
+## Environment variables
 
-- `npm run dev` - Start development server (http://localhost:3000)
-- `npm run build` - Build for production
-- `npm start` - Start production server
-- `npm run lint` - Run ESLint
+The frontend uses frontend/.env.local for runtime values such as:
 
-## Environment Variables
+- NEXT_PUBLIC_API_URL — Backend API URL, for example http://localhost:5000/api
+- NEXT_PUBLIC_BASE_URL — Base URL for backend asset access
+- NEXT_PUBLIC_INSTAGRAM_URL — External Instagram link
 
-Create a `.env.local` file with:
-- `NEXT_PUBLIC_API_URL` - Backend API URL (e.g., http://localhost:5000)
+## Available scripts
 
-## Key Features
+- npm run dev — start the development server
+- npm run build — build production assets
+- npm start — run the built production server
 
-- **Public Pages:**
-  - Home page with news and campaign listings
-  - Video gallery with embedded YouTube content
-  - Document library with PDF downloads
-  - News blog
-  - Subscription form
+## Product features
 
-- **Admin Dashboard:**
-  - Authentication required
-  - Content management (CRUD for videos, reports, documents)
-  - Subscriber management
-  - Dashboard with analytics
+- Public pages for campaigns, actions, news, gallery, and subscription
+- Administrative dashboard with authentication and role-based access
+- Content management for campaigns, actions, articles, reports, and documents
+- Subscriber management and communication workflow integration
+- Responsive design for desktop and mobile
+- File upload support for media and documents
 
-- **User Features:**
-  - Responsive design
-  - Email subscription system
-  - Public content browsing
-  - Admin authentication and authorization
+## Notes
+
+- The frontend consumes the Express backend API through NEXT_PUBLIC_API_URL.
+- The application assumes the backend service is available during local development.
+- Create .env.local manually if it is not present.
+
+## Key files
+
+- src/pages/admin/login.js — admin login interface
+- src/pages/admin/index.js — admin dashboard entry point
+- src/lib/axios.js — API client configuration
+- tailwind.config.js — Tailwind configuration
+- next.config.js — Next.js runtime configuration

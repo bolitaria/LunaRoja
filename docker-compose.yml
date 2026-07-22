@@ -3,92 +3,148 @@ services:
     image: postgres:14
     container_name: lunaroja_db
     restart: always
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: lunaroja
       POSTGRES_PASSWORD: lunaroja123
       POSTGRES_DB: lunaroja
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lunaroja -d lunaroja"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-      - lunaroja_net
+      - lunaroja_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lunaroja_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - lunaroja_network
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: lunaroja_pgadmin
     restart: always
+    ports:
+      - "5050:5050"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@lunaroja.org
       PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
+      PGADMIN_LISTEN_PORT: 5050
     depends_on:
       - postgres
     networks:
-      - lunaroja_net
+      - lunaroja_network
 
   backend:
     build: ./backend
     container_name: lunaroja_backend
-    env_file:
-      - .env   # carga EMAIL_PASS, JWT_SECRET, etc.
     restart: always
     ports:
       - "5000:5000"
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: production
+      SKIP_DB_SYNC: "true"
+      SKIP_EMAILS: "true"
       PORT: 5000
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: lunaroja
       DB_PASSWORD: lunaroja123
       DB_NAME: lunaroja
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: http://lunaroja_frontend:3000
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: "lax"
+      RATE_LIMIT_MAX: "50000"
+      CORS_ORIGINS: http://localhost:3000,http://lunaroja_frontend:3000,http://host.docker.internal:3000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}   # ← contraseña del superadmin
     depends_on:
-      - postgres
-      - libretranslate
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - uploads_data:/app/uploads
+      - ./backend/src:/app/src
     networks:
-      - lunaroja_net
+      - lunaroja_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:5000}
+        NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-vocesdepalestina@tutamail.com}
+        NEXT_PUBLIC_INSTAGRAM_URL: ${NEXT_PUBLIC_INSTAGRAM_URL:-https://www.instagram.com/stories/voces_palestinas_malaga}
     container_name: lunaroja_frontend
     restart: always
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:5000/api
+      NODE_ENV: production
+      SKIP_DB_SYNC: "true"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:5000}
+      NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-vocesdepalestina@tutamail.com}
+      NEXT_PUBLIC_INSTAGRAM_URL: ${NEXT_PUBLIC_INSTAGRAM_URL:-https://www.instagram.com/stories/voces_palestinas_malaga}
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
     networks:
-      - lunaroja_net
+      - lunaroja_network
 
-  libretranslate:
-    image: libretranslate/libretranslate:v1.5.0
-    container_name: lunaroja_libretranslate
+  metabase:
+    image: metabase/metabase:latest
+    container_name: lunaroja_metabase
     restart: always
-    user: root
     ports:
-      - "5001:5000"
+      - "3001:3001"
     environment:
-      - LT_LOAD_ONLY=es,en,ar
-      - LT_UPDATE_MODELS=false
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: lunaroja
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase_read
+      MB_DB_PASS: metabase_read_pw
+      MB_DB_HOST: postgres
+      MB_JETTY_PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
-      - libretranslate_data:/home/libretranslate/.local/share
+      - metabase_data:/metabase-data
     networks:
-      - lunaroja_net
+      - lunaroja_network
 
 volumes:
   postgres_data:
     name: lunaroja_postgres_data
   uploads_data:
     name: lunaroja_uploads_data
-  libretranslate_data:
+  metabase_data:
+    name: lunaroja_metabase_data
 
 networks:
-  lunaroja_net:
+  lunaroja_network:
     driver: bridge

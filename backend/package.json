@@ -5,27 +5,56 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:integration": "jest --forceExit --detectOpenHandles tests/integration",
+    "test:unit": "jest tests/unit",
+    "migrate": "node src/services/migrationRunner.js up",
+    "migrate:status": "node src/services/migrationRunner.js status"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.16.0",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.0.0",
+    "handlebars": "^4.7.8",
+    "helmet": "^7.0.0",
+    "hpp": "^0.2.3",
+    "http-errors": "^2.0.1",
+    "ioredis": "^5.9.0",
+    "joi": "^18.2.3",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
+    "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^9.0.3",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.33.0",
-    "axios": "^1.6.2",
-    "node-cron": "^3.0.3",
-    "puppeteer-core": "^21.0.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "nodemailer": "^6.9.3",
-    "handlebars": "^4.7.8"
+    "umzug": "^3.8.3",
+    "uuid": "^14.0.1"
+  },
+  "overrides": {
+    "cross-spawn": "7.0.6",
+    "sigstore": "4.1.1",
+    "tar": "7.5.15"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@jest/globals": "^30.4.1",
+    "jest": "^30.4.2",
+    "nodemon": "^3.0.1",
+    "sequelize-mock": "^0.10.2",
+    "start-server-and-test": "^2.1.5",
+    "supertest": "^7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(uuid)/)"
+    ],
+    "setupFiles": ["<rootDir>/tests/jest.setup.js"],
+    "testTimeout": 30000
   }
 }

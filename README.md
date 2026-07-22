@@ -1,108 +1,119 @@
-# Voices for Palestinian Justice - Awareness Platform
+# LunaRoja
 
-Voices for Palestinian Justice is a web platform designed to disseminate information about a social cause, offering multimedia content (videos, reports) and an email subscription system for reminders.
+LunaRoja is a full-stack platform for civic engagement, advocacy, and community mobilization. It combines a public-facing experience, an administrative console, and a backend API for content management, user workflows, subscribers, petitions, uploads, reminders, and communications.
 
-## Project Status
+## Product scope
 
-**Phase 1 (MVP) completed.**  
-The application includes:
-- Public display of videos (embedded YouTube) and reports (PDF).
-- Subscription form to receive news and updates.
-- Protected admin dashboard for content management (CRUD for videos and reports, subscriber list).
-- JWT authentication.
-- PostgreSQL database.
-- Docker containerization.
+The platform supports the publication and coordination of campaigns, actions, news, reports, documents, and petitions through a structured web application. It is designed for organizations that need a reliable digital presence with secure internal operations.
 
-## Technologies Used
+## Core capabilities
 
-- **Frontend:** Next.js (React), Tailwind CSS, Axios, SWR.
-- **Backend:** Node.js + Express, Sequelize ORM, PostgreSQL, JWT, Multer.
-- **Infrastructure:** Docker, Docker Compose.
+- Content management for campaigns, actions, news, reports, documents, and petitions
+- Administrative workflows for publishing, moderation, and user oversight
+- Subscriber registration, preference management, and communication handling
+- File upload support for media and documents
+- Protected API routes with authentication and role-based access control
+- Background processing for reminders and notifications through Redis and BullMQ
+- Explicit database migration management for controlled deployments
 
-## Repository Structure
+## Architecture
 
-```
+### Frontend
+- Next.js and React for the public and admin experience
+- Tailwind CSS for responsive and maintainable styling
+- Axios and SWR for API communication and data fetching
+- React Hook Form and related UI components for forms and validation
+
+### Backend
+- Node.js and Express for the API server and business logic
+- Sequelize with PostgreSQL for data modeling and persistence
+- JWT-based authentication and authorization
+- Multer for upload handling
+- Nodemailer and Handlebars for email delivery
+- Middleware-based request handling for security, auth, validation, and uploads
+
+### Platform and operations
+- Docker Compose for local orchestration and environment consistency
+- PostgreSQL, pgAdmin, Metabase, and Redis as supporting services
+- CI workflows and security scanning for maintainability and delivery readiness
+
+## Repository structure
+
+```text
 LunaRoja/
-├── backend/                    # REST API
-│   ├── src/
-│   │   ├── controllers/        # Business logic
-│   │   ├── models/             # Sequelize models
-│   │   ├── routes/             # Route definitions
-│   │   ├── middlewares/        # Authentication and other middlewares
-│   │   ├── services/           # Business services
-│   │   ├── jobs/               # Background jobs
-│   │   ├── config/             # Database configuration
-│   │   ├── utils/              # Utility functions
-│   │   └── app.js              # Entry point
-│   ├── uploads/                # Uploaded files (PDFs)
-│   ├── seeders/                # Database seeders
-│   ├── package.json
-│   └── Dockerfile
-├── frontend/                   # Next.js application
-│   ├── public/
-│   ├── src/
-│   │   ├── components/         # Reusable components
-│   │   ├── pages/              # Pages (including admin)
-│   │   ├── context/            # Authentication context
-│   │   ├── lib/                # Utility libraries
-│   │   ├── styles/             # Global styles
-│   │   └── hooks/              # Custom hooks
-│   ├── package.json
-│   ├── next.config.js
-│   └── Dockerfile
-├── database/                   # Initial SQL scripts
-│   └── init.sql
-├── docker-compose.yml          # Service orchestration
-└── README.md
+├── backend/                # API, business logic, models, services, and routes
+├── frontend/               # Next.js application and UI components
+├── database/               # Database initialization scripts
+├── docker-compose.yml      # Local service orchestration
+├── .github/workflows/      # CI/CD automation
+└── README.md               # Project overview
 ```
 
+## Quick start
 
-## Prerequisites
+### With Docker
 
-- Docker and Docker Compose installed.
-- Git (optional).
+```bash
+docker compose up -d --build
+```
 
-## Installation and Setup
+### Services
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd LunaRoja
-   ```
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000/api
+- pgAdmin: http://localhost:5050
+- Metabase: http://localhost:3001
+- Redis: localhost:6379
 
-2. Start the application with Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
+## Local development
 
-3. Create the first admin user:
-   Once the containers are running, execute:
-   ```bash
-   curl -X POST http://localhost:5000/api/auth/register \
-     -H "Content-Type: application/json" \
-     -d '{"username":"admin","password":"admin123"}'
-   ```
+### Backend
 
-## Common Docker Commands
+```bash
+cd backend
+npm install
+cp ../.env .env
+npm run dev
+```
 
-| Action | Command |
-|--------|----------|
-| Start containers | `docker-compose up -d` |
-| Stop containers (without losing data) | `docker-compose down` |
-| View container status | `docker-compose ps` |
-| View backend logs | `docker-compose logs backend` |
-| View database logs | `docker-compose logs db` |
-| Access the database (psql) | `docker exec -it lunaroja_db psql -U lunaroja -d lunaroja` |
-| Manual backup | `docker exec -t lunaroja_db pg_dump -U lunaroja lunaroja > backup.sql` |
+### Frontend
 
-## Adding Content via Admin Dashboard
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-**For YouTube Videos:**
-- Thumbnail: `https://img.youtube.com/vi/<video-id>/maxresdefault.jpg`
-- Use the video ID from the YouTube URL
+## Operational workflow
 
-## Access Points
+### Database migrations
 
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:5000
-- **Admin Dashboard:** http://localhost:3000/admin (requires authentication) 
+```bash
+cd backend
+npm run migrate:status
+npm run migrate
+```
+
+### Background processing
+
+Redis and BullMQ are used for asynchronous workflows such as welcome emails and reminder-related tasks. The queueing layer is initialized during backend startup and can be extended for additional background jobs.
+
+## Quality and delivery posture
+
+The project is structured to support maintainability, operational clarity, and practical delivery:
+
+- Clear separation between frontend, backend, and infrastructure concerns
+- Environment-based configuration for service integrations
+- Explicit migration handling for database changes
+- Asynchronous processing for communications and operational workflows
+- A foundation suitable for long-term maintenance and future scaling
+
+## Key files
+
+- docker-compose.yml — service orchestration and local dependencies
+- backend/src/app.js — backend entry point and startup flow
+- backend/src/routes — API structure and feature modules
+- frontend/src — UI pages, components, and shared application state
+- .github/workflows — CI and deployment automation
+
+For operational details, see RUNBOOK.md.

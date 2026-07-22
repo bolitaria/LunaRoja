@@ -1,35 +1,38 @@
-FROM node:18-slim
-
-# Instalar dependencias del sistema: Chromium, Tor, curl (para pruebas)
-RUN apt-get update && apt-get install -y \
-    chromium \
-    fonts-freefont-ttf \
-    libxss1 \
-    tor \
-    curl \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-# Configurar Tor para que acepte conexiones SOCKS5 en el puerto 9050
-RUN echo "SOCKSPort 9050" >> /etc/tor/torrc
-
-# Variables de entorno para Puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
+FROM node:22-slim AS runner
 WORKDIR /app
 
-# Instalar dependencias de Node.js
+ENV NODE_ENV=production
+
+# Actualizar paquetes del sistema operativo
+RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copiar solo archivos de dependencias
 COPY package*.json ./
-RUN npm install --omit=dev
 
-# Copiar el resto del código
-COPY . .
+# Instalar dependencias de producción
+RUN npm ci --only=production --no-audit --no-fund && npm cache clean --force
 
-# Crear directorios de subida
-RUN mkdir -p uploads/reports uploads/actions uploads/featured uploads/campaigns uploads/instagram
+# 🔥 ELIMINAR npm y sus dependencias globales (fuente de vulnerabilidades)
+RUN rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/bin/npm \
+           /usr/local/bin/npx \
+           /usr/local/bin/corepack \
+           /opt/yarn-*
 
+# Crear el usuario no root ANTES de usarlo
+RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
+
+# Copiar código fuente y entrypoint
+COPY src ./src
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Crear directorios de uploads necesarios y darles permisos al usuario ya existente
+RUN mkdir -p /app/uploads/petitions /app/uploads/campaigns /app/uploads/actions /app/uploads/documents /app/uploads/featured && \
+    chown -R nodejs:nodejs /app/uploads
+
+# Cambiar al usuario no root
+USER nodejs
+
+ENTRYPOINT ["/entrypoint.sh"]
 EXPOSE 5000
-
-# Iniciar Tor en segundo plano y luego la aplicación
-CMD service tor start && npm start

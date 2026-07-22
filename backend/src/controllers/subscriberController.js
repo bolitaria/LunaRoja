@@ -1,10 +1,15 @@
 const Subscriber = require('../models/Subscriber');
 const { sendWelcomeEmail, sendGoodbyeEmail } = require('../services/emailService');
+const { enqueueWelcomeEmail } = require('../services/queueService');
+const validator = require('validator');
 
-const isValidEmail = (email) => /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/.test(email);
+const isValidEmail = (email) => validator.isEmail(email) && email.length <= 255;
 
-const getAllSubscribers = async (req, res) => {
+exports.getAllSubscribers = async (req, res) => {
   try {
+    if (req.user && req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
     const subscribers = await Subscriber.findAll({ order: [['subscribedAt', 'DESC']] });
     res.json(subscribers);
   } catch (error) {
@@ -13,10 +18,9 @@ const getAllSubscribers = async (req, res) => {
   }
 };
 
-const createSubscriber = async (req, res) => {
+exports.createSubscriber = async (req, res) => {
   try {
     const { email, sendReminders = false } = req.body;
-
     if (!email) return res.status(400).json({ message: 'Email is required' });
     if (!isValidEmail(email)) return res.status(400).json({ message: 'Invalid email format' });
 
@@ -31,15 +35,14 @@ const createSubscriber = async (req, res) => {
       }
     }
 
-    const subscribedAt = new Date();
     const subscriber = await Subscriber.create({
       email,
       sendReminders,
       status: 'active',
-      subscribedAt,
+      subscribedAt: new Date(),
     });
 
-    sendWelcomeEmail(email).catch(err => console.error('Welcome email error:', err));
+    enqueueWelcomeEmail(email).catch(err => console.error('Welcome queue error:', err));
     res.status(201).json({ message: 'Subscription successful', subscriber });
   } catch (error) {
     console.error('createSubscriber error:', error);
@@ -47,7 +50,7 @@ const createSubscriber = async (req, res) => {
   }
 };
 
-const unsubscribe = async (req, res) => {
+exports.unsubscribe = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || !isValidEmail(email)) return res.status(400).json({ message: 'Valid email is required' });
@@ -64,7 +67,7 @@ const unsubscribe = async (req, res) => {
   }
 };
 
-const deleteSubscriber = async (req, res) => {
+exports.deleteSubscriber = async (req, res) => {
   try {
     const subscriber = await Subscriber.findByPk(req.params.id);
     if (!subscriber) return res.status(404).json({ message: 'Subscriber not found' });
@@ -76,7 +79,7 @@ const deleteSubscriber = async (req, res) => {
   }
 };
 
-const updatePreferences = async (req, res) => {
+exports.updatePreferences = async (req, res) => {
   try {
     const { email, sendReminders } = req.body;
     if (!email || !isValidEmail(email)) return res.status(400).json({ message: 'Valid email is required' });
@@ -89,12 +92,4 @@ const updatePreferences = async (req, res) => {
     console.error('updatePreferences error:', error);
     res.status(500).json({ message: 'Error updating preferences' });
   }
-};
-
-module.exports = {
-  getAllSubscribers,
-  createSubscriber,
-  unsubscribe,
-  deleteSubscriber,
-  updatePreferences,
 };

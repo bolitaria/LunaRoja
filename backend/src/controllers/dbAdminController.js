@@ -1,9 +1,12 @@
-const { sequelize } = require('../config/database');
+const sequelize = require('../config/database');
+const { exec } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
-// Obtener información general de la base de datos: tablas, filas, tamaño
+const isValidTableName = (name) => /^[a-zA-Z0-9_]+$/.test(name);
+
 exports.getDatabaseInfo = async (req, res) => {
   try {
-    // Listar todas las tablas del esquema 'public'
     const [tables] = await sequelize.query(`
       SELECT 
         tablename,
@@ -14,20 +17,18 @@ exports.getDatabaseInfo = async (req, res) => {
       ORDER BY tablename
     `);
 
-    // Obtener tamaño total de la base de datos
     const [dbSize] = await sequelize.query(`
       SELECT pg_size_pretty(pg_database_size(current_database())) as total_size
     `);
 
-    // Para cada tabla, obtener sus índices
     const tablesWithIndexes = [];
     for (const table of tables) {
-      const [indexes] = await sequelize.query(`
-        SELECT indexname, indexdef 
-        FROM pg_indexes 
-        WHERE tablename = '${table.tablename}'
-        ORDER BY indexname
-      `);
+      const tableName = table.tablename;
+      if (!isValidTableName(tableName)) continue;
+      const [indexes] = await sequelize.query(
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = $1 ORDER BY indexname`,
+        { bind: [tableName] }
+      );
       tablesWithIndexes.push({
         ...table,
         indexes
@@ -45,16 +46,16 @@ exports.getDatabaseInfo = async (req, res) => {
   }
 };
 
-// Obtener todos los índices de una tabla específica (opcional)
 exports.getTableIndexes = async (req, res) => {
   const { tableName } = req.params;
+  if (!isValidTableName(tableName)) {
+    return res.status(400).json({ message: 'Nombre de tabla no válido' });
+  }
   try {
-    const [indexes] = await sequelize.query(`
-      SELECT indexname, indexdef 
-      FROM pg_indexes 
-      WHERE tablename = '${tableName}'
-      ORDER BY indexname
-    `);
+    const [indexes] = await sequelize.query(
+      `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = $1 ORDER BY indexname`,
+      { bind: [tableName] }
+    );
     res.json(indexes);
   } catch (error) {
     console.error('Error en getTableIndexes:', error);
@@ -62,62 +63,7 @@ exports.getTableIndexes = async (req, res) => {
   }
 };
 
-// Verificar índices duplicados en una tabla (o en todas)
-exports.checkDuplicates = async (req, res) => {
-  const { tableName = 'InstagramAccounts' } = req.query;
-  try {
-    const [results] = await sequelize.query(`
-      SELECT indexname 
-      FROM pg_indexes 
-      WHERE tablename = '${tableName}' 
-        AND indexname LIKE '${tableName}_%_key%'
-    `);
-    // Asumimos que el índice original es el que no tiene sufijo numérico después del nombre de la columna.
-    // Para simplificar, mostramos todos los que coinciden con el patrón.
-    const duplicates = results.filter(idx => idx.indexname !== `${tableName}_username_key`);
-    res.json({ 
-      table: tableName,
-      duplicates: duplicates.map(i => i.indexname), 
-      count: duplicates.length,
-      total: results.length,
-      original: `${tableName}_username_key`
-    });
-  } catch (error) {
-    console.error('Error en checkDuplicates:', error);
-    res.status(500).json({ message: 'Error al verificar índices duplicados', error: error.message });
-  }
-};
-
-// Limpiar índices duplicados en una tabla específica
-exports.cleanDuplicates = async (req, res) => {
-  const { tableName = 'InstagramAccounts' } = req.body;
-  try {
-    const [results] = await sequelize.query(`
-      SELECT indexname 
-      FROM pg_indexes 
-      WHERE tablename = '${tableName}' 
-        AND indexname LIKE '${tableName}_%_key%'
-        AND indexname != '${tableName}_username_key'
-    `);
-    for (const idx of results) {
-      await sequelize.query(`DROP INDEX IF EXISTS "${idx.indexname}"`);
-    }
-    res.json({ 
-      message: `Eliminados ${results.length} índices duplicados en la tabla ${tableName}.`,
-      removed: results.map(i => i.indexname)
-    });
-  } catch (error) {
-    console.error('Error en cleanDuplicates:', error);
-    res.status(500).json({ message: 'Error al limpiar índices', error: error.message });
-  }
-};
-
-// Backup (descarga del dump) - sin cambios
 exports.backup = async (req, res) => {
-  const { exec } = require('child_process');
-  const path = require('path');
-  const fs = require('fs');
-
   const backupDir = path.join(process.cwd(), 'backups');
   if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -137,7 +83,6 @@ exports.backup = async (req, res) => {
   });
 };
 
-// Migraciones (si usas umzug) - sin cambios
 exports.runMigrations = async (req, res) => {
   try {
     const umzug = require('../db/migrate');

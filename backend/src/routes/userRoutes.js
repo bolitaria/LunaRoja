@@ -1,19 +1,16 @@
 const express = require('express');
-const {
-  getAllUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  changeMyPassword,
-} = require('../controllers/userController');
-const authMiddleware = require('../middlewares/auth');
 const router = express.Router();
+const userController = require('../controllers/userController');
+const { authenticate: authMiddleware } = require('../middlewares/auth');
 
-// Todas las rutas requieren autenticación, la autorización se maneja en el controlador
-router.get('/', authMiddleware, getAllUsers);
-router.post('/', authMiddleware, createUser);
-router.put('/:id', authMiddleware, updateUser);
-router.delete('/:id', authMiddleware, deleteUser);
-router.put('/me/password', authMiddleware, changeMyPassword);
+// Perfil del usuario autenticado
+router.get('/me', authMiddleware, userController.getMe);
+router.put('/me/password', authMiddleware, userController.changeMyPassword);
+
+// Gestión de usuarios (solo superadmin / campaign_admin según el controlador)
+router.get('/', authMiddleware, userController.getAllUsers);
+router.post('/', authMiddleware, userController.createUser);
+router.put('/:id', authMiddleware, userController.updateUser);
+router.delete('/:id', authMiddleware, userController.deleteUser);
 
 module.exports = router;

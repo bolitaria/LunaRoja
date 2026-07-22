@@ -50,10 +50,6 @@ const Action = sequelize.define('Action', {
   recordingUrl: {
     type: DataTypes.STRING,
   },
-  isLive: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-  },
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -62,10 +58,38 @@ const Action = sequelize.define('Action', {
       key: 'id',
     },
   },
+  bdsId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'BDSs',
+      key: 'id',
+    },
+  },
   featuredImage: {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  groups: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  documentLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  document: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  urgent: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  enableAttendance: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  }
 }, {
   timestamps: true,
 });

@@ -26,6 +26,10 @@ const ChatGroup = sequelize.define('ChatGroup', {
       isUrl: true,
     },
   },
+  region: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -34,7 +38,19 @@ const ChatGroup = sequelize.define('ChatGroup', {
       key: 'id',
     },
   },
+  actionId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Actions',
+      key: 'id',
+    },
+  },
   isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+  isPublic: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },

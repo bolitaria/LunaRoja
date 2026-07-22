@@ -2,11 +2,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// Configuración de almacenamiento
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     let uploadDir;
     if (file.fieldname === 'featuredImage') {
       uploadDir = path.join(__dirname, '../../uploads/featured');
+    } else if (file.fieldname === 'document') {
+      uploadDir = path.join(__dirname, '../../uploads/documents');
+    } else if (file.fieldname && file.fieldname.startsWith('documents')) {
+      // Documentos públicos/privados (campo "documents[0][file]")
+      uploadDir = path.join(__dirname, '../../uploads/documents');
     } else {
       uploadDir = path.join(__dirname, '../../uploads/actions');
     }
@@ -18,26 +24,38 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    const prefix = file.fieldname === 'featuredImage' ? 'featured-' : 'action-';
+    let prefix = 'action-';
+    if (file.fieldname === 'featuredImage') prefix = 'featured-';
+    else if (file.fieldname === 'document') prefix = 'doc-';
+    else if (file.fieldname && file.fieldname.startsWith('documents')) prefix = 'doc-';
     cb(null, prefix + uniqueSuffix + ext);
   }
 });
 
+// Filtro de archivos
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
+  if (file.fieldname === 'document' || (file.fieldname && file.fieldname.startsWith('documents'))) {
+    const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt/;
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.test(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de documento no permitido'), false);
+    }
   } else {
-    cb(new Error('Solo se permiten imágenes'), false);
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes'), false);
+    }
   }
 };
 
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 20 * 1024 * 1024 }
 });
 
-module.exports = upload.fields([
-  { name: 'featuredImage', maxCount: 1 },
-  { name: 'images', maxCount: 20 }
-]);
+// ✅ EXPORTA upload.any() para aceptar cualquier campo
+module.exports = upload.any();

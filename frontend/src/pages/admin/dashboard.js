@@ -1,245 +1,194 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-import { withAuth } from '../../lib/auth';
-import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/axios';
 import Link from 'next/link';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
-} from 'recharts';
-import { FaUsers, FaCalendarAlt, FaNewspaper, FaComments, FaInstagram, FaChartLine, FaBell, FaEnvelope, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+import {
+  FaCalendarAlt, FaBullhorn, FaUsers, FaEnvelope, FaNewspaper,
+  FaPlus, FaList, FaArrowRight
+} from 'react-icons/fa';
 
-function AdminDashboard() {
+function StatCard({ title, value, icon, color, link }) {
+  return (
+    <Link href={link} className="block group">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-5 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+        <div className="flex items-center justify-between mb-3">
+          <span className={`p-3 rounded-lg ${color}`}>
+            {icon}
+          </span>
+          <span className="text-3xl font-bold text-gray-800">{value}</span>
+        </div>
+        <h3 className="text-sm font-medium text-gray-600 group-hover:text-purple-700 transition-colors">{title}</h3>
+      </div>
+    </Link>
+  );
+}
+
+export default function Dashboard() {
   const { user } = useAuth();
-  const [data, setData] = useState(null);
+  const [stats, setStats] = useState({
+    totalActions: 0,
+    totalCampaigns: 0,
+    totalBDS: 0,
+    totalUsers: 0,
+    totalSubscribers: 0,
+    totalNews: 0,
+  });
+  const [recentActions, setRecentActions] = useState([]);
+  const [recentCampaigns, setRecentCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchDashboard = async () => {
+    const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/dashboard`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const [actionsRes, campaignsRes, bdsRes, usersRes, subscribersRes, newsRes] =
+          await Promise.all([
+            api.get('/actions'),
+            api.get('/campaigns'),
+            api.get('/bds'),
+            api.get('/users'),
+            api.get('/subscribers'),
+            api.get('/news'),
+          ]);
+
+        setStats({
+          totalActions: actionsRes.data.length,
+          totalCampaigns: campaignsRes.data.length,
+          totalBDS: bdsRes.data.length,
+          totalUsers: usersRes.data.length,
+          totalSubscribers: subscribersRes.data.length,
+          totalNews: newsRes.data.length,
         });
-        setData(res.data);
-      } catch (err) {
-        console.error(err);
-        setError('No se pudieron cargar los datos del dashboard');
+
+        setRecentActions(actionsRes.data.slice(0, 5));
+        setRecentCampaigns(campaignsRes.data.slice(0, 5));
+      } catch (error) {
+        console.error('Error fetching dashboard data', error);
       } finally {
         setLoading(false);
       }
     };
-    if (user && user.role === 'superadmin') {
-      fetchDashboard();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
+    fetchData();
+  }, []);
 
-  if (loading) return <AdminLayout title="Dashboard"><p className="text-center py-8">Cargando datos...</p></AdminLayout>;
-  if (error) return <AdminLayout title="Dashboard"><p className="text-center py-8 text-red-600">{error}</p></AdminLayout>;
-  if (!user || user.role !== 'superadmin') return <AdminLayout title="Dashboard"><p className="text-center py-8">No tienes permisos para ver este panel.</p></AdminLayout>;
+  const quickLinks = [];
+  if (user?.role === 'superadmin' || user?.role === 'campaign_admin') {
+    quickLinks.push(
+      { name: 'Nueva Acción', href: '/admin/actions/new', icon: <FaPlus />, color: 'bg-purple-100 text-purple-700' },
+      { name: 'Nueva Campaña', href: '/admin/campaigns/new', icon: <FaPlus />, color: 'bg-emerald-100 text-emerald-700' },
+      { name: 'Nueva Campaña BDS', href: '/admin/bds/new', icon: <FaPlus />, color: 'bg-rose-100 text-rose-700' }
+    );
+  }
+  quickLinks.push(
+    { name: 'Ver Acciones', href: '/admin/actions', icon: <FaList />, color: 'bg-sky-100 text-sky-700' },
+    { name: 'Ver Campañas', href: '/admin/campaigns', icon: <FaList />, color: 'bg-amber-100 text-amber-700' },
+    { name: 'Ver Noticias', href: '/admin/news', icon: <FaNewspaper />, color: 'bg-violet-100 text-violet-700' }
+  );
 
-  const { totals, upcomingActions, recentSubscribers, actionsByMonth, subscribersByMonth, actionsByCategory, topCampaigns, latestNews, latestInstagramPosts, upcomingWeekActions } = data;
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
-
-  // Tarjetas de métricas principales
-  const metricCards = [
-    { title: 'Campañas', value: totals.campaigns, icon: FaChartLine, color: 'bg-blue-500', link: '/admin/campaigns' },
-    { title: 'Acciones', value: totals.actions, icon: FaCalendarAlt, color: 'bg-green-500', link: '/admin/actions' },
-    { title: 'Noticias', value: totals.noticias, icon: FaNewspaper, color: 'bg-red-500', link: '/admin/news' },
-    { title: 'Reportes', value: totals.reports, icon: FaFileAlt, color: 'bg-yellow-500', link: '/admin/reports' },
-    { title: 'Suscriptores', value: totals.subscribers, icon: FaEnvelope, color: 'bg-purple-500', link: '/admin/subscribers' },
-    { title: 'Grupos Chat', value: totals.chatGroups, icon: FaComments, color: 'bg-indigo-500', link: '/admin/chatGroups' },
-    { title: 'Posts Instagram', value: totals.instagramPosts, icon: FaInstagram, color: 'bg-pink-500', link: '/admin/instagram' },
-    { title: 'Usuarios', value: totals.users, icon: FaUsers, color: 'bg-gray-600', link: '/admin/users' },
-  ];
+  if (loading) {
+    return (
+      <AdminLayout title="Dashboard">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="space-y-8">
-        {/* Tarjetas de KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {metricCards.map((card) => (
-            <Link key={card.title} href={card.link} className="block">
-              <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 flex items-center justify-between border-l-4 border-l-red-500">
-                <div>
-                  <p className="text-gray-500 text-sm uppercase tracking-wide">{card.title}</p>
-                  <p className="text-3xl font-bold text-gray-800">{card.value}</p>
-                </div>
-                <div className={`p-3 rounded-full ${card.color} bg-opacity-10`}>
-                  <card.icon className={`w-6 h-6 ${card.color.replace('bg-', 'text-')}`} />
-                </div>
-              </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Panel de Administración</h1>
+        <p className="text-gray-500">
+          Bienvenido al centro de control de <strong>Voces Palestinas por la Justicia</strong>.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-10">
+        <StatCard title="Acciones" value={stats.totalActions} icon={<FaCalendarAlt className="w-6 h-6 text-purple-600" />} color="bg-purple-100" link="/admin/actions" />
+        <StatCard title="Campañas" value={stats.totalCampaigns} icon={<FaBullhorn className="w-6 h-6 text-emerald-600" />} color="bg-emerald-100" link="/admin/campaigns" />
+        <StatCard title="Campañas BDS" value={stats.totalBDS} icon={<FaBullhorn className="w-6 h-6 text-rose-600" />} color="bg-rose-100" link="/admin/bds" />
+        <StatCard title="Usuarios" value={stats.totalUsers} icon={<FaUsers className="w-6 h-6 text-sky-600" />} color="bg-sky-100" link="/admin/users" />
+        <StatCard title="Suscriptores" value={stats.totalSubscribers} icon={<FaEnvelope className="w-6 h-6 text-amber-600" />} color="bg-amber-100" link="/admin/subscribers" />
+        <StatCard title="Noticias" value={stats.totalNews} icon={<FaNewspaper className="w-6 h-6 text-violet-600" />} color="bg-violet-100" link="/admin/news" />
+      </div>
+
+      {quickLinks.length > 0 && (
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <FaArrowRight className="text-purple-500" /> Accesos rápidos
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {quickLinks.map((link, idx) => (
+              <Link key={idx} href={link.href} className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md ${link.color}`}>
+                {link.icon}
+                {link.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-700">📅 Últimas acciones</h3>
+            <Link href="/admin/actions" className="text-sm text-purple-600 hover:underline inline-flex items-center gap-1">
+              Ver todas <FaArrowRight className="w-3 h-3" />
             </Link>
-          ))}
-        </div>
-
-        {/* Sección de alertas: Acciones de la próxima semana */}
-        {upcomingWeekActions.length > 0 && (
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow">
-            <div className="flex items-center">
-              <FaBell className="text-yellow-500 mr-2" />
-              <h3 className="font-semibold text-yellow-800">Próximas acciones esta semana</h3>
-            </div>
-            <ul className="mt-2 space-y-1">
-              {upcomingWeekActions.map(action => (
-                <li key={action.id} className="text-sm text-yellow-700">
-                  <strong>{action.title}</strong> - {new Date(action.datetime).toLocaleDateString()} (Campaña: {action.campaign?.name})
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
-
-        {/* Gráficos: acciones por mes y suscriptores por mes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Evolución de acciones</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={actionsByMonth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="count" stroke="#8884d8" name="Acciones" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Crecimiento de suscriptores</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={subscribersByMonth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill="#82ca9d" name="Nuevos suscriptores" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Distribución por categoría y campañas destacadas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Acciones por categoría</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={actionsByCategory}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                  nameKey="category"
-                  label={({ category, percent }) => `${category}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {actionsByCategory.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Campañas con más acciones</h2>
-            <ul className="space-y-3">
-              {topCampaigns.map(campaign => (
-                <li key={campaign.id} className="flex justify-between items-center border-b pb-2">
-                  <span className="font-medium">{campaign.name}</span>
-                  <span className="bg-gray-100 px-3 py-1 rounded-full text-sm">{campaign.actionCount} acciones</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Listas de actividad reciente */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Próximas acciones</h2>
-            <ul className="space-y-3">
-              {upcomingActions.map(action => (
-                <li key={action.id} className="border-b pb-2">
-                  <p className="font-medium">{action.title}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(action.datetime).toLocaleDateString()} - {action.campaign?.name}
-                  </p>
-                </li>
-              ))}
-              {upcomingActions.length === 0 && <p className="text-gray-500">No hay próximas acciones.</p>}
-            </ul>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Últimos suscriptores</h2>
-            <ul className="space-y-3">
-              {recentSubscribers.map(sub => (
-                <li key={sub.id} className="flex justify-between items-center border-b pb-2">
-                  <span className="truncate max-w-[150px]">{sub.email}</span>
-                  <span className="text-xs text-gray-400">{new Date(sub.createdAt).toLocaleDateString()}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Últimas noticias</h2>
-            <ul className="space-y-3">
-              {latestNews.map(news => (
-                <li key={news.id} className="border-b pb-2">
-                  <p className="font-medium line-clamp-1">{news.title}</p>
-                  <p className="text-xs text-gray-400">{new Date(news.publishedAt).toLocaleDateString()}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Publicaciones recientes de Instagram */}
-        {latestInstagramPosts.length > 0 && (
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="text-lg font-semibold mb-4">Últimas publicaciones en Instagram</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {latestInstagramPosts.map(post => (
-                <a
-                  key={post.shortcode}
-                  href={`https://www.instagram.com/p/${post.shortcode}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block group"
-                >
-                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                    {post.mediaType === 'video' ? (
-                      <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-xs">
-                        🎥 Video
-                      </div>
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400">
-                        📷 Imagen
-                      </div>
-                    )}
+          {recentActions.length === 0 ? (
+            <p className="text-gray-500 text-sm">No hay acciones recientes.</p>
+          ) : (
+            <ul className="divide-y divide-purple-100">
+              {recentActions.map(action => (
+                <li key={action.id} className="py-3 flex items-center justify-between">
+                  <div className="flex-1">
+                    <Link href={`/admin/actions/${action.id}/edit`} className="text-sm font-medium text-gray-800 hover:text-purple-700 transition-colors line-clamp-1">
+                      {action.title}
+                    </Link>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(action.datetime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500 line-clamp-2 group-hover:text-red-600">
-                    {post.caption?.substring(0, 60)}...
-                  </p>
-                </a>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${new Date(action.datetime) < new Date() ? 'bg-gray-100 text-gray-600' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {new Date(action.datetime) < new Date() ? 'Pasada' : 'Próxima'}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-700">📢 Últimas campañas</h3>
+            <Link href="/admin/campaigns" className="text-sm text-purple-600 hover:underline inline-flex items-center gap-1">
+              Ver todas <FaArrowRight className="w-3 h-3" />
+            </Link>
           </div>
-        )}
+          {recentCampaigns.length === 0 ? (
+            <p className="text-gray-500 text-sm">No hay campañas recientes.</p>
+          ) : (
+            <ul className="divide-y divide-purple-100">
+              {recentCampaigns.map(campaign => (
+                <li key={campaign.id} className="py-3 flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: campaign.color }} />
+                  <div className="flex-1">
+                    <Link href={`/admin/campaigns/${campaign.id}/edit`} className="text-sm font-medium text-gray-800 hover:text-purple-700 transition-colors line-clamp-1">
+                      {campaign.name}
+                    </Link>
+                    <p className="text-xs text-gray-400 mt-1">{campaign.description?.substring(0, 60) || 'Sin descripción'}</p>
+                  </div>
+                  <Link href={`/admin/campaigns/${campaign.id}/edit`} className="text-xs text-gray-400 hover:text-purple-600 transition-colors">
+                    Editar
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );
 }
-
-export default withAuth(AdminDashboard);
