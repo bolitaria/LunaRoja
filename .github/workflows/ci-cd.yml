@@ -113,7 +113,7 @@ jobs:
           "
         env:
           NODE_ENV: test
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD: admin123
           DB_HOST: localhost
           DB_PORT: 5432
           DB_USER: lunaroja
@@ -146,11 +146,11 @@ jobs:
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD: admin123
 
-      - name: Run backend integration tests
+      - name: Run backend integration tests (in series to avoid rate‑limiting)
         if: matrix.service == 'backend'
-        run: npm run test:integration
+        run: npm run test:integration -- --runInBand
         env:
           NODE_ENV: test
           DB_HOST: localhost
@@ -162,7 +162,7 @@ jobs:
           API_URL: http://localhost:5000
           BASE_URL: http://localhost:5000
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD: admin123
 
       # ─── FRONTEND SPECIFIC STEPS ───
       - name: Run frontend unit tests
@@ -223,7 +223,7 @@ jobs:
           JWT_SECRET: test_secret
           NODE_ENV: test
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD: admin123
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
@@ -282,7 +282,7 @@ jobs:
         env:
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_admin_username: admin
-          CYPRESS_admin_password: ${{ secrets.ADMIN_PASSWORD }}
+          CYPRESS_admin_password: admin123
 
   # =====================================================================
   # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER
