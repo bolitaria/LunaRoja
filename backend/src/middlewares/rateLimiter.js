@@ -1,13 +1,15 @@
 const rateLimit = require('express-rate-limit');
 
 // Configuración real para producción/desarrollo
-const prodLimiter = rateLimit({
+const prodSignLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100,                  // máximo 100 solicitudes por ventana
-  message: 'Too many requests, please try again later.',
+  max: 5,                    // máximo 5 intentos de firma por ventana
+  message: 'Demasiados intentos de firma. Inténtalo más tarde.',
 });
 
 // En tests, desactivamos el rate limiting para evitar bloqueos
-const testLimiter = (req, res, next) => next();
+const testSignLimiter = (req, res, next) => next();
 
-module.exports = process.env.NODE_ENV === 'test' ? testLimiter : prodLimiter;
+const signLimiter = process.env.NODE_ENV === 'test' ? testSignLimiter : prodSignLimiter;
+
+module.exports = { signLimiter };
