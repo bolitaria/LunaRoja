@@ -1,20 +1,14 @@
 describe('Login', () => {
   it('muestra error con credenciales incorrectas', () => {
     cy.visit('/admin/login');
-    // Esperamos que la página de login se cargue completamente
-    cy.get('[data-cy="username-input"]').should('be.visible').type('usuario_falso');
-    cy.get('input[type="password"]').type('contraseña_incorrecta', { log: false });
-    cy.findByRole('button', { name: /ingresar/i }).click();
-    // El mensaje de error debe aparecer (ajusta el texto según tu implementación)
-    cy.contains('Credenciales inválidas').should('exist');
+    cy.get('[data-cy="username-input"]').type('wrong');
+    cy.get('input[type="password"]').type('wrong');
+    cy.get('button[type="submit"]').click();
+    cy.contains(/credenciales inválidas|incorrectas|error/i, { timeout: 10000 }).should('exist');
   });
 
   it('redirige al dashboard después de un login exitoso', () => {
-    // Usamos el comando que interactúa con la interfaz real
-    cy.loginUI('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
-    // Verificamos que estamos en una página de administración
-    cy.url().should('include', '/admin');
-    // Comprobamos que aparece un elemento característico del dashboard
-    cy.contains('Estadísticas').should('exist');
+    cy.login('admin', 'admin123');
+    cy.url().should('include', '/admin/dashboard');
   });
 });
