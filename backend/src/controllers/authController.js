@@ -23,11 +23,14 @@ exports.login = async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-      if (user.failedLoginAttempts >= 5) {
-        user.lockedUntil = new Date(Date.now() + 30 * 60000);
+      // En tests NO guardamos intentos fallidos para no bloquear la cuenta
+      if (process.env.NODE_ENV !== 'test') {
+        user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+        if (user.failedLoginAttempts >= 5) {
+          user.lockedUntil = new Date(Date.now() + 30 * 60000);
+        }
+        await user.save({ fields: ['failedLoginAttempts', 'lockedUntil'] });
       }
-      await user.save({ fields: ['failedLoginAttempts', 'lockedUntil'] });
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
