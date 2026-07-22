@@ -7,6 +7,9 @@ on:
     branches: [develop]
 
 jobs:
+  # =====================================================================
+  # PRUEBAS UNITARIAS E INTEGRACIÓN (backend + frontend)
+  # =====================================================================
   lint-and-test:
     runs-on: ubuntu-latest
     services:
@@ -23,6 +26,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
       redis:
         image: redis:7-alpine
         ports:
@@ -32,6 +36,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     strategy:
       matrix:
         service: [backend, frontend]
@@ -40,21 +45,27 @@ jobs:
         working-directory: ${{ matrix.service }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
           cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
       - name: Install dependencies
         run: npm ci
+
       - name: Lint
         run: npm run lint || echo "No lint script configured"
-      - name: Initialize SequelizeMeta table (backend)
+
+      # ─── BACKEND SPECIFIC STEPS ───
+      - name: Initialize SequelizeMeta table
         if: matrix.service == 'backend'
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
-      - name: Run database migrations (backend)
+
+      - name: Run database migrations
         if: matrix.service == 'backend'
         run: npm run migrate
         env:
@@ -65,7 +76,8 @@ jobs:
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
-      - name: Add missing columns (backend)
+
+      - name: Add missing columns
         if: matrix.service == 'backend'
         run: node scripts/add-missing-columns.js
         env:
@@ -74,10 +86,12 @@ jobs:
           DB_USER: lunaroja
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
-      - name: Create upload directories (backend)
+
+      - name: Create upload directories
         if: matrix.service == 'backend'
         run: mkdir -p uploads/petitions uploads/campaigns uploads/actions uploads/documents uploads/featured
-      - name: Seed admin user (backend)
+
+      - name: Seed admin user
         if: matrix.service == 'backend'
         run: |
           node -e "
@@ -105,14 +119,23 @@ jobs:
           DB_USER: lunaroja
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
-      - name: Start backend server (backend)
+
+      - name: Start backend server (with health check)
         if: matrix.service == 'backend'
         run: |
-          node src/app.js &
+          node src/app.js > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do
-            curl -sSf http://localhost:5000/health > /dev/null && break
+            if curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ Backend ready"
+              break
+            fi
             sleep 2
           done
+          if ! curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
+            echo "❌ Backend no arrancó. Últimas líneas del log:"
+            tail -n 50 /tmp/server.log
+            exit 1
+          fi
         env:
           NODE_ENV: test
           DB_HOST: localhost
@@ -123,6 +146,7 @@ jobs:
           JWT_SECRET: test_secret
           SKIP_DB_SYNC: 'true'
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+
       - name: Run backend integration tests
         if: matrix.service == 'backend'
         run: npm run test:integration
@@ -138,9 +162,12 @@ jobs:
           BASE_URL: http://localhost:5000
           SKIP_DB_SYNC: 'true'
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+
+      # ─── FRONTEND SPECIFIC STEPS ───
       - name: Run frontend unit tests
         if: matrix.service == 'frontend'
         run: npm test
+
       - name: Build frontend (compilation check)
         if: matrix.service == 'frontend'
         run: npm run build
@@ -148,6 +175,9 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:5000
           NEXT_PUBLIC_BASE_URL: http://localhost:3000
 
+  # =====================================================================
+  # PRUEBAS END‑TO‑END CON CYPRESS
+  # =====================================================================
   e2e-test:
     needs: lint-and-test
     runs-on: ubuntu-latest
@@ -167,18 +197,22 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Install backend dependencies
         run: cd backend && npm ci
-      - name: Setup database, seed admin, and start backend
+
+      - name: Setup database, seed admin, start backend
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -195,6 +229,7 @@ jobs:
           cd backend
           npm run migrate
           node scripts/add-missing-columns.js
+
           node -e "
           const bcrypt = require('bcryptjs');
           const { User } = require('./src/models');
@@ -211,12 +246,23 @@ jobs:
             process.exit();
           })();
           "
+
           mkdir -p uploads/petitions uploads/campaigns uploads/actions uploads/documents uploads/featured
-          node src/app.js &
-          for i in $(seq 1 40); do
-            curl -sSf http://localhost:5000/health > /dev/null && break
+
+          node src/app.js > /tmp/server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ Backend ready"
+              break
+            fi
             sleep 2
           done
+          if ! curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
+            echo "❌ Backend no arrancó. Últimas líneas del log:"
+            tail -n 50 /tmp/server.log
+            exit 1
+          fi
+
       - name: Build frontend
         run: |
           cd frontend
@@ -224,6 +270,7 @@ jobs:
           NEXT_PUBLIC_API_URL=http://localhost:5000 \
           NEXT_PUBLIC_BASE_URL=http://localhost:3000 \
           npm run build
+
       - name: Run Cypress E2E tests
         uses: cypress-io/github-action@v6
         with:
@@ -236,6 +283,9 @@ jobs:
           CYPRESS_admin_username: admin
           CYPRESS_admin_password: ${{ secrets.ADMIN_PASSWORD }}
 
+  # =====================================================================
+  # CONSTRUCCIÓN Y PUBLICACIÓN DE IMÁGENES DOCKER
+  # =====================================================================
   build-and-push:
     needs: lint-and-test
     runs-on: ubuntu-latest
@@ -256,10 +306,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Normalize owner and repo to lowercase
         run: |
           echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
           echo "REPO_LC=$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
@@ -267,6 +319,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ matrix.service }}-${{ github.sha }}
 
+  # =====================================================================
+  # ESCANEO DE VULNERABILIDADES EN LAS IMÁGENES
+  # =====================================================================
   scan-images:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -280,14 +335,17 @@ jobs:
         run: |
           echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
           echo "REPO_LC=$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pull ${{ matrix.service }} image
         run: docker pull ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ matrix.service }}-${{ github.sha }}
+
       - name: Run Trivy on ${{ matrix.service }} image
         uses: aquasecurity/trivy-action@master
         with:
