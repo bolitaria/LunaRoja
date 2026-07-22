@@ -1,7 +1,5 @@
 describe('Base de datos', () => {
-  beforeEach(() => {
-    cy.login('admin', 'admin123');
-  });
+    beforeEach(() => { cy.login(); });
 
   it('carga la página de administración de la base de datos', () => {
     cy.visit('/admin/database');

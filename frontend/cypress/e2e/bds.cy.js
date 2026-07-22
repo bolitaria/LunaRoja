@@ -1,9 +1,5 @@
 describe('BDS', () => {
-  beforeEach(() => {
-    cy.visit('/admin/login');
-    cy.get('[data-cy="username-input"]').type('admin');
-    cy.get('input[type="password"]').type('admin123');
-    cy.findByRole('button', { name: /ingresar/i }).click();
+    beforeEach(() => { cy.login(); });
   });
 
   it('crea, edita y elimina una empresa BDS', () => {

@@ -1,5 +1,6 @@
 describe('Noticias', () => {
   beforeEach(() => {
+    cy.login();
     cy.login('admin', Cypress.env('ADMIN_PASSWORD') || 'admin123');
   });
 

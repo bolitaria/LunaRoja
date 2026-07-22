@@ -1,5 +1,6 @@
 describe('Perfil de usuario', () => {
   beforeEach(() => {
+    cy.login();
     cy.login('admin', 'admin123');
   });
 

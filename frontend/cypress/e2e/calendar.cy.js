@@ -1,5 +1,6 @@
 describe('Calendario', () => {
   beforeEach(() => {
+    cy.login();
     cy.visit('/calendario');
     cy.get('.react-calendar', { timeout: 10000 }).should('exist');
   });
