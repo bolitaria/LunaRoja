@@ -422,13 +422,13 @@ jobs:
           sudo mkdir -p /app/uploads && sudo chmod 777 /app/uploads
           node src/app.js > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do
-            if curl -sSf http://localhost:5000/api/health > /dev/null 2>&1; then
+            if curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
               echo "✅ Backend ready"
               break
             fi
             sleep 2
           done
-          if ! curl -sSf http://localhost:5000/api/health > /dev/null 2>&1; then
+          if ! curl -sSf http://localhost:5000/health > /dev/null 2>&1; then
             echo "❌ Backend no arrancó. Últimas líneas del log:"
             tail -n 50 /tmp/server.log
             exit 1
