@@ -55,7 +55,6 @@ services:
       - ./backend/.env
     environment:
       NODE_ENV: production
-      SKIP_DB_SYNC: "true"
       SKIP_EMAILS: "true"
       PORT: 5000
       DB_HOST: postgres
@@ -94,7 +93,6 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      SKIP_DB_SYNC: "true"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:5000}
       NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-vocesdepalestina@tutamail.com}
