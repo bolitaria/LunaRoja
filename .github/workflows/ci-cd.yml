@@ -357,6 +357,7 @@ jobs:
         run: |
           mkdir -p backend
           cat > backend/.env << ENDOFFILE
+          SKIP_DB_SYNC=true
           DB_HOST=postgres
           DB_PORT=5432
           DB_USER=lunaroja
