@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Crear el archivo .env exactamente donde docker-compose.yml lo espera
+      # 1. Crear backend/.env (justo donde lo espera docker-compose)
       - name: Create backend/.env
         run: |
           mkdir -p backend
@@ -33,12 +33,23 @@ jobs:
           CORS_ORIGINS=http://localhost:3000
           ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
           ENDOFFILE
-          echo "✅ backend/.env creado:"
+          echo "✅ backend/.env creado con contenido:"
           cat backend/.env
 
+      # 2. Verificar que el archivo realmente existe
+      - name: Verify backend/.env exists
+        run: |
+          if [ -f backend/.env ]; then
+            echo "✅ backend/.env encontrado"
+          else
+            echo "❌ backend/.env NO encontrado" && exit 1
+          fi
+
+      # 3. Levantar servicios
       - name: Start services
         run: docker compose up -d --build
 
+      # 4. Esperar a que backend responda
       - name: Wait for backend
         run: |
           for i in {1..30}; do
@@ -49,6 +60,7 @@ jobs:
             sleep 2
           done
 
+      # 5. Esperar a que frontend responda
       - name: Wait for frontend
         run: |
           for i in {1..30}; do
@@ -59,6 +71,7 @@ jobs:
             sleep 2
           done
 
+      # 6. Ejecutar tests Playwright
       - name: Run Playwright tests
         env:
           TEST_ADMIN_USER: ${{ secrets.TEST_ADMIN_USER || 'admin' }}
