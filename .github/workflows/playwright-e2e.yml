@@ -1,0 +1,67 @@
+name: Playwright E2E Tests
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Generar backend/.env con valores seguros (usa secretos o defaults)
+      - name: Create backend .env
+        run: |
+          cat > backend/.env << ENDOFFILE
+          DB_HOST=db
+          DB_PORT=5432
+          DB_USER=postgres
+          DB_PASSWORD=${{ secrets.DB_PASSWORD || 'postgres' }}
+          DB_NAME=lunaroja
+          JWT_SECRET=${{ secrets.JWT_SECRET || 'dev-secret' }}
+          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET || 'dev-refresh-secret' }}
+          EMAIL_HOST=mailhog
+          EMAIL_PORT=1025
+          EMAIL_USER=
+          EMAIL_PASS=
+          EMAIL_FROM=test@lunaroja.local
+          FRONTEND_URL=http://localhost:3000
+          CORS_ORIGINS=http://localhost:3000
+          ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
+          ENDOFFILE
+
+      - name: Start services
+        run: docker compose up -d --build
+
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/api/health > /dev/null; then
+              echo "Backend is up"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Wait for frontend
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null; then
+              echo "Frontend is up"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Run Playwright tests
+        env:
+          TEST_ADMIN_USER: ${{ secrets.TEST_ADMIN_USER || 'admin' }}
+          TEST_ADMIN_PASS: ${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
