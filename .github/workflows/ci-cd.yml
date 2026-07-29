@@ -1,8 +1,9 @@
 name: CI/CD Pipeline
 
 on:
+  workflow_dispatch:
   push:
-    branches: [develop, main]
+    branches: [develop, main, 'fix/**']
   pull_request:
     branches: [develop]
 
@@ -328,16 +329,6 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-
-
-
-
-
-
-
-
-
-
   playwright-e2e:
     runs-on: ubuntu-latest
     permissions:
@@ -366,7 +357,6 @@ jobs:
         with:
           node-version: 22
 
-      # ---------- BACKEND SETUP (idéntico a e2e-test) ----------
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
@@ -375,6 +365,10 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+
+      - name: Create BDSs table directly
+        run: |
+          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"BDSs\" (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, color VARCHAR(7) DEFAULT '#E53E3E', \"imageUrl\" VARCHAR(255), groups JSON DEFAULT '[]', \"documentLink\" VARCHAR(255), document VARCHAR(255), \"createdAt\" TIMESTAMP NOT NULL DEFAULT NOW(), \"updatedAt\" TIMESTAMP NOT NULL DEFAULT NOW());"
 
       - name: Run database migrations
         working-directory: backend
@@ -444,7 +438,6 @@ jobs:
           SKIP_DB_SYNC: "true"
           ADMIN_PASSWORD: admin123
 
-      # ---------- FRONTEND SETUP ----------
       - name: Build frontend
         working-directory: frontend
         run: |
@@ -465,7 +458,6 @@ jobs:
             sleep 2
           done
 
-      # ---------- PLAYWRIGHT ----------
       - name: Run Playwright tests
         working-directory: frontend
         run: |
