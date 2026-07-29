@@ -336,8 +336,12 @@ jobs:
 
 
 
+
+
   playwright-e2e:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:14
@@ -352,17 +356,25 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # ---------- BACKEND ----------
+      # ---------- BACKEND SETUP (idéntico a e2e-test) ----------
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
+
+      - name: Initialize SequelizeMeta table
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
 
       - name: Run database migrations
         working-directory: backend
@@ -402,11 +414,12 @@ jobs:
           DB_USER: lunaroja
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
+          ADMIN_PASSWORD: admin123
 
-      - name: Start backend server
+      - name: Start backend server (with health check)
         working-directory: backend
         run: |
-          mkdir -p /app/uploads && chmod 777 /app/uploads
+          sudo mkdir -p /app/uploads && sudo chmod 777 /app/uploads
           node src/app.js > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do
             if curl -sSf http://localhost:5000/api/health > /dev/null 2>&1; then
@@ -415,6 +428,11 @@ jobs:
             fi
             sleep 2
           done
+          if ! curl -sSf http://localhost:5000/api/health > /dev/null 2>&1; then
+            echo "❌ Backend no arrancó. Últimas líneas del log:"
+            tail -n 50 /tmp/server.log
+            exit 1
+          fi
         env:
           NODE_ENV: test
           DB_HOST: localhost
@@ -426,14 +444,11 @@ jobs:
           SKIP_DB_SYNC: "true"
           ADMIN_PASSWORD: admin123
 
-      # ---------- FRONTEND ----------
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Build frontend (production)
+      # ---------- FRONTEND SETUP ----------
+      - name: Build frontend
         working-directory: frontend
         run: |
+          npm ci
           NEXT_PUBLIC_API_URL=http://localhost:5000/api \
           NEXT_PUBLIC_BASE_URL=http://localhost:3000 \
           npm run build
