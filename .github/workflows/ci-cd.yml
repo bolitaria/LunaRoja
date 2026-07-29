@@ -332,6 +332,7 @@ jobs:
 
 
 
+
   playwright-e2e:
     runs-on: ubuntu-latest
     steps:
@@ -374,25 +375,26 @@ jobs:
       - name: Clean previous Docker resources
         run: docker compose down -v --remove-orphans || true
 
-      - name: Start services (ignore health checks)
+      - name: Start services
         run: docker compose up -d --build
-
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          echo "Waiting for PostgreSQL..."
-          for i in {1..30}; do
-            if docker exec lunaroja_db pg_isready -U lunaroja -d lunaroja; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            sleep 2
-          done
 
       - name: Wait for backend
         run: |
           for i in {1..30}; do
             if curl -s http://localhost:5000/api/health > /dev/null; then
               echo "Backend is up"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Wait for login API
+        run: |
+          for i in {1..30}; do
+            if curl -s -X POST http://localhost:5000/api/auth/login \
+              -H "Content-Type: application/json" \
+              -d '{"username":"admin","password":"admin123"}' | grep -q "token"; then
+              echo "Login API ready"
               break
             fi
             sleep 2
