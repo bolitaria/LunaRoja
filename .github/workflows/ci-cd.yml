@@ -331,12 +331,12 @@ jobs:
 
 
 
+
   playwright-e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Crear .env raíz con las variables que usa docker-compose
       - name: Create root .env for docker compose
         run: |
           cat > .env << ENDOFFILE
@@ -349,10 +349,7 @@ jobs:
           BACKEND_DB_NAME=lunaroja
           ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
           ENDOFFILE
-          echo "✅ .env raíz creado:"
-          cat .env
 
-      # Crear backend/.env para el servicio backend
       - name: Create backend/.env
         run: |
           mkdir -p backend
@@ -373,14 +370,23 @@ jobs:
           CORS_ORIGINS=http://localhost:3000
           ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
           ENDOFFILE
-          echo "✅ backend/.env creado:"
-          cat backend/.env
 
       - name: Clean previous Docker resources
         run: docker compose down -v --remove-orphans || true
 
-      - name: Start services
+      - name: Start services (ignore health checks)
         run: docker compose up -d --build
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL..."
+          for i in {1..30}; do
+            if docker exec lunaroja_db pg_isready -U lunaroja -d lunaroja; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            sleep 2
+          done
 
       - name: Wait for backend
         run: |

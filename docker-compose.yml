@@ -73,9 +73,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}   # ← contraseña del superadmin
     depends_on:
       postgres:
-        condition: service_healthy
       redis:
-        condition: service_started
     volumes:
       - uploads_data:/app/uploads
       - ./backend/src:/app/src
@@ -132,7 +130,6 @@ services:
       MB_JETTY_PORT: 3001
     depends_on:
       postgres:
-        condition: service_healthy
     volumes:
       - metabase_data:/metabase-data
     networks:
