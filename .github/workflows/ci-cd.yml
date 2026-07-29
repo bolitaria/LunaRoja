@@ -333,6 +333,7 @@ jobs:
 
 
 
+
   playwright-e2e:
     runs-on: ubuntu-latest
     steps:
@@ -388,10 +389,10 @@ jobs:
             sleep 2
           done
 
-      - name: Wait for login API
+      - name: Wait for login API (DB ready)
         run: |
           for i in {1..30}; do
-            if curl -s -X POST http://localhost:5000/api/auth/login \
+            if curl -s -X POST http://127.0.0.1:5000/api/auth/login \
               -H "Content-Type: application/json" \
               -d '{"username":"admin","password":"admin123"}' | grep -q "token"; then
               echo "Login API ready"

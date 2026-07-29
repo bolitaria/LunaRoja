@@ -5,7 +5,8 @@ export const CREDENTIALS = {
   password: process.env.TEST_ADMIN_PASS || 'admin123',
 };
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+// 127.0.0.1 evita problemas de resolución en CI (IPv4 vs IPv6)
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:5000';
 
 async function fetchWithRetry(url: string, options: RequestInit, retries = 10, delay = 3000): Promise<Response> {
   for (let i = 0; i < retries; i++) {
