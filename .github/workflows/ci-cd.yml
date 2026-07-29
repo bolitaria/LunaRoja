@@ -334,6 +334,7 @@ jobs:
 
 
 
+
   playwright-e2e:
     runs-on: ubuntu-latest
     steps:
@@ -407,6 +408,24 @@ jobs:
             if curl -s http://localhost:3000 > /dev/null; then
               echo "Frontend is up"
               break
+            fi
+            sleep 2
+          done
+
+      - name: Verify backend stability before tests
+        run: |
+          echo "=== Docker container status ==="
+          docker ps -a | grep lunaroja_backend
+          echo "=== Backend logs (last 50 lines) ==="
+          docker logs lunaroja_backend --tail 50 || true
+          echo "=== Health check loop ==="
+          for i in {1..10}; do
+            if curl -s http://127.0.0.1:5000/api/health > /dev/null; then
+              echo "Backend still alive at attempt $i"
+            else
+              echo "Backend NOT responding at attempt $i"
+              docker logs lunaroja_backend --tail 20
+              exit 1
             fi
             sleep 2
           done
