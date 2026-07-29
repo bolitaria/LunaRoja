@@ -82,3 +82,19 @@ The frontend uses frontend/.env.local for runtime values such as:
 - src/lib/axios.js — API client configuration
 - tailwind.config.js — Tailwind configuration
 - next.config.js — Next.js runtime configuration
+### ▶️ Cómo ejecutar
+
+```bash
+# 1. Levantar los servicios
+docker compose up -d
+
+# 2. Instalar dependencias
+cd frontend
+npm ci
+
+# 3. Crear archivo .env.test con tus credenciales (ver plantilla)
+cp .env.test.example .env.test
+# Editar .env.test con usuario/contraseña reales
+
+# 4. Ejecutar la suite
+npx playwright test

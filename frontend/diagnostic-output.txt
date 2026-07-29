@@ -1,0 +1,311 @@
+
+Running 7 tests using 1 worker
+
+
+===== CAMPOS reports =====
+[
+  {
+    "tag": "SELECT",
+    "name": "type",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "title",
+    "id": null,
+    "type": "text",
+    "placeholder": null
+  },
+  {
+    "tag": "TEXTAREA",
+    "name": "description",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "author",
+    "id": null,
+    "type": null,
+    "placeholder": "Tu nombre o seudónimo"
+  },
+  {
+    "tag": "INPUT",
+    "name": "contentMethod",
+    "id": null,
+    "type": "radio",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "contentMethod",
+    "id": null,
+    "type": "radio",
+    "placeholder": null
+  }
+]
+  ✓  1 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de reports (1.9s)
+
+===== CAMPOS documents =====
+[]
+  ✓  2 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de documents (1.4s)
+
+===== CAMPOS petitions =====
+[
+  {
+    "tag": "INPUT",
+    "name": "type",
+    "id": null,
+    "type": "radio",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "type",
+    "id": null,
+    "type": "radio",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "title",
+    "id": null,
+    "type": "text",
+    "placeholder": null
+  },
+  {
+    "tag": "TEXTAREA",
+    "name": "description",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "SELECT",
+    "name": "emailTemplateId",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": null,
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": null,
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": null,
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": null,
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": null,
+    "id": null,
+    "type": "text",
+    "placeholder": "Escribe un email y pulsa espacio o Enter para añadir"
+  },
+  {
+    "tag": "INPUT",
+    "name": "urgency",
+    "id": null,
+    "type": "checkbox",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "hidden",
+    "id": null,
+    "type": "checkbox",
+    "placeholder": null
+  }
+]
+  ✓  3 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de petitions (1.7s)
+
+===== CAMPOS subscribers =====
+[]
+  ✓  4 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de subscribers (1.5s)
+
+===== CAMPOS chatGroups =====
+[
+  {
+    "tag": "INPUT",
+    "name": "name",
+    "id": null,
+    "type": "text",
+    "placeholder": "Nombre del grupo"
+  },
+  {
+    "tag": "SELECT",
+    "name": "platform",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "link",
+    "id": null,
+    "type": "url",
+    "placeholder": "https://chat.whatsapp.com/..."
+  },
+  {
+    "tag": "INPUT",
+    "name": "region",
+    "id": null,
+    "type": "text",
+    "placeholder": "Ej. Barcelona, Global..."
+  },
+  {
+    "tag": "TEXTAREA",
+    "name": "description",
+    "id": null,
+    "type": null,
+    "placeholder": "Describe brevemente el propósito del grupo..."
+  },
+  {
+    "tag": "INPUT",
+    "name": "isPublic",
+    "id": null,
+    "type": "radio",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "isPublic",
+    "id": null,
+    "type": "radio",
+    "placeholder": null
+  },
+  {
+    "tag": "SELECT",
+    "name": "associationType",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "isActive",
+    "id": null,
+    "type": "checkbox",
+    "placeholder": null
+  }
+]
+  ✓  5 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de chatGroups (2.0s)
+
+===== CAMPOS links =====
+[
+  {
+    "tag": "INPUT",
+    "name": "title",
+    "id": null,
+    "type": "text",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "url",
+    "id": null,
+    "type": "url",
+    "placeholder": null
+  },
+  {
+    "tag": "TEXTAREA",
+    "name": "description",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "SELECT",
+    "name": "category",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  }
+]
+  ✓  6 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de links (1.9s)
+
+===== CAMPOS email-templates =====
+[
+  {
+    "tag": "INPUT",
+    "name": "name",
+    "id": null,
+    "type": "text",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "subject",
+    "id": null,
+    "type": "text",
+    "placeholder": null
+  },
+  {
+    "tag": "SELECT",
+    "name": "associatedEvent",
+    "id": null,
+    "type": null,
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "headerColor",
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "buttonColor",
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "footerColor",
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "INPUT",
+    "name": "backgroundColor",
+    "id": null,
+    "type": "color",
+    "placeholder": null
+  },
+  {
+    "tag": "TEXTAREA",
+    "name": null,
+    "id": null,
+    "type": null,
+    "placeholder": "Escribe el HTML con variables Handlebars..."
+  }
+]
+  ✓  7 [chromium] › playwright-tests/_diagnostico-todos.spec.ts:15:7 › diagnosticar formulario de email-templates (1.7s)
+
+  7 passed (13.2s)

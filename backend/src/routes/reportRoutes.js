@@ -2,32 +2,26 @@ const express = require('express');
 const router = express.Router();
 const { authenticate: authMiddleware } = require('../middlewares/auth');
 const { isSuperAdmin } = require('../middlewares/authorize');
-const templateController = require('../controllers/emailTemplateController');
+const reportController = require('../controllers/reportController');
 
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
 
-// GET / y /:id accesibles para cualquier admin (el controlador no filtra por rol)
-router.get('/', templateController.getAllTemplates);
-router.get('/:id', templateController.getTemplateById);
+// GET / y /:id accesibles para cualquier admin
+router.get('/', reportController.getAllReports);
+router.get('/:id', reportController.getReportById);
 
-// POST y PUT: pueden hacerlo superadmin, campaign_admin, blog_admin
-const canEditTemplates = (req, res, next) => {
-  const allowedRoles = ['superadmin', 'campaign_admin', 'blog_admin'];
+// POST y PUT: pueden hacerlo superadmin, blog_admin
+const canEditReports = (req, res, next) => {
+  const allowedRoles = ['superadmin', 'blog_admin'];
   if (allowedRoles.includes(req.user.role)) return next();
-  res.status(403).json({ message: 'No tienes permiso para modificar plantillas' });
+  res.status(403).json({ message: 'No tienes permiso para modificar reportes' });
 };
 
-router.post('/', canEditTemplates, templateController.createTemplate);
-router.put('/:id', canEditTemplates, templateController.updateTemplate);
+router.post('/', canEditReports, reportController.createReport);
+router.put('/:id', canEditReports, reportController.updateReport);
 
 // DELETE: solo superadmin
-router.delete('/:id', isSuperAdmin, templateController.deleteTemplate);
-
-// Envío de campaña masiva (solo superadmin)
-router.post('/send', isSuperAdmin, templateController.sendCampaign);
-
-// Enviar prueba (cualquier admin con acceso a plantillas)
-router.post('/:id/test', canEditTemplates, templateController.sendTest);
+router.delete('/:id', isSuperAdmin, reportController.deleteReport);
 
 module.exports = router;
