@@ -12,10 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Crear un archivo temporal .env en la raíz para Docker Compose
-      - name: Create temporary .env for backend
+      # Crear el archivo .env exactamente donde docker-compose.yml lo espera
+      - name: Create backend/.env
         run: |
-          cat > .env << ENDOFFILE
+          mkdir -p backend
+          cat > backend/.env << ENDOFFILE
           DB_HOST=db
           DB_PORT=5432
           DB_USER=postgres
@@ -32,10 +33,9 @@ jobs:
           CORS_ORIGINS=http://localhost:3000
           ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
           ENDOFFILE
-          echo "✅ .env creado en $(pwd)"
-          cat .env   # Mostrar el contenido para depuración
+          echo "✅ backend/.env creado:"
+          cat backend/.env
 
-      # Levantar servicios usando el .env recién creado (si tu compose espera -f y --env-file, ajústalo)
       - name: Start services
         run: docker compose up -d --build
 
