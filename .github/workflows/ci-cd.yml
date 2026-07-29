@@ -329,12 +329,13 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
 
+
   playwright-e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Crear backend/.env exactamente donde lo espera docker-compose
+      # Crear backend/.env exactamente donde lo espera docker-compose
       - name: Create backend/.env
         run: |
           mkdir -p backend

@@ -13,7 +13,11 @@ const customJestConfig = {
     'node_modules/(?!(uuid)/)',
   ],
   modulePathIgnorePatterns: ['<rootDir>/.next'],
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/node_modules/',
+    '<rootDir>/playwright-tests/'   // ← Ignora la suite de Playwright
+  ],
 };
 
 module.exports = createJestConfig(customJestConfig);
