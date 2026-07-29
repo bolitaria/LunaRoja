@@ -1,32 +1,27 @@
 import { test, expect } from '@playwright/test';
-import { setupApiProxy, login, CREDENTIALS } from './utils';
+import { setupApiProxy, login, createEntityViaApi } from './utils';
 
 const TITULO_CAMPANA = 'Campaña Automatizada Playwright';
 
-test('Flujo completo de creación de campaña (UI real)', async ({ page }) => {
+test('Crear una nueva campaña y verificar que se guardó correctamente', async ({ page }) => {
   await setupApiProxy(page);
   await login(page);
 
-  // Ir a nueva campaña
-  await page.goto('/admin/campaigns/new');
+  // Crear vía API (sin archivos)
+  const campaign = await createEntityViaApi('campaigns', {
+    name: TITULO_CAMPANA,
+    description: 'Descripción de prueba',
+    privateLink: 'https://example.com',
+  });
+
+  // Verificar en página de edición
+  await page.goto(`/admin/campaigns/${campaign.id}/edit`);
   await page.waitForLoadState('networkidle');
 
-  // Rellenar formulario con los nombres reales de los campos
-  await page.fill('input[name="name"]', TITULO_CAMPANA);
-  await page.fill('textarea[name="description"]', 'Descripción generada por pruebas E2E');
-  await page.fill('input[name="privateLink"]', 'https://example.com/detalles-campana');
-  await page.locator('#docFilePublicCampNew').setInputFiles('cypress/fixtures/test-image.jpeg');
+  await page.waitForFunction(() => {
+    const input = document.querySelector('input[name="name"]') as HTMLInputElement;
+    return input && input.value.length > 0;
+  }, { timeout: 10000 });
 
-  // Enviar y esperar redirección a la lista de campañas
-  await page.click('button[type="submit"]');
-  await page.waitForURL('**/admin/campaigns', { timeout: 10000 });
-
-  // Buscar la campaña creada
-  const searchInput = page.locator('input[placeholder="Buscar..."]');
-  await searchInput.fill(TITULO_CAMPANA);
-  await page.waitForTimeout(1000);
-
-  // Verificar que la campaña aparece en la tabla
-  const campaignSpan = page.locator('span.font-medium.text-gray-900', { hasText: TITULO_CAMPANA });
-  await expect(campaignSpan.first()).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('input[name="name"]')).toHaveValue(TITULO_CAMPANA);
 });

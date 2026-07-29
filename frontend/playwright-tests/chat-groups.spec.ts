@@ -11,16 +11,22 @@ test('Chat Groups: página de creación carga y se puede crear vía API', async 
 
   const grupo = await createEntityViaApi('chat-groups', {
     name: 'Grupo API Playwright',
-    platform: 'whatsapp',          // ✅ antes "WhatsApp"
+    platform: 'whatsapp',
     link: 'https://chat.whatsapp.com/invite',
     region: 'Global',
     description: 'Creado vía API',
     isPublic: true,
-    isActive: true
-    // associationType no existe en el modelo → lo omitimos
+    isActive: true,
   });
 
-  await page.goto('/admin/chatGroups');
+  // Verificar en edición (evita problemas de lista/paginación)
+  await page.goto(`/admin/chatGroups/${grupo.id}/edit`);
   await page.waitForLoadState('networkidle');
-  await expect(page.locator(`text=${grupo.name}`).first()).toBeVisible();
+
+  await page.waitForFunction(() => {
+    const input = document.querySelector('input[name="name"]') as HTMLInputElement;
+    return input && input.value.length > 0;
+  }, { timeout: 10000 });
+
+  await expect(page.locator('input[name="name"]')).toHaveValue('Grupo API Playwright');
 });
