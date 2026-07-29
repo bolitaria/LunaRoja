@@ -335,108 +335,128 @@ jobs:
 
 
 
+
   playwright-e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lunaroja
+          POSTGRES_PASSWORD: lunaroja123
+          POSTGRES_DB: lunaroja
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create root .env for docker compose
-        run: |
-          cat > .env << ENDOFFILE
-          POSTGRES_USER=lunaroja
-          POSTGRES_PASSWORD=lunaroja123
-          POSTGRES_DB=lunaroja
-          PGADMIN_DEFAULT_PASSWORD=admin
-          BACKEND_DB_USER=lunaroja
-          BACKEND_DB_PASSWORD=lunaroja123
-          BACKEND_DB_NAME=lunaroja
-          ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
-          ENDOFFILE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Create backend/.env
-        run: |
-          mkdir -p backend
-          cat > backend/.env << ENDOFFILE
-          SKIP_DB_SYNC=true
-          DB_HOST=postgres
-          DB_PORT=5432
-          DB_USER=lunaroja
-          DB_PASSWORD=lunaroja123
-          DB_NAME=lunaroja
-          JWT_SECRET=${{ secrets.JWT_SECRET || 'dev-secret' }}
-          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET || 'dev-refresh-secret' }}
-          EMAIL_HOST=mailhog
-          EMAIL_PORT=1025
-          EMAIL_USER=
-          EMAIL_PASS=
-          EMAIL_FROM=test@lunaroja.local
-          FRONTEND_URL=http://localhost:3000
-          CORS_ORIGINS=http://localhost:3000
-          ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
-          ENDOFFILE
+      # ---------- BACKEND ----------
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
 
-      - name: Clean previous Docker resources
-        run: docker compose down -v --remove-orphans || true
-
-      - name: Start services
-        run: docker compose up -d --build
-
-      - name: Wait for backend
-        run: |
-          for i in {1..30}; do
-            if curl -s http://localhost:5000/api/health > /dev/null; then
-              echo "Backend is up"
-              break
-            fi
-            sleep 2
-          done
-
-      - name: Wait for login API (DB ready)
-        run: |
-          for i in {1..30}; do
-            if curl -s -X POST http://127.0.0.1:5000/api/auth/login \
-              -H "Content-Type: application/json" \
-              -d '{"username":"admin","password":"admin123"}' | grep -q "token"; then
-              echo "Login API ready"
-              break
-            fi
-            sleep 2
-          done
-
-      - name: Wait for frontend
-        run: |
-          for i in {1..30}; do
-            if curl -s http://localhost:3000 > /dev/null; then
-              echo "Frontend is up"
-              break
-            fi
-            sleep 2
-          done
-
-      - name: Verify backend stability before tests
-        run: |
-          echo "=== Docker container status ==="
-          docker ps -a | grep lunaroja_backend
-          echo "=== Backend logs (last 50 lines) ==="
-          docker logs lunaroja_backend --tail 50 || true
-          echo "=== Health check loop ==="
-          for i in {1..10}; do
-            if curl -s http://127.0.0.1:5000/api/health > /dev/null; then
-              echo "Backend still alive at attempt $i"
-            else
-              echo "Backend NOT responding at attempt $i"
-              docker logs lunaroja_backend --tail 20
-              exit 1
-            fi
-            sleep 2
-          done
-
-      - name: Run Playwright tests
+      - name: Run database migrations
+        working-directory: backend
+        run: npm run migrate
         env:
-          TEST_ADMIN_USER: ${{ secrets.TEST_ADMIN_USER || 'admin' }}
-          TEST_ADMIN_PASS: ${{ secrets.TEST_ADMIN_PASS || 'admin123' }}
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+          JWT_SECRET: test_secret
+
+      - name: Seed admin user
+        working-directory: backend
+        run: |
+          node -e "
+          const bcrypt = require('bcryptjs');
+          const { User } = require('./src/models');
+          (async () => {
+            const hash = await bcrypt.hash('admin123', 10);
+            await User.upsert({
+              username: 'admin',
+              email: 'admin@test.com',
+              password: hash,
+              role: 'superadmin',
+              active: true
+            });
+            console.log('Admin user seeded');
+            process.exit();
+          })();
+          "
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          mkdir -p /app/uploads && chmod 777 /app/uploads
+          node src/app.js > /tmp/server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sSf http://localhost:5000/api/health > /dev/null 2>&1; then
+              echo "✅ Backend ready"
+              break
+            fi
+            sleep 2
+          done
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: lunaroja
+          DB_PASSWORD: lunaroja123
+          DB_NAME: lunaroja
+          JWT_SECRET: test_secret
+          SKIP_DB_SYNC: "true"
+          ADMIN_PASSWORD: admin123
+
+      # ---------- FRONTEND ----------
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend (production)
         working-directory: frontend
         run: |
-          npm ci
+          NEXT_PUBLIC_API_URL=http://localhost:5000/api \
+          NEXT_PUBLIC_BASE_URL=http://localhost:3000 \
+          npm run build
+
+      - name: Start frontend server
+        working-directory: frontend
+        run: |
+          npx next start -p 3000 &
+          for i in $(seq 1 30); do
+            if curl -sSf http://localhost:3000 > /dev/null 2>&1; then
+              echo "✅ Frontend ready"
+              break
+            fi
+            sleep 2
+          done
+
+      # ---------- PLAYWRIGHT ----------
+      - name: Run Playwright tests
+        working-directory: frontend
+        run: |
           npx playwright install --with-deps chromium
           npx playwright test
+        env:
+          TEST_ADMIN_USER: admin
+          TEST_ADMIN_PASS: admin123
+          BACKEND_URL: http://127.0.0.1:5000
