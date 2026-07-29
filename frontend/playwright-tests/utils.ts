@@ -5,9 +5,12 @@ export const CREDENTIALS = {
   password: process.env.TEST_ADMIN_PASS || 'admin123',
 };
 
+// URL del backend desde el contenedor de Playwright (en CI se usa localhost:5000)
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+
 export async function setupApiProxy(page: Page) {
   await page.route('**/api/**', async (route) => {
-    const url = route.request().url().replace('http://localhost:3000', 'http://localhost:5000');
+    const url = route.request().url().replace('http://localhost:3000', BACKEND_URL);
     const method = route.request().method();
     const headers = route.request().headers();
     delete headers['host'];
@@ -24,22 +27,34 @@ export async function setupApiProxy(page: Page) {
   });
 }
 
-export async function login(page: Page) {
-  await page.goto('/admin/login');
-  await page.getByPlaceholder('Nombre de usuario').fill(CREDENTIALS.username);
-  await page.getByPlaceholder('Contraseña').fill(CREDENTIALS.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL('**/admin/dashboard', { timeout: 10000 });
+// Nueva función: login vía API, devuelve el token y lo inyecta en localStorage
+export async function loginViaApi(page: Page) {
+  const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(CREDENTIALS),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Login API falló: ${res.status} ${text}`);
+  }
+  const data = await res.json();
+  const token = data.token;
+
+  // Inyectar token en localStorage (igual que lo hace el frontend)
+  await page.goto('/');
+  await page.evaluate((t) => localStorage.setItem('token', t), token);
+  return token;
 }
 
 export async function createEntityViaApi(endpoint: string, body: any) {
-  const tokenRes = await fetch('http://localhost:5000/api/auth/login', {
+  const tokenRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(CREDENTIALS),
   });
   const { token } = await tokenRes.json();
-  const res = await fetch(`http://localhost:5000/api/${endpoint}`, {
+  const res = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(body),

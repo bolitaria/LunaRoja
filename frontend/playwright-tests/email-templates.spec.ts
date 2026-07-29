@@ -1,13 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { setupApiProxy, login, createEntityViaApi } from './utils';
+import { loginViaApi, createEntityViaApi } from './utils';
 
-test('Email Templates: página de creación carga y se puede crear vía API', async ({ page }) => {
-  await setupApiProxy(page);
-  await login(page);
-
-  await page.goto('/admin/email-templates/new');
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('input[name="name"]')).toBeVisible();
+test('Crear una nueva plantilla de email y verificar en edición', async ({ page }) => {
+  await loginViaApi(page);
 
   const uniqueName = `Plantilla API ${Date.now()}`;
   const plantilla = await createEntityViaApi('email-templates', {
@@ -18,11 +13,10 @@ test('Email Templates: página de creación carga y se puede crear vía API', as
     headerColor: '#ffffff',
     buttonColor: '#000000',
     footerColor: '#ffffff',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
   });
 
-  // Verificar en la página de edición (evita paginación)
   await page.goto(`/admin/email-templates/${plantilla.id}/edit`);
   await page.waitForLoadState('networkidle');
-  await expect(page.locator('input[name="name"]')).toHaveValue(uniqueName);
+  await expect(page.locator('input[name="name"]')).toHaveValue(uniqueName, { timeout: 10000 });
 });

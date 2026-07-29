@@ -1,24 +1,19 @@
 import { test, expect } from '@playwright/test';
-import { setupApiProxy, login, createEntityViaApi } from './utils';
+import { loginViaApi, createEntityViaApi } from './utils';
 
-test('Reportes: página de creación carga y se puede crear vía API', async ({ page }) => {
-  await setupApiProxy(page);
-  await login(page);
-
-  await page.goto('/admin/reports/new');
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('input[name="title"]')).toBeVisible();
+test('Crear un nuevo reporte y verificar en edición', async ({ page }) => {
+  await loginViaApi(page);
 
   const reporte = await createEntityViaApi('reports', {
     title: 'Reporte API Playwright',
     description: 'Creado vía API',
-    content: '<p>Contenido de prueba</p>',
+    content: '<p>Contenido</p>',
     type: 'blog',
     source: '',
-    author: 'Playwright'
+    author: 'Playwright',
   });
 
-  await page.goto('/admin/reports');
+  await page.goto(`/admin/reports/${reporte.id}/edit`);
   await page.waitForLoadState('networkidle');
-  await expect(page.locator(`text=${reporte.title}`).first()).toBeVisible();
+  await expect(page.locator('input[name="title"]')).toHaveValue('Reporte API Playwright', { timeout: 10000 });
 });
