@@ -8,7 +8,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: true,
         references: {
-          model: 'email_templates',
+          model: 'EmailTemplates',   // ¡ahora apunta al nombre correcto!
           key: 'id'
         },
         onUpdate: 'CASCADE',
