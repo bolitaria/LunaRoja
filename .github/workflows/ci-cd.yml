@@ -67,6 +67,9 @@ jobs:
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
+      - name: Fix links enum to include 'general'
+        run: |
+          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "ALTER TYPE enum_links_category ADD VALUE IF NOT EXISTS 'general';" || true
       - name: Add missing columns
         if: matrix.service == 'backend'
         run: node scripts/add-missing-columns.js
@@ -381,6 +384,9 @@ jobs:
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
+      - name: Fix links enum to include 'general'
+        run: |
+          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "ALTER TYPE enum_links_category ADD VALUE IF NOT EXISTS 'general';" || true
 
       - name: Seed admin user
         working-directory: backend
