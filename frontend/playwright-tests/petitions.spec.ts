@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { loginViaApi, createEntityViaApi } from './utils';
+import { authenticate, createEntityViaApi } from './utils';
 
 test('Crear una nueva petición y verificar en edición', async ({ page }) => {
-  await loginViaApi(page);
+  await authenticate(page);
 
   const peticion = await createEntityViaApi('petitions', {
     title: 'Petición API Playwright',
