@@ -5,21 +5,7 @@ export const CREDENTIALS = {
   password: process.env.TEST_ADMIN_PASS || 'admin123',
 };
 
-// 127.0.0.1 evita problemas de resolución en CI (IPv4 vs IPv6)
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:5000';
-
-async function fetchWithRetry(url: string, options: RequestInit, retries = 10, delay = 3000): Promise<Response> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const res = await fetch(url, options);
-      return res;
-    } catch (error) {
-      if (i === retries - 1) throw error;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  throw new Error('fetchWithRetry: unreachable');
-}
 
 export async function setupApiProxy(page: Page) {
   await page.route('**/api/**', async (route) => {
@@ -31,7 +17,7 @@ export async function setupApiProxy(page: Page) {
     const fetchOptions: any = { method, headers };
     if (method !== 'GET' && method !== 'HEAD') fetchOptions.body = route.request().postData() || undefined;
     try {
-      const response = await fetchWithRetry(url, fetchOptions);
+      const response = await fetch(url, fetchOptions);
       const body = await response.text();
       await route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body });
     } catch (error) {
@@ -40,32 +26,29 @@ export async function setupApiProxy(page: Page) {
   });
 }
 
-export async function loginViaApi(page: Page) {
-  const res = await fetchWithRetry(`${BACKEND_URL}/api/auth/login`, {
+export async function authenticate(page: Page) {
+  await setupApiProxy(page);
+  const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(CREDENTIALS),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Login API falló: ${res.status} ${text}`);
-  }
+  if (!res.ok) throw new Error(`Login API falló: ${res.status} ${await res.text()}`);
   const data = await res.json();
   const token = data.token;
-
   await page.goto('/');
   await page.evaluate((t) => localStorage.setItem('token', t), token);
   return token;
 }
 
 export async function createEntityViaApi(endpoint: string, body: any) {
-  const tokenRes = await fetchWithRetry(`${BACKEND_URL}/api/auth/login`, {
+  const tokenRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(CREDENTIALS),
   });
   const { token } = await tokenRes.json();
-  const res = await fetchWithRetry(`${BACKEND_URL}/api/${endpoint}`, {
+  const res = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(body),
