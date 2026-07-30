@@ -67,9 +67,6 @@ jobs:
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
-      - name: Fix links enum to include 'general'
-        run: |
-          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "ALTER TYPE enum_links_category ADD VALUE IF NOT EXISTS 'general';" || true
       - name: Add missing columns
         if: matrix.service == 'backend'
         run: node scripts/add-missing-columns.js
@@ -109,6 +106,9 @@ jobs:
           DB_USER: lunaroja
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
+      - name: Ensure links enum has 'general'
+        run: |
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql -h localhost -U lunaroja -d lunaroja -c "ALTER TYPE enum_links_category ADD VALUE IF NOT EXISTS 'general';" || true
       - name: Start backend server (with health check)
         if: matrix.service == 'backend'
         run: |
@@ -384,9 +384,6 @@ jobs:
           DB_PASSWORD: lunaroja123
           DB_NAME: lunaroja
           JWT_SECRET: test_secret
-      - name: Fix links enum to include 'general'
-        run: |
-          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "ALTER TYPE enum_links_category ADD VALUE IF NOT EXISTS 'general';" || true
 
       - name: Seed admin user
         working-directory: backend
@@ -416,6 +413,9 @@ jobs:
           DB_NAME: lunaroja
           ADMIN_PASSWORD: admin123
 
+      - name: Ensure links enum has 'general'
+        run: |
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql -h localhost -U lunaroja -d lunaroja -c "ALTER TYPE enum_links_category ADD VALUE IF NOT EXISTS 'general';" || true
       - name: Start backend server (with health check)
         working-directory: backend
         run: |
