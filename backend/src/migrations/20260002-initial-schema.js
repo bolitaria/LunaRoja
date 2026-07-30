@@ -261,7 +261,7 @@ module.exports = {
     // links
     await queryInterface.sequelize.query(`
       DO $$ BEGIN
-        CREATE TYPE "public"."enum_links_category" AS ENUM('local','nacional','europeo','internacional','literatura');
+        CREATE TYPE "public"."enum_links_category" AS ENUM('local','nacional','europeo','internacional','literatura','general');
       EXCEPTION WHEN duplicate_object THEN null;
       END $$;
     `);
