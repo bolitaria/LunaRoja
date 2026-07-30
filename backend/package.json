@@ -28,11 +28,11 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
-    "node-cron": "^4.6.0",
+    "node-cron": "^3.0.3",
     "nodemailer": "^9.0.3",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^3.30.0",
+    "sequelize": "^6.33.0",
     "umzug": "^3.8.3",
     "uuid": "^14.0.1"
   },
@@ -42,8 +42,8 @@
     "tar": "7.5.15"
   },
   "devDependencies": {
-    "@jest/globals": "^27.5.1",
-    "jest": "^25.0.0",
+    "@jest/globals": "^30.4.1",
+    "jest": "^30.4.2",
     "nodemon": "^3.0.1",
     "sequelize-mock": "^0.10.2",
     "start-server-and-test": "^2.1.5",
@@ -54,9 +54,7 @@
     "transformIgnorePatterns": [
       "/node_modules/(?!(uuid)/)"
     ],
-    "setupFiles": [
-      "<rootDir>/tests/jest.setup.js"
-    ],
+    "setupFiles": ["<rootDir>/tests/jest.setup.js"],
     "testTimeout": 30000
   }
 }
