@@ -7,15 +7,6 @@ on:
   pull_request:
     branches: [develop]
 
-env:
-  # Variables comunes de base de datos (hardcodeadas para entorno de pruebas)
-  DB_HOST: localhost
-  DB_PORT: 5432
-  DB_USER: lunaroja
-  DB_PASSWORD: lunaroja123
-  DB_NAME: lunaroja
-  JWT_SECRET: test_secret
-
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -23,29 +14,6 @@ jobs:
       NODE_ENV: test
       SKIP_DB_SYNC: 'true'
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: lunaroja
-          POSTGRES_PASSWORD: lunaroja123
-          POSTGRES_DB: lunaroja
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     strategy:
       matrix:
         service: [backend, frontend]
@@ -53,13 +21,47 @@ jobs:
       run:
         working-directory: ${{ matrix.service }}
     steps:
-      - name: Mask sensitive variables
+      - uses: actions/checkout@v4
+
+      - name: Load environment from .env and mask secrets
+        working-directory: ${{ github.workspace }}
         run: |
+          set -a
+          source .env
+          set +a
+          # Enmascarar valores sensibles
           echo "::add-mask::$DB_USER"
           echo "::add-mask::$DB_PASSWORD"
           echo "::add-mask::$DB_NAME"
           echo "::add-mask::$JWT_SECRET"
-      - uses: actions/checkout@v4
+          echo "::add-mask::$POSTGRES_USER"
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          echo "::add-mask::$POSTGRES_DB"
+          # Exportar a entorno del job
+          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$DB_PASSWORD" >> $GITHUB_ENV
+          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
+          echo "JWT_SECRET=$JWT_SECRET" >> $GITHUB_ENV
+          echo "POSTGRES_USER=$POSTGRES_USER" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> $GITHUB_ENV
+          echo "POSTGRES_DB=$POSTGRES_DB" >> $GITHUB_ENV
+
+      - name: Start services (PostgreSQL + Redis)
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker network create test-net
+          docker run -d --name postgres --network test-net \
+            -e POSTGRES_USER=$POSTGRES_USER \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            -p 5432:5432 postgres:14
+          docker run -d --name redis --network test-net \
+            -p 6379:6379 redis:7-alpine
+          # Esperar a que estén sanos
+          until docker exec postgres pg_isready -U $POSTGRES_USER; do sleep 2; done
+          echo "PostgreSQL ready"
+          redis-cli -h localhost ping && echo "Redis ready"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -69,12 +71,13 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint || echo "No lint script configured"
+
       # ─── BACKEND SPECIFIC STEPS ───
       - name: Initialize SequelizeMeta table
         if: matrix.service == 'backend'
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
       - name: Run database migrations
         if: matrix.service == 'backend'
         run: npm run migrate
@@ -158,32 +161,45 @@ jobs:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: lunaroja
-          POSTGRES_PASSWORD: lunaroja123
-          POSTGRES_DB: lunaroja
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
     steps:
-      - name: Mask sensitive variables
+      - uses: actions/checkout@v4
+
+      - name: Load environment from .env and mask secrets
+        working-directory: ${{ github.workspace }}
         run: |
+          set -a
+          source .env
+          set +a
           echo "::add-mask::$DB_USER"
           echo "::add-mask::$DB_PASSWORD"
           echo "::add-mask::$DB_NAME"
           echo "::add-mask::$JWT_SECRET"
-      - uses: actions/checkout@v4
+          echo "::add-mask::$POSTGRES_USER"
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          echo "::add-mask::$POSTGRES_DB"
+          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$DB_PASSWORD" >> $GITHUB_ENV
+          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
+          echo "JWT_SECRET=$JWT_SECRET" >> $GITHUB_ENV
+          echo "POSTGRES_USER=$POSTGRES_USER" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> $GITHUB_ENV
+          echo "POSTGRES_DB=$POSTGRES_DB" >> $GITHUB_ENV
+
+      - name: Start services (PostgreSQL + Redis)
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker network create test-net
+          docker run -d --name postgres --network test-net \
+            -e POSTGRES_USER=$POSTGRES_USER \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            -p 5432:5432 postgres:14
+          docker run -d --name redis --network test-net \
+            -p 6379:6379 redis:7-alpine
+          until docker exec postgres pg_isready -U $POSTGRES_USER; do sleep 2; done
+          echo "PostgreSQL ready"
+          redis-cli -h localhost ping && echo "Redis ready"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -192,7 +208,7 @@ jobs:
       - name: Setup database, seed admin, start backend
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
           cd backend
           npm run migrate
           node scripts/add-missing-columns.js
@@ -243,7 +259,7 @@ jobs:
         env:
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_admin_username: admin
-          CYPRESS_admin_password: admin123
+          CYPRESS_admin_password: ${{ secrets.ADMIN_PASSWORD }}
           NEXT_PUBLIC_API_URL: http://localhost:5000
 
   build-and-push:
@@ -315,32 +331,45 @@ jobs:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: lunaroja
-          POSTGRES_PASSWORD: lunaroja123
-          POSTGRES_DB: lunaroja
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
     steps:
-      - name: Mask sensitive variables
+      - uses: actions/checkout@v4
+
+      - name: Load environment from .env and mask secrets
+        working-directory: ${{ github.workspace }}
         run: |
+          set -a
+          source .env
+          set +a
           echo "::add-mask::$DB_USER"
           echo "::add-mask::$DB_PASSWORD"
           echo "::add-mask::$DB_NAME"
           echo "::add-mask::$JWT_SECRET"
-      - uses: actions/checkout@v4
+          echo "::add-mask::$POSTGRES_USER"
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          echo "::add-mask::$POSTGRES_DB"
+          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$DB_PASSWORD" >> $GITHUB_ENV
+          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
+          echo "JWT_SECRET=$JWT_SECRET" >> $GITHUB_ENV
+          echo "POSTGRES_USER=$POSTGRES_USER" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> $GITHUB_ENV
+          echo "POSTGRES_DB=$POSTGRES_DB" >> $GITHUB_ENV
+
+      - name: Start services (PostgreSQL + Redis)
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker network create test-net
+          docker run -d --name postgres --network test-net \
+            -e POSTGRES_USER=$POSTGRES_USER \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            -p 5432:5432 postgres:14
+          docker run -d --name redis --network test-net \
+            -p 6379:6379 redis:7-alpine
+          until docker exec postgres pg_isready -U $POSTGRES_USER; do sleep 2; done
+          echo "PostgreSQL ready"
+          redis-cli -h localhost ping && echo "Redis ready"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -352,11 +381,11 @@ jobs:
       - name: Initialize SequelizeMeta table
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
 
       - name: Create BDSs table directly
         run: |
-          PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"BDSs\" (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, color VARCHAR(7) DEFAULT '#E53E3E', \"imageUrl\" VARCHAR(255), groups JSON DEFAULT '[]', \"documentLink\" VARCHAR(255), document VARCHAR(255), \"createdAt\" TIMESTAMP NOT NULL DEFAULT NOW(), \"updatedAt\" TIMESTAMP NOT NULL DEFAULT NOW());"
+          PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"BDSs\" (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, color VARCHAR(7) DEFAULT '#E53E3E', \"imageUrl\" VARCHAR(255), groups JSON DEFAULT '[]', \"documentLink\" VARCHAR(255), document VARCHAR(255), \"createdAt\" TIMESTAMP NOT NULL DEFAULT NOW(), \"updatedAt\" TIMESTAMP NOT NULL DEFAULT NOW());"
 
       - name: Run database migrations
         working-directory: backend
