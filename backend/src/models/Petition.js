@@ -22,7 +22,6 @@ Petition.init({
   urgency: { type: DataTypes.BOOLEAN, defaultValue: false },
   deadline: { type: DataTypes.DATE, allowNull: true },
   hidden: { type: DataTypes.BOOLEAN, defaultValue: false },
-  email_body_template: { type: DataTypes.TEXT, allowNull: true },
   emailTemplateId: {                         // NUEVO CAMPO
     type: DataTypes.INTEGER,
     allowNull: true,
