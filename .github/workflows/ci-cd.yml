@@ -14,9 +14,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: lunaroja
-          POSTGRES_PASSWORD: lunaroja123
-          POSTGRES_DB: lunaroja
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
         ports:
           - 5432:5432
         options: >-
@@ -55,7 +55,7 @@ jobs:
         if: matrix.service == 'backend'
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql -h localhost -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
       - name: Run database migrations
         if: matrix.service == 'backend'
         run: npm run migrate
@@ -63,19 +63,19 @@ jobs:
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          JWT_SECRET: test_secret
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
       - name: Add missing columns
         if: matrix.service == 'backend'
         run: node scripts/add-missing-columns.js
         env:
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
       - name: Create upload directories
         if: matrix.service == 'backend'
         run: mkdir -p uploads/petitions uploads/campaigns uploads/actions uploads/documents uploads/featured
@@ -100,12 +100,12 @@ jobs:
           "
         env:
           NODE_ENV: test
-          ADMIN_PASSWORD: admin123
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
       - name: Start backend server (with health check)
         if: matrix.service == 'backend'
         run: |
@@ -127,12 +127,12 @@ jobs:
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          JWT_SECRET: test_secret
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: admin123
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       - name: Unlock admin account & run integration tests
         if: matrix.service == 'backend'
         run: |
@@ -152,14 +152,14 @@ jobs:
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          JWT_SECRET: test_secret
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           API_URL: http://localhost:5000
           BASE_URL: http://localhost:5000
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: admin123
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       # ─── FRONTEND SPECIFIC STEPS ───
       - name: Run frontend unit tests
         if: matrix.service == 'frontend'
@@ -180,9 +180,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: lunaroja
-          POSTGRES_PASSWORD: lunaroja123
-          POSTGRES_DB: lunaroja
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
         ports:
           - 5432:5432
         options: >-
@@ -205,13 +205,13 @@ jobs:
         env:
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          JWT_SECRET: test_secret
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           NODE_ENV: test
           SKIP_DB_SYNC: 'true'
-          ADMIN_PASSWORD: admin123
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
@@ -265,7 +265,7 @@ jobs:
         env:
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_admin_username: admin
-          CYPRESS_admin_password: admin123
+          CYPRESS_admin_password: ${{ secrets.CYPRESS_ADMIN_PASSWORD }}
           NEXT_PUBLIC_API_URL: http://localhost:5000
 
   build-and-push:
@@ -337,9 +337,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: lunaroja
-          POSTGRES_PASSWORD: lunaroja123
-          POSTGRES_DB: lunaroja
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
         ports:
           - 5432:5432
         options: >-
@@ -364,11 +364,11 @@ jobs:
       - name: Initialize SequelizeMeta table
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql -h localhost -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
 
       - name: Create BDSs table directly
         run: |
-          PGPASSWORD=lunaroja123 psql -h localhost -U lunaroja -d lunaroja -c "CREATE TABLE IF NOT EXISTS \"BDSs\" (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, color VARCHAR(7) DEFAULT '#E53E3E', \"imageUrl\" VARCHAR(255), groups JSON DEFAULT '[]', \"documentLink\" VARCHAR(255), document VARCHAR(255), \"createdAt\" TIMESTAMP NOT NULL DEFAULT NOW(), \"updatedAt\" TIMESTAMP NOT NULL DEFAULT NOW());"
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql -h localhost -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "CREATE TABLE IF NOT EXISTS \"BDSs\" (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, color VARCHAR(7) DEFAULT '#E53E3E', \"imageUrl\" VARCHAR(255), groups JSON DEFAULT '[]', \"documentLink\" VARCHAR(255), document VARCHAR(255), \"createdAt\" TIMESTAMP NOT NULL DEFAULT NOW(), \"updatedAt\" TIMESTAMP NOT NULL DEFAULT NOW());"
 
       - name: Run database migrations
         working-directory: backend
@@ -377,10 +377,10 @@ jobs:
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          JWT_SECRET: test_secret
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
       - name: Seed admin user
         working-directory: backend
@@ -389,7 +389,7 @@ jobs:
           const bcrypt = require('bcryptjs');
           const { User } = require('./src/models');
           (async () => {
-            const hash = await bcrypt.hash('admin123', 10);
+            const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
             await User.upsert({
               username: 'admin',
               email: 'admin@test.com',
@@ -405,10 +405,10 @@ jobs:
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          ADMIN_PASSWORD: admin123
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
       - name: Start backend server (with health check)
         working-directory: backend
@@ -431,12 +431,12 @@ jobs:
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: lunaroja
-          DB_PASSWORD: lunaroja123
-          DB_NAME: lunaroja
-          JWT_SECRET: test_secret
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SKIP_DB_SYNC: "true"
-          ADMIN_PASSWORD: admin123
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
       - name: Build frontend
         working-directory: frontend
@@ -464,6 +464,6 @@ jobs:
           npx playwright install --with-deps chromium
           npx playwright test
         env:
-          TEST_ADMIN_USER: admin
-          TEST_ADMIN_PASS: admin123
+          TEST_ADMIN_USER: ${{ secrets.TEST_ADMIN_USER }}
+          TEST_ADMIN_PASS: ${{ secrets.TEST_ADMIN_PASS }}
           BACKEND_URL: http://127.0.0.1:5000

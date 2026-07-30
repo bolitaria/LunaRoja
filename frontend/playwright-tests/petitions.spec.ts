@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginViaApi, createEntityViaApi } from './utils';
 
-test.skip('Crear una nueva petición y verificar en edición', async ({ page }) => {
+test('Crear una nueva petición y verificar en edición', async ({ page }) => {
   await loginViaApi(page);
 
   const peticion = await createEntityViaApi('petitions', {
