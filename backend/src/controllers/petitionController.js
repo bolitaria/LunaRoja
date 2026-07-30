@@ -1,4 +1,4 @@
-// backend/src/controllers/petitionController.js (versión completa y corregida)
+// backend/src/controllers/petitionController.js (versión corregida)
 const { Petition, SignatureHash } = require('../models');
 const { buildSignatureSchema } = require('../utils/dynamicValidation');
 const { sendPetitionAlert, sendEmailWithTemplate } = require('../services/emailService');
@@ -60,11 +60,6 @@ exports.createPetition = async (req, res, next) => {
     const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
-    // ✅ COLORES PERSONALIZADOS
-    const headerColor = req.body.headerColor || null;
-    const buttonColor = req.body.buttonColor || null;
-    const footerColor = req.body.footerColor || null;
-    const backgroundColor = req.body.backgroundColor || null;
 
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : null;
     if (!featuredImage && req.body.imageBase64) {
@@ -93,8 +88,6 @@ exports.createPetition = async (req, res, next) => {
         emailTemplateId: emailTemplateId || null,
         featured_image: featuredImage,
         created_by: req.user.id,
-        // colores
-        headerColor, buttonColor, footerColor, backgroundColor,
       });
       return res.status(201).json({ id: petition.id });
     }
@@ -116,7 +109,6 @@ exports.createPetition = async (req, res, next) => {
       emailTemplateId: emailTemplateId || null,
       featured_image: featuredImage,
       created_by: req.user.id,
-      headerColor, buttonColor, footerColor, backgroundColor,
     });
     res.status(201).json({ id: petition.id });
   } catch (err) { next(err); }
@@ -125,7 +117,7 @@ exports.createPetition = async (req, res, next) => {
 exports.getPetition = async (req, res, next) => {
   try {
     const petition = await Petition.findByPk(req.params.id, {
-      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at', 'headerColor', 'buttonColor', 'footerColor', 'backgroundColor'],
+      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at'],
     });
     if (!petition) throw createError(404, 'Petición no encontrada');
     res.json(petition);
@@ -157,17 +149,17 @@ exports.signPetition = async (req, res, next) => {
     const emailData = {};
     petition.signature_fields.forEach(f => { emailData[f.label || f.name] = value[f.name] || ''; });
 
-    // Usar plantilla y colores personalizados
+    // Usar plantilla y sus colores (los colores están en EmailTemplates, no en petitions)
     if (petition.emailTemplateId) {
       try {
         const EmailTemplate = require('../models/EmailTemplate');
         const template = await EmailTemplate.findByPk(petition.emailTemplateId);
         if (template) {
           const colors = {
-            headerColor: petition.headerColor || template.headerColor,
-            buttonColor: petition.buttonColor || template.buttonColor,
-            footerColor: petition.footerColor || template.footerColor,
-            backgroundColor: petition.backgroundColor || template.backgroundColor,
+            headerColor: template.headerColor,
+            buttonColor: template.buttonColor,
+            footerColor: template.footerColor,
+            backgroundColor: template.backgroundColor,
           };
           await sendEmailWithTemplate(petition.target_emails, template, { ...emailData, petition });
           return res.status(201).json({ message: 'Firma registrada con éxito', total: petition.total_signatures });
@@ -200,10 +192,6 @@ exports.updatePetition = async (req, res, next) => {
     const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
-    const headerColor = req.body.headerColor !== undefined ? req.body.headerColor : petition.headerColor;
-    const buttonColor = req.body.buttonColor !== undefined ? req.body.buttonColor : petition.buttonColor;
-    const footerColor = req.body.footerColor !== undefined ? req.body.footerColor : petition.footerColor;
-    const backgroundColor = req.body.backgroundColor !== undefined ? req.body.backgroundColor : petition.backgroundColor;
 
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : petition.featured_image;
     if (!req.file && req.body.imageBase64) {
@@ -226,7 +214,6 @@ exports.updatePetition = async (req, res, next) => {
       hidden: hidden !== undefined ? hidden : petition.hidden,
       emailTemplateId: emailTemplateId !== undefined ? emailTemplateId : petition.emailTemplateId,
       featured_image: featuredImage,
-      headerColor, buttonColor, footerColor, backgroundColor,
     });
     res.json({ id: petition.id });
   } catch (err) { next(err); }
