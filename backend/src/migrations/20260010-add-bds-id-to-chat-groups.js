@@ -7,9 +7,7 @@ module.exports = {
       await queryInterface.addColumn('ChatGroups', 'bdsId', {
         type: Sequelize.INTEGER,
         allowNull: true,
-        references: { model: 'BDSs', key: 'id' },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL',
+        // Sin REFERENCES para no depender de la tabla BDSs
       });
     }
   },
