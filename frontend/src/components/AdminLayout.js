@@ -80,6 +80,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
   }
   menu.push({ name: 'Mi Perfil', path: '/admin/profile', icon: <FaUserCog className="w-5 h-5" /> });
 
+  // Links de interés antes de Colectivos Afines
   const groupDefinitions = [
     { label: 'Principal', keys: ['Dashboard'] },
     { label: 'Campañas y Comunicación', keys: [
@@ -95,7 +96,8 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
     items: menu.filter(item => group.keys.includes(item.name)),
   })).filter(group => group.items.length > 0);
 
-  const mainBgColor = 'bg-stone-100';
+  // *** CAMBIO A COLOR MÁS ALEGRE: amarillo clarito (bg-amber-50) ***
+  const mainBgColor = 'bg-amber-50';
 
   if (!isClient || loading) {
     return (
@@ -229,7 +231,7 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
               {children}
             </main>
 
-            {/* FOOTER como parte del flujo, debajo del main, con su propio ancho */}
+            {/* FOOTER como parte del flujo, debajo del main */}
             <footer className="relative bg-white border-t border-gray-200 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm text-gray-600 px-4">
               <div className="absolute top-0 left-0 right-0 flex h-0.5">
                 <div className="flex-1 bg-[#E4312B]" />
