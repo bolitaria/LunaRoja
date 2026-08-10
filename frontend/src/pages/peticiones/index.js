@@ -10,13 +10,10 @@ export default function PeticionesIndex() {
   const [filterType, setFilterType] = useState('todas');
   const [filterUrgency, setFilterUrgency] = useState('todas');
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  const backendRoot = process.env.NEXT_PUBLIC_BASE_URL || apiUrl.replace(/\/api$/, '');
-
   useEffect(() => {
     const fetchPetitions = async () => {
       try {
-        const res = await axios.get(`${apiUrl}/petitions/public`, { timeout: 15000 });
+        const res = await axios.get('/api/petitions/public', { timeout: 15000 });
         if (!Array.isArray(res.data)) throw new Error('Respuesta inesperada');
         const sorted = [...res.data].sort((a, b) => {
           if (a.urgency && !b.urgency) return -1;
@@ -33,7 +30,7 @@ export default function PeticionesIndex() {
       }
     };
     fetchPetitions();
-  }, [apiUrl]);
+  }, []);
 
   const now = new Date();
   const filtered = petitions.filter(p => {
@@ -46,8 +43,7 @@ export default function PeticionesIndex() {
   const getImageUrl = (img) => {
     if (!img) return null;
     if (img.startsWith('http')) return img;
-    const root = (backendRoot || '').replace(/\/$/, '');
-    return `${root}${img.startsWith('/') ? '' : '/'}${img}`;
+    return img; // ruta relativa, el proxy de Next.js la sirve
   };
 
   const filterBtnBase = "px-4 py-2 rounded-lg text-sm font-medium transition border border-gray-300";

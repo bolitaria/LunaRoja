@@ -67,6 +67,7 @@ services:
       COOKIE_SAMESITE: "lax"
       RATE_LIMIT_MAX: "50000"
       CORS_ORIGINS: http://localhost:3000,http://lunaroja_frontend:3000,http://host.docker.internal:3000
+      LOGO_URL: http://localhost:3000/logo.svg
       REDIS_HOST: redis
       REDIS_PORT: 6379
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
@@ -91,6 +92,8 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src   # <-- Volumen para desarrollo
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:5000}

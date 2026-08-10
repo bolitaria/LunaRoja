@@ -20,7 +20,7 @@
   }
   .btn-new {
     @apply bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-    box-shadow: 0 0 0 2px rgba(126, 34, 206, 0.6);
+    box-shadow: 0 0 0 2px rgba(222, 14, 230, 0.863);
     font-size: 1rem;
     letter-spacing: 0.025em;
   }

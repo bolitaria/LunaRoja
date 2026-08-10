@@ -28,6 +28,12 @@ Petition.init({
     references: { model: EmailTemplate, key: 'id' },
   },
   featured_image: { type: DataTypes.STRING, allowNull: true },
+  email_subject: { type: DataTypes.STRING(255), allowNull: true },
+  header_color: { type: DataTypes.STRING(7), allowNull: true },
+  button_color: { type: DataTypes.STRING(7), allowNull: true },
+  footer_color: { type: DataTypes.STRING(7), allowNull: true },
+  background_color: { type: DataTypes.STRING(7), allowNull: true },
+  title_color: { type: DataTypes.STRING(7), allowNull: true, defaultValue: '#ffffff' },
   created_by: { type: DataTypes.INTEGER, allowNull: false },
 }, {
   sequelize,

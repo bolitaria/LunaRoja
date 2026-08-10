@@ -73,7 +73,6 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
       </Head>
 
       <div className="flex flex-col min-h-screen bg-stone-100">
-        {/* HEADER (sin cambios) */}
         <header
           className="bg-white shadow-sm border-b-[6px] border-[#008000] w-full overflow-x-auto hide-scrollbar"
           style={{ fontFamily: 'Inter, sans-serif' }}
