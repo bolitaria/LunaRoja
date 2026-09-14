@@ -4,6 +4,9 @@ import { useRouter } from 'next/router';
 import AdminLayout from '../../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ActionPreview from '../../../../components/ActionPreview';
+import DocumentManager from '../../../../components/DocumentManager';
+import { unwrapList } from '../../../../utils/apiHelpers';
+import { FaArrowLeft } from 'react-icons/fa';
 
 function EditAction() {
   const router = useRouter();
@@ -48,7 +51,7 @@ function EditAction() {
 
   const [linkType, setLinkType] = useState('none');
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
+  const baseUrl = '';
   const DEFAULT_LAT = 36.7213;
   const DEFAULT_LNG = -4.4214;
 
@@ -76,8 +79,8 @@ function EditAction() {
       try {
         const [actionRes, campaignsRes, bdsRes] = await Promise.all([
           api.get(`/actions/${id}`),
-          api.get('/campaigns'),
-          api.get('/bds'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/bds', { params: { limit: 1000 } }),
         ]);
         const action = actionRes.data;
         setForm({
@@ -109,10 +112,19 @@ function EditAction() {
           setGroups(parsed);
         }
         setCurrentFeaturedImage(action.featuredImage || null);
-        if (action.featuredImage) setFeaturedImagePreview(`${baseUrl}${action.featuredImage}`);
+        if (action.featuredImage) setFeaturedImagePreview(`${action.featuredImage}`);
         setExistingImages(action.images || []);
         if (action.documents) {
-          setDocuments(action.documents.map(doc => ({ ...doc, file: null })));
+          setDocuments(action.documents.map(doc => ({
+            id: doc.id,
+            name: doc.title,
+            source: doc.source,
+            file: null,
+            externalUrl: doc.externalUrl || null,
+            visibility: doc.visibility,
+            filePath: doc.filePath || null,
+            isNew: false,
+          })));
         }
         setCampaigns(campaignsRes.data || []);
         setBdsList(bdsRes.data || []);
@@ -223,14 +235,6 @@ function EditAction() {
   const updateGroup = (index, field, value) => { const updated = [...groups]; updated[index][field] = value; setGroups(updated); };
 
   // Documentos
-  const addPublicDocument = (name, file) => { setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]); };
-  const addPrivateDocument = (name, file) => { setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]); };
-  const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
-  const handleDeleteDocument = async (docId) => {
-    if (!confirm('¿Eliminar este documento?')) return;
-    try { await api.delete(`/actions/documents/${docId}`); toast.success('Documento eliminado'); setDocuments(prev => prev.filter(doc => doc.id !== docId)); }
-    catch (error) { toast.error('Error al eliminar documento'); }
-  };
 
   // Envío
   const handleSubmit = async (e) => {
@@ -264,17 +268,23 @@ function EditAction() {
 
       if (featuredImageFile) formData.append('featuredImage', featuredImageFile);
       newImageFiles.forEach(file => formData.append('images[]', file));
-      documents.forEach((doc, idx) => {
-        if (doc.file) {
-          formData.append(`documents[${idx}][name]`, doc.name);
+      // Solo enviamos los documentos NUEVOS (los existentes ya están en BD;
+      // los eliminados se han borrado vía DELETE /api/documents/:id).
+      const newDocs = documents.filter(d => d.isNew);
+      newDocs.forEach((doc, idx) => {
+        formData.append(`documents[${idx}][name]`, doc.name);
+        formData.append(`documents[${idx}][source]`, doc.source);
+        formData.append(`documents[${idx}][visibility]`, doc.visibility);
+        if (doc.source === 'upload' && doc.file) {
           formData.append(`documents[${idx}][file]`, doc.file);
-          formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
+        } else if (doc.source === 'link') {
+          formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
         }
       });
 
       await api.put(`/actions/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('Acción actualizada');
-      router.push('/admin/actions');
+      router.push(`/admin/actions/${id}`);
     } catch (error) {
       console.error(error);
       toast.error('Error al actualizar');
@@ -289,7 +299,20 @@ function EditAction() {
   return (
     <AdminLayout title="Editar Acción">
       <div className="flex flex-col lg:flex-row gap-8">
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
+        <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push(`/admin/actions/${id}`);
+          }
+        }}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <FaArrowLeft /> Volver a Acciones
+      </button>
           {/* ZONA PÚBLICA */}
           <div className="border-l-2 border-green-500 pl-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
@@ -478,36 +501,13 @@ function EditAction() {
             </div>
           </div>
 
-          {/* ARCHIVOS PÚBLICOS */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><span>📂</span> Archivos públicos</h3>
-            <p className="text-sm text-gray-400 mb-2">Estos documentos serán visibles para todos los usuarios.</p>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <input type="text" placeholder="Nombre del archivo" id="docNamePublicEditAction" className={`flex-1 ${inputClass}`} />
-                  <input type="file" id="docFilePublicEditAction" className="flex-1 text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => {
-                    const name = document.getElementById('docNamePublicEditAction').value.trim();
-                    const file = document.getElementById('docFilePublicEditAction').files[0];
-                    if (name && file) { addPublicDocument(name, file); document.getElementById('docNamePublicEditAction').value = ''; document.getElementById('docFilePublicEditAction').value = ''; }
-                    else toast.warning('Completa nombre y archivo');
-                  }} className="bg-fuchsia-600 text-white px-5 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors text-base">Añadir</button>
-                </div>
-              </div>
-              <ul className="space-y-1 mt-2">
-                {documents.filter(d => d.isPublic).map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-3 rounded text-base">
-                    <span>{doc.name} 🔓</span>
-                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-sm">Eliminar</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {/* DOCUMENTOS */}
+          <DocumentManager
+            entityType="action"
+            documents={documents}
+            onChange={setDocuments}
+            section="public"
+          />
 
           {/* GALERÍA */}
           <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
@@ -519,7 +519,7 @@ function EditAction() {
                 <label className="block text-base font-medium text-gray-700 mb-1">Imagen destacada</label>
                 {currentFeaturedImage && !featuredImageFile && (
                   <div className="mb-2">
-                    <img src={`${baseUrl}${currentFeaturedImage}`} alt="Actual" className="max-h-40 rounded-lg shadow-sm" />
+                    <img src={currentFeaturedImage} alt="Actual" className="max-h-40 rounded-lg shadow-sm" />
                     <p className="text-sm text-gray-400">Imagen actual. Sube una nueva para reemplazar.</p>
                   </div>
                 )}
@@ -550,7 +550,7 @@ function EditAction() {
                   <div className="grid grid-cols-4 gap-4 mb-2">
                     {existingImages.map(img => (
                       <div key={img.id} className="relative group">
-                        <img src={`${baseUrl}${img.url}`} alt="Existente" className="h-24 w-24 object-cover rounded-lg shadow-sm" />
+                        <img src={`${img.url}`} alt="Existente" className="h-24 w-24 object-cover rounded-lg shadow-sm" />
                         <button type="button" onClick={() => handleDeleteImage(img.id)} className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700 transition-colors">✕</button>
                       </div>
                     ))}
@@ -580,32 +580,12 @@ function EditAction() {
               <span>🔒</span> Área privada de administración
             </h2>
             <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><span>🔐</span> Archivos privados</h3>
-                <p className="text-sm text-gray-400 mb-2">Solo visibles para administradores.</p>
-                <ul className="space-y-1">
-                  {documents.filter(d => !d.isPublic).map((doc) => (
-                    <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-3 rounded text-base">
-                      <span>{doc.name} 🔒</span>
-                      <button type="button" onClick={() => handleDeleteDocument(doc.id)} className="text-red-600 text-sm">Eliminar</button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-col gap-2 mt-2">
-                  <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Nombre del archivo" id="docNamePrivateEditAction" className={`flex-1 ${inputClass}`} />
-                    <input type="file" id="docFilePrivateEditAction" className="flex-1 text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => {
-                      const name = document.getElementById('docNamePrivateEditAction').value.trim();
-                      const file = document.getElementById('docFilePrivateEditAction').files[0];
-                      if (name && file) { addPrivateDocument(name, file); document.getElementById('docNamePrivateEditAction').value = ''; document.getElementById('docFilePrivateEditAction').value = ''; }
-                      else toast.warning('Completa nombre y archivo');
-                    }} className="bg-fuchsia-600 text-white px-5 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors text-base">Añadir</button>
-                  </div>
-                </div>
-              </div>
+              <DocumentManager
+                entityType="action"
+                documents={documents}
+                onChange={setDocuments}
+                section="private"
+              />
 
               <div>
                 <label className="block text-base font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
@@ -620,11 +600,11 @@ function EditAction() {
           </button>
         </form>
 
-        <div className="lg:w-1/3">
+        <div className="lg:w-1/3 lg:self-start">
           <ActionPreview
             form={form}
-            featuredImage={featuredImagePreview || (currentFeaturedImage ? `${baseUrl}${currentFeaturedImage}` : null)}
-            images={[...(existingImages.map(img => `${baseUrl}${img.url}`)), ...newImagePreviews]}
+            featuredImage={featuredImagePreview || (currentFeaturedImage ? currentFeaturedImage : null)}
+            images={[...(existingImages.map(img => `${img.url}`)), ...newImagePreviews]}
             documents={documents}
             groups={groups}
           />

@@ -16,10 +16,10 @@ export default function LinksIndex() {
   });
   const [loading, setLoading] = useState(true);
   const [openCategory, setOpenCategory] = useState(null);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const apiUrl = '/api';
 
   useEffect(() => {
-    axios.get(`${apiUrl}/links/public`)
+    axios.get(`/api/links/public`)
       .then(res => setGroupedLinks(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));

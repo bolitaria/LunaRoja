@@ -5,6 +5,7 @@ import Link from 'next/link';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import { categoryLabels, categoryStyles } from '../../utils/categoryConfig';
+import { unwrapList } from '../../utils/apiHelpers';
 
 // ─── ICONOS DE PLATAFORMA ───
 const platformIcons = {
@@ -115,14 +116,14 @@ export default function GruposChats() {
       try {
         const [groupsRes, campRes, bdsRes, actRes] = await Promise.all([
           api.get('/chat-groups'),
-          api.get('/campaigns'),
-          api.get('/bds'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/bds', { params: { limit: 1000 } }),
           api.get('/actions'),
         ]);
-        setGroups(groupsRes.data);
-        setCampaigns(campRes.data);
-        setBdsList(bdsRes.data);
-        setActions(actRes.data);
+        setGroups(unwrapList(groupsRes.data));
+        setCampaigns(unwrapList(campRes.data));
+        setBdsList(unwrapList(bdsRes.data));
+        setActions(unwrapList(actRes.data));
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

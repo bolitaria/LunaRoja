@@ -1,14 +1,31 @@
+// backend/src/services/healthService.js
 const sequelize = require('../config/database');
-// const redisClient = require('../config/redis'); // si lo usas
+const redis = require('../config/redis');
 
-exports.checkHealth = async () => {
+/**
+ * Liveness: solo comprueba que el proceso está vivo.
+ * Rápido, sin dependencias externas.
+ */
+exports.checkLive = () => {
+  return {
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+  };
+};
+
+/**
+ * Readiness: comprueba que las dependencias críticas están disponibles.
+ * Si BD o Redis fallan, devuelve 'degraded'.
+ */
+exports.checkReady = async () => {
   const health = {
     status: 'ok',
     uptime: process.uptime(),
     timestamp: Date.now(),
     services: {
       database: 'unknown',
-      // redis: 'unknown',
+      redis: 'unknown',
     },
   };
 
@@ -20,14 +37,14 @@ exports.checkHealth = async () => {
     health.services.database = 'error';
   }
 
-  // Ejemplo con Redis
-  // try {
-  //   await redisClient.ping();
-  //   health.services.redis = 'ok';
-  // } catch (e) {
-  //   health.status = 'degraded';
-  //   health.services.redis = 'error';
-  // }
+  try {
+    const pong = await redis.ping();
+    health.services.redis = pong === 'PONG' ? 'ok' : 'error';
+    if (health.services.redis !== 'ok') health.status = 'degraded';
+  } catch (e) {
+    health.status = 'degraded';
+    health.services.redis = 'error';
+  }
 
   return health;
 };

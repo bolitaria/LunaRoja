@@ -1,27 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate: authMiddleware } = require('../middlewares/auth');
-const { isSuperAdmin } = require('../middlewares/authorize');
+const optionalAuth = require('../middlewares/optionalAuth');
+const { isSuperAdmin, canManageReports } = require('../middlewares/authorize');
+const cache = require('../middlewares/cache');
 const reportController = require('../controllers/reportController');
+const uploadEntity = require('../middlewares/uploadEntity');
 
-// Todas las rutas requieren autenticación
-router.use(authMiddleware);
+// Lectura pública con caché
+router.get('/', optionalAuth, cache(60, 'reports'), reportController.getAllReports);
+router.get('/:id', optionalAuth, cache(60, 'reports'), reportController.getReportById);
 
-// GET / y /:id accesibles para cualquier admin
-router.get('/', reportController.getAllReports);
-router.get('/:id', reportController.getReportById);
-
-// POST y PUT: pueden hacerlo superadmin, blog_admin
-const canEditReports = (req, res, next) => {
-  const allowedRoles = ['superadmin', 'blog_admin'];
-  if (allowedRoles.includes(req.user.role)) return next();
-  res.status(403).json({ message: 'No tienes permiso para modificar reportes' });
-};
-
-router.post('/', canEditReports, reportController.createReport);
-router.put('/:id', canEditReports, reportController.updateReport);
+// Escritura: superadmin, blog_admin, campaign_admin
+router.post('/', authMiddleware, canManageReports, uploadEntity, reportController.createReport);
+router.put('/:id', authMiddleware, canManageReports, uploadEntity, reportController.updateReport);
 
 // DELETE: solo superadmin
-router.delete('/:id', isSuperAdmin, reportController.deleteReport);
+router.delete('/:id', authMiddleware, isSuperAdmin, reportController.deleteReport);
 
 module.exports = router;

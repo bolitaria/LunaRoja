@@ -6,6 +6,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from '../../../../context/AuthContext';
 import Select from 'react-select';
+import { unwrapList } from '../../../../utils/apiHelpers';
 
 export default function EditUser() {
   const router = useRouter();
@@ -17,11 +18,13 @@ export default function EditUser() {
     role: 'action_admin',
     campaignIds: [],
     actionIds: [],
+    bdsIds: [],
   });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [campaigns, setCampaigns] = useState([]);
   const [actions, setActions] = useState([]);
+  const [bdsList, setBdsList] = useState([]);
   const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
@@ -30,18 +33,26 @@ export default function EditUser() {
       try {
         const [userRes, campRes, actRes] = await Promise.all([
           api.get(`/users/${id}`),
-          api.get('/campaigns'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
           api.get('/actions'),
+          api.get('/bds', { params: { limit: 1000 } }),
         ]);
         const user = userRes.data;
-        setCampaigns(campRes.data);
-        setActions(actRes.data);
+        setCampaigns(unwrapList(campRes.data));
+        const allActions = unwrapList(actRes.data);
+        let visibleActions = allActions;
+        if (currentUser?.role === 'campaign_admin' && currentUser.campaigns?.length > 0) {
+          const myCampaignIds = currentUser.campaigns.map(c => c.id);
+          visibleActions = allActions.filter(a => myCampaignIds.includes(a.campaignId));
+        }
+        setActions(visibleActions);
         setForm({
           username: user.username,
           password: '',
           role: user.role,
           campaignIds: user.campaigns ? user.campaigns.map(c => c.id) : [],
-          actionIds: user.actions ? user.actions.map(a => a.id) : [],
+          actionIds: user.assignedActions ? user.assignedActions.map(a => a.id) : [],
+          bdsIds: user.bdsCampaigns ? user.bdsCampaigns.map(b => b.id) : [],
         });
         // Verificar permisos después de cargar el usuario
         const editAllowed =
@@ -95,6 +106,7 @@ export default function EditUser() {
 
   const campaignOptions = campaigns.map(c => ({ value: c.id, label: c.name }));
   const actionOptions = actions.map(a => ({ value: a.id, label: a.title }));
+  const bdsOptions = bdsList.map(b => ({ value: b.id, label: b.name }));
 
   return (
     <AdminLayout title="Editar Usuario">
@@ -161,6 +173,20 @@ export default function EditUser() {
                 options={actionOptions}
                 value={actionOptions.filter(opt => form.actionIds.includes(opt.value))}
                 onChange={(selected) => handleSelectChange(selected, 'actionIds')}
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          {/* Asignación de BDS (solo bds_admin) */}
+          {form.role === 'bds_admin' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Campañas BDS asignadas</label>
+              <Select
+                isMulti
+                options={bdsOptions}
+                value={bdsOptions.filter(opt => form.bdsIds.includes(opt.value))}
+                onChange={(selected) => handleSelectChange(selected, 'bdsIds')}
                 className="mt-1"
               />
             </div>

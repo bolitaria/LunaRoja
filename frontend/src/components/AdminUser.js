@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { exportInfo } from '../utils/exportInfo';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
+import { unwrapList } from '../../utils/apiHelpers';
 
 function AdminUsers() {
   const { user: currentUser } = useAuth();
@@ -39,8 +40,8 @@ function AdminUsers() {
 
   const fetchCampaigns = async () => {
     try {
-      const res = await api.get('/campaigns');
-      setCampaigns(res.data);
+      const res = await api.get('/campaigns', { params: { limit: 1000 } });
+      setCampaigns(unwrapList(res.data));
     } catch (error) {
       // Fallo silencioso: si el usuario no tiene permisos (ej. action_admin),
       // simplemente dejamos el array vacío sin mostrar error

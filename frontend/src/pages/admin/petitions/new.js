@@ -9,6 +9,7 @@ import 'react-quill-new/dist/quill.snow.css';
 import {
   FaSave, FaEye, FaTimes, FaEnvelope, FaImage, FaLock, FaExternalLinkAlt
 } from 'react-icons/fa';
+import PetitionPreview from '../../../components/PetitionPreview';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
@@ -22,8 +23,6 @@ const quillModules = {
     ['clean'],
   ],
 };
-
-const DEFAULT_TEMPLATE_ID = 121;
 
 export default function NewPetition() {
   const router = useRouter();
@@ -46,7 +45,6 @@ export default function NewPetition() {
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Solo 4 colores: cabecera, título, footer, texto footer
   const [customColors, setCustomColors] = useState({
     headerColor: '#b91c1c',
     titleColor: '#ffffff',
@@ -55,16 +53,39 @@ export default function NewPetition() {
   });
 
   const [previewUrl, setPreviewUrl] = useState('');
-  const [showPublicPreview, setShowPublicPreview] = useState(false);
+  const [defaultTemplateId, setDefaultTemplateId] = useState(null);
+
+  // Obtener plantilla por defecto para vista previa de email
+  useEffect(() => {
+    api.get('/email-templates/default-petition')
+      .then(res => setDefaultTemplateId(res.data.id))
+      .catch(() => setDefaultTemplateId(null));
+  }, []);
 
   const updatePreviewUrl = useCallback(() => {
+    if (!defaultTemplateId) return;
     const editor = quillRef.current?.getEditor?.();
     const plainText = (editor?.getText?.()?.trim() || form.content || '').replace(/<[^>]*>/g, '').trim();
-    const url = `/api/email-templates/${DEFAULT_TEMPLATE_ID}/preview?headerColor=${encodeURIComponent(customColors.headerColor)}&titleColor=${encodeURIComponent(customColors.titleColor)}&footerColor=${encodeURIComponent(customColors.footerColor)}&footerTitleColor=${encodeURIComponent(customColors.footerTitleColor)}&title=${encodeURIComponent(form.title)}&content=${encodeURIComponent(plainText)}&subject=${encodeURIComponent(form.emailSubject)}`;
+    const url = `/api/email-templates/${defaultTemplateId}/preview?title=${encodeURIComponent(form.title)}&content=${encodeURIComponent(plainText)}&subject=${encodeURIComponent(form.emailSubject)}&headerColor=${encodeURIComponent(customColors.headerColor)}&titleColor=${encodeURIComponent(customColors.titleColor)}&footerColor=${encodeURIComponent(customColors.footerColor)}&footerTitleColor=${encodeURIComponent(customColors.footerTitleColor)}`;
     setPreviewUrl(url);
-  }, [customColors, form.title, form.content, form.emailSubject]);
+  }, [defaultTemplateId, customColors, form.title, form.content, form.emailSubject]);
 
   useEffect(() => { updatePreviewUrl(); }, [updatePreviewUrl]);
+
+  // Mapeo para PetitionPreview
+  const previewForm = {
+    title: form.title,
+    description: form.description,
+    content: form.content,
+    type: form.type,
+    urgency: form.urgency,
+    deadline: form.deadline,
+    target_emails: recipientEmails,
+    external_url: form.externalUrl,
+    signature_fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+    featured_image: imagePreview || null,
+    email_subject: form.emailSubject,
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -172,7 +193,7 @@ export default function NewPetition() {
       <ToastContainer />
       <div className="flex flex-col lg:flex-row gap-8">
         <form onSubmit={handleSubmit} className="lg:w-2/3 space-y-6">
-          {/* DATOS DE LA PETICIÓN (fondo blanco) */}
+          {/* DATOS DE LA PETICIÓN */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
             <h2 className="text-lg font-semibold text-gray-700">Datos de la petición</h2>
 
@@ -232,7 +253,7 @@ export default function NewPetition() {
             )}
           </div>
 
-          {/* CONFIGURACIÓN DEL EMAIL (fondo amarillo claro) */}
+          {/* CONFIGURACIÓN DEL EMAIL */}
           {isInternal && (
             <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-200 p-6 space-y-6">
               <h2 className="text-lg font-semibold text-gray-700">Configuración del email</h2>
@@ -279,22 +300,10 @@ export default function NewPetition() {
               <div className="border-t pt-4">
                 <h3 className="text-md font-semibold text-gray-700 mb-2">Personalizar colores del email</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Color cabecera</label>
-                    <input type="color" value={customColors.headerColor} onChange={(e) => setCustomColors(prev => ({ ...prev, headerColor: e.target.value }))} className="w-full h-10 border rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Color texto título</label>
-                    <input type="color" value={customColors.titleColor} onChange={(e) => setCustomColors(prev => ({ ...prev, titleColor: e.target.value }))} className="w-full h-10 border rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Color footer</label>
-                    <input type="color" value={customColors.footerColor} onChange={(e) => setCustomColors(prev => ({ ...prev, footerColor: e.target.value }))} className="w-full h-10 border rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Color texto footer</label>
-                    <input type="color" value={customColors.footerTitleColor} onChange={(e) => setCustomColors(prev => ({ ...prev, footerTitleColor: e.target.value }))} className="w-full h-10 border rounded-lg" />
-                  </div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Color cabecera</label><input type="color" value={customColors.headerColor} onChange={(e) => setCustomColors(prev => ({ ...prev, headerColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Color texto título</label><input type="color" value={customColors.titleColor} onChange={(e) => setCustomColors(prev => ({ ...prev, titleColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Color footer</label><input type="color" value={customColors.footerColor} onChange={(e) => setCustomColors(prev => ({ ...prev, footerColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Color texto footer</label><input type="color" value={customColors.footerTitleColor} onChange={(e) => setCustomColors(prev => ({ ...prev, footerTitleColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
                 </div>
               </div>
             </div>
@@ -306,27 +315,41 @@ export default function NewPetition() {
           </button>
         </form>
 
-        {/* Vista previa (solo interna) – sin sombra, sin fondo, sin borde */}
-        {isInternal && (
-          <div className="lg:w-1/3 flex flex-col gap-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-                <FaEye className="text-fuchsia-600" /> Vista previa del email
-              </h3>
-              <button type="button" onClick={() => setShowPublicPreview(true)} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50 transition shadow-sm">
-                <FaExternalLinkAlt className="w-3 h-3" /> Abrir
-              </button>
-            </div>
-            {previewUrl && (
-              <iframe
-                src={previewUrl}
-                className="w-full h-[700px] border-0"
-                title="Vista previa de la plantilla"
-                style={{ backgroundColor: 'transparent' }}
-              />
-            )}
+        {/* VISTAS PREVIAS */}
+        <div className="lg:w-1/3 flex flex-col gap-8">  {/* espacio vertical aumentado */}
+          {/* Vista previa pública */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <FaEye className="text-fuchsia-600" /> Vista previa pública
+            </h3>
+            <PetitionPreview
+              form={previewForm}
+              customColors={customColors}
+            />
           </div>
-        )}
+
+          {/* Vista previa del email (solo interna) */}
+          {isInternal && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaEnvelope className="text-green-600" /> Vista previa del email
+                </h3>
+                <button type="button" onClick={() => window.open(previewUrl, '_blank')} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50 transition shadow-sm">
+                  <FaExternalLinkAlt className="w-3 h-3" /> Abrir
+                </button>
+              </div>
+              {previewUrl && (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-[500px] border-0"
+                  title="Vista previa de la plantilla"
+                  style={{ backgroundColor: 'transparent' }}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );

@@ -6,6 +6,7 @@ import NewsCard from '../components/NewsCard';
 import ReportCard from '../components/ReportCard';
 import ActionCard from '../components/ActionCard';
 import GalleryCard from '../components/GalleryCard';
+import { unwrapList as listOrArray } from '../utils/apiHelpers';
 
 export default function Home() {
   const [news, setNews] = useState([]);
@@ -27,7 +28,8 @@ export default function Home() {
 
         // Noticias
         if (newsRes.status === 'fulfilled') {
-          const filteredNews = newsRes.value.data.filter((noticia) => {
+          const newsList = Array.isArray(newsRes.value.data) ? newsRes.value.data : (newsRes.value.data?.data || []);
+          const filteredNews = newsList.filter((noticia) => {
             const isNews = noticia.isNews === true;
             const isGeneral =
               (noticia.campaignId == null || noticia.campaignId === '') &&
@@ -41,21 +43,22 @@ export default function Home() {
 
         // Blog/Reportes
         if (reportsRes.status === 'fulfilled') {
-          setReports(reportsRes.value.data.slice(0, 3));
+          setReports(listOrArray(reportsRes.value.data).slice(0, 3));
         } else {
           setErrors(prev => ({ ...prev, reports: 'No se pudieron cargar los reportes' }));
         }
 
         // Acciones
         if (actionsRes.status === 'fulfilled') {
-          setActions(actionsRes.value.data.slice(0, 3));
+          setActions(listOrArray(actionsRes.value.data).slice(0, 3));
         } else {
           setErrors(prev => ({ ...prev, actions: 'Error al cargar acciones' }));
         }
 
         // Imágenes (galería)
         if (galleryRes.status === 'fulfilled') {
-          const images = galleryRes.value.data.map(img => ({
+          const galleryList = Array.isArray(galleryRes.value.data) ? galleryRes.value.data : (galleryRes.value.data?.data || []);
+          const images = galleryList.map(img => ({
             id: img.id,
             imageUrl: img.url,
             title: img.relatedTitle || 'Imagen'

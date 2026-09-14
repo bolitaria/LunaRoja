@@ -4,6 +4,7 @@ import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import Link from 'next/link';
 import 'react-calendar/dist/Calendar.css';
+import { unwrapList } from '../../utils/apiHelpers';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -24,7 +25,7 @@ export default function Campanas() {
   const [filterUrgency, setFilterUrgency] = useState('todas');
   const [error, setError] = useState(null);
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
+  const baseUrl = '';
   const whatsappLink = process.env.NEXT_PUBLIC_CAMPAIGNS_WHATSAPP || '#';
   const telegramLink = process.env.NEXT_PUBLIC_CAMPAIGNS_TELEGRAM || '#';
   const signalLink = process.env.NEXT_PUBLIC_CAMPAIGNS_SIGNAL || '#';
@@ -33,11 +34,11 @@ export default function Campanas() {
     const fetchData = async () => {
       try {
         const [campRes, actionsRes] = await Promise.all([
-          api.get('/campaigns'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
           api.get('/actions'),
         ]);
-        setCampaigns(campRes.data);
-        setActions(actionsRes.data);
+        setCampaigns(unwrapList(campRes.data));
+        setActions(unwrapList(actionsRes.data));
         setError(null);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -208,7 +209,7 @@ export default function Campanas() {
                   const nextAction = getNextAction(campaign.id);
                   const activeActions = actions.filter(a => a.campaignId === campaign.id && new Date(a.datetime) > now).length;
                   let imageUrl = null;
-                  if (campaign.imageUrl) imageUrl = `${baseUrl}${campaign.imageUrl}`;
+                  if (campaign.imageUrl) imageUrl = `${campaign.imageUrl}`;
 
                   return (
                     <Link key={campaign.id} href={`/campanas/${campaign.id}`} className="group">

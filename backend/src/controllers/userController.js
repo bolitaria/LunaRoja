@@ -1,12 +1,15 @@
-// backend/src/controllers/userController.js (completo y corregido)
+// backend/src/controllers/userController.js
 const User = require('../models/User');
 const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
+const UserBDS = require('../models/UserBDS');
+const BDS = require('../models/BDS');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const { toInt, isValidId } = require('../utils/helpers');
+const { logAdminAction } = require('../services/auditService');
 
 const safeAttributes = { exclude: ['password', 'refreshToken'] };
 
@@ -35,7 +38,8 @@ exports.getAllUsers = async (req, res) => {
     let where = {};
     let include = [
       { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
-      { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
+      { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } },
+      { model: BDS, as: 'bdsCampaigns', attributes: ['id', 'name'], through: { attributes: [] } }
     ];
 
     if (currentUser.role === 'superadmin') {
@@ -47,18 +51,14 @@ exports.getAllUsers = async (req, res) => {
 
       const actions = await Action.findAll({ where: { campaignId: campaignIds } });
       const actionIds = actions.map(a => a.id);
-      if (actionIds.length === 0) return res.json([]);
-
       const userActionRecords = await UserAction.findAll({ where: { actionId: actionIds } });
-      const userIds = userActionRecords.map(ua => ua.userId);
-      if (userIds.length === 0) return res.json([]);
+      const actionAdminIds = userActionRecords.map(ua => ua.userId);
 
       where = {
         role: 'action_admin',
-        id: { [Op.in]: userIds }
+        id: { [Op.in]: actionAdminIds }
       };
-    } else if (currentUser.role === 'action_admin' || currentUser.role === 'bds_admin') {
-      // ✅ CORRECCIÓN: devolver 403 en lugar de array vacío
+    } else {
       return res.status(403).json({ message: 'No tienes permiso para ver la lista de usuarios' });
     }
 
@@ -74,31 +74,69 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+
+// ========================= GET USER BY ID =========================
+exports.getUserById = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const userId = parseInt(req.params.id);
+    if (!isValidId(userId)) return res.status(400).json({ message: 'ID inválido' });
+
+    const user = await User.findByPk(userId, {
+      attributes: safeAttributes,
+      include: [
+        { model: Campaign, as: 'campaigns', attributes: ['id', 'name'], through: { attributes: [] } },
+        { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } },
+        { model: BDS, as: 'bdsCampaigns', attributes: ['id', 'name'], through: { attributes: [] } },
+      ],
+    });
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    // Restricciones: campaign_admin solo puede ver action_admins de sus campañas
+    if (currentUser.role === 'campaign_admin') {
+      if (user.role !== 'action_admin') {
+        return res.status(403).json({ message: 'No tienes permiso para ver este usuario' });
+      }
+    } else if (currentUser.role !== 'superadmin') {
+      // Otros roles solo pueden verse a sí mismos
+      if (userId !== currentUser.id) {
+        return res.status(403).json({ message: 'No tienes permiso para ver este usuario' });
+      }
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error en getUserById:', error);
+    res.status(500).json({ message: 'Error al obtener usuario' });
+  }
+};
+
 // ========================= CREATE USER =========================
 exports.createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const currentUser = req.user;
-    const { username, password, email, role, campaignIds, actionIds } = req.body;
+    const { username, password, email, role, campaignIds, actionIds, bdsIds } = req.body;
 
     if (!username || !password || !role) {
       await t.rollback();
       return res.status(400).json({ message: 'Faltan campos requeridos' });
     }
-    if (!['superadmin', 'campaign_admin', 'action_admin', 'bds_admin'].includes(role)) {
+    if (!['superadmin', 'campaign_admin', 'action_admin', 'bds_admin', 'blog_admin'].includes(role)) {
       await t.rollback();
       return res.status(400).json({ message: 'Rol inválido' });
     }
 
     const parsedCampaignIds = Array.isArray(campaignIds) ? campaignIds.map(id => toInt(id)).filter(id => id !== null) : [];
     const parsedActionIds = Array.isArray(actionIds) ? actionIds.map(id => toInt(id)).filter(id => id !== null) : [];
+    const parsedBdsIds = Array.isArray(bdsIds) ? bdsIds.map(id => toInt(id)).filter(id => id !== null) : [];
 
     if (currentUser.role === 'superadmin') {
       // Permitido todo
     } else if (currentUser.role === 'campaign_admin') {
       if (role !== 'action_admin') {
         await t.rollback();
-        return res.status(403).json({ message: 'Solo puedes crear administradores de evento' });
+        return res.status(403).json({ message: 'Solo puedes crear administradores de acción' });
       }
       if (parsedActionIds.length === 0) {
         await t.rollback();
@@ -147,6 +185,18 @@ exports.createUser = async (req, res) => {
       await UserAction.bulkCreate(userActionsData, { transaction: t });
     }
 
+    if (role === 'bds_admin' && parsedBdsIds.length > 0) {
+      const bdsList = await BDS.findAll({ where: { id: parsedBdsIds }, transaction: t });
+      if (bdsList.length !== parsedBdsIds.length) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Alguna campaña BDS no existe' });
+      }
+      const userBdsData = parsedBdsIds.map(bdsId => ({
+        userId: user.id, bdsId, createdAt: new Date(), updatedAt: new Date()
+      }));
+      await UserBDS.bulkCreate(userBdsData, { transaction: t });
+    }
+
     await t.commit();
 
     const createdUser = await User.findByPk(user.id, {
@@ -156,6 +206,14 @@ exports.createUser = async (req, res) => {
         { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
       ]
     });
+
+    await logAdminAction(req, {
+      action: 'create-user',
+      entityType: 'user',
+      entityId: user.id,
+      metadata: { username: user.username, role: user.role },
+    });
+
     res.status(201).json(createdUser);
   } catch (error) {
     await t.rollback();
@@ -177,7 +235,7 @@ exports.updateUser = async (req, res) => {
       await t.rollback();
       return res.status(400).json({ message: 'ID inválido' });
     }
-    const { username, password, email, role, campaignIds, actionIds } = req.body;
+    const { username, password, email, role, campaignIds, actionIds, bdsIds } = req.body;
     const userToUpdate = await User.findByPk(userId, { transaction: t });
     if (!userToUpdate) {
       await t.rollback();
@@ -186,6 +244,7 @@ exports.updateUser = async (req, res) => {
 
     const parsedCampaignIds = Array.isArray(campaignIds) ? campaignIds.map(id => toInt(id)).filter(id => id !== null) : undefined;
     const parsedActionIds = Array.isArray(actionIds) ? actionIds.map(id => toInt(id)).filter(id => id !== null) : undefined;
+    const parsedBdsIds = Array.isArray(bdsIds) ? bdsIds.map(id => toInt(id)).filter(id => id !== null) : undefined;
 
     if (currentUser.role === 'superadmin') {
       if (userId === 1 && role && role !== 'superadmin') {
@@ -195,7 +254,7 @@ exports.updateUser = async (req, res) => {
     } else if (currentUser.role === 'campaign_admin') {
       if (userToUpdate.role !== 'action_admin') {
         await t.rollback();
-        return res.status(403).json({ message: 'Solo puedes editar administradores de evento' });
+        return res.status(403).json({ message: 'Solo puedes editar administradores de acción' });
       }
       const userActions = await UserAction.findAll({ where: { userId } });
       const actionIdsOfUser = userActions.map(ua => ua.actionId);
@@ -219,7 +278,7 @@ exports.updateUser = async (req, res) => {
       }
       if (role && role !== 'action_admin') {
         await t.rollback();
-        return res.status(403).json({ message: 'No puedes cambiar el rol de un administrador de evento' });
+        return res.status(403).json({ message: 'No puedes cambiar el rol de un administrador de acción' });
       }
     } else {
       await t.rollback();
@@ -252,6 +311,16 @@ exports.updateUser = async (req, res) => {
       }
     }
 
+    if (parsedBdsIds !== undefined) {
+      await UserBDS.destroy({ where: { userId }, transaction: t });
+      if (parsedBdsIds.length > 0) {
+        const userBdsData = parsedBdsIds.map(bdsId => ({
+          userId, bdsId, createdAt: new Date(), updatedAt: new Date()
+        }));
+        await UserBDS.bulkCreate(userBdsData, { transaction: t });
+      }
+    }
+
     await t.commit();
 
     const updatedUser = await User.findByPk(userId, {
@@ -261,6 +330,14 @@ exports.updateUser = async (req, res) => {
         { model: Action, as: 'assignedActions', attributes: ['id', 'title'], through: { attributes: [] } }
       ]
     });
+
+    await logAdminAction(req, {
+      action: 'update-user',
+      entityType: 'user',
+      entityId: userId,
+      metadata: { changed: Object.keys(req.body) },
+    });
+
     res.json(updatedUser);
   } catch (error) {
     await t.rollback();
@@ -284,7 +361,7 @@ exports.deleteUser = async (req, res) => {
       // permitido
     } else if (currentUser.role === 'campaign_admin') {
       if (userToDelete.role !== 'action_admin') {
-        return res.status(403).json({ message: 'Solo puedes eliminar administradores de evento' });
+        return res.status(403).json({ message: 'Solo puedes eliminar administradores de acción' });
       }
       const userActions = await UserAction.findAll({ where: { userId } });
       const actionIds = userActions.map(ua => ua.actionId);
@@ -300,7 +377,17 @@ exports.deleteUser = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para eliminar usuarios' });
     }
 
+    const snapshot = { username: userToDelete.username, role: userToDelete.role };
+
     await userToDelete.destroy();
+
+    await logAdminAction(req, {
+      action: 'delete-user',
+      entityType: 'user',
+      entityId: userId,
+      metadata: snapshot,
+    });
+
     res.json({ message: 'Usuario eliminado' });
   } catch (error) {
     console.error('Error en deleteUser:', error);

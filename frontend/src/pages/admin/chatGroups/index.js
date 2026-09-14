@@ -8,6 +8,7 @@ import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { unwrapList } from '../../../utils/apiHelpers';
 
 function AdminChatGroups() {
   const [groups, setGroups] = useState([]);
@@ -31,14 +32,14 @@ function AdminChatGroups() {
     try {
       const [groupsRes, campaignsRes, bdsRes, actionsRes] = await Promise.all([
         api.get('/chat-groups'),
-        api.get('/campaigns'),
-        api.get('/bds'),
+        api.get('/campaigns', { params: { limit: 1000 } }),
+        api.get('/bds', { params: { limit: 1000 } }),
         api.get('/actions'),
       ]);
-      setGroups(groupsRes.data);
-      setCampaigns(campaignsRes.data);
-      setBDS(bdsRes.data);
-      setActions(actionsRes.data);
+      setGroups(unwrapList(groupsRes.data));
+      setCampaigns(unwrapList(campaignsRes.data));
+      setBDS(unwrapList(bdsRes.data));
+      setActions(unwrapList(actionsRes.data));
     } catch (err) {
       toast.error('Error al cargar datos');
     } finally {

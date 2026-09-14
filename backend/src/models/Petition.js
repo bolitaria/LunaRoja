@@ -1,6 +1,6 @@
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const EmailTemplate = require('./EmailTemplate'); // Asegúrate de que este import funcione
+const EmailTemplate = require('./EmailTemplate');
 
 class Petition extends Model {
   static associate(models) {
@@ -22,18 +22,23 @@ Petition.init({
   urgency: { type: DataTypes.BOOLEAN, defaultValue: false },
   deadline: { type: DataTypes.DATE, allowNull: true },
   hidden: { type: DataTypes.BOOLEAN, defaultValue: false },
-  emailTemplateId: {                         // NUEVO CAMPO
+  emailTemplateId: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: { model: EmailTemplate, key: 'id' },
   },
-  featured_image: { type: DataTypes.STRING, allowNull: true },
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'featured_image', // para mantener compatibilidad con la columna existente
+  },
   email_subject: { type: DataTypes.STRING(255), allowNull: true },
   header_color: { type: DataTypes.STRING(7), allowNull: true },
   button_color: { type: DataTypes.STRING(7), allowNull: true },
   footer_color: { type: DataTypes.STRING(7), allowNull: true },
   background_color: { type: DataTypes.STRING(7), allowNull: true },
   title_color: { type: DataTypes.STRING(7), allowNull: true, defaultValue: '#ffffff' },
+  footer_title_color: { type: DataTypes.STRING(7), allowNull: true, defaultValue: '#ffffff' },
   created_by: { type: DataTypes.INTEGER, allowNull: false },
 }, {
   sequelize,

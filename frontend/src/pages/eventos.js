@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Layout from '../components/Layout';
 import ActionCard from '../components/ActionCard';
+import { unwrapList } from '../utils/apiHelpers';
 
 export default function Eventos() {
   const [actions, setActions] = useState([]);
@@ -13,11 +14,11 @@ export default function Eventos() {
     const fetchData = async () => {
       try {
         const [actionsRes, campaignsRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/actions`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`)
+          axios.get(`/api/actions`),
+          axios.get(`/api/campaigns`)
         ]);
-        setActions(actionsRes.data);
-        setCampaigns(campaignsRes.data);
+        setActions(unwrapList(actionsRes.data));
+        setCampaigns(unwrapList(campaignsRes.data));
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

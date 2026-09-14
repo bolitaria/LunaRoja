@@ -1,0 +1,91 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: LunaRoja Alerts
+    folder: Alerts
+    interval: 1m
+    rules:
+      - uid: cpu_high
+        title: CPU del backend demasiado alta
+        condition: A
+        data:
+          - refId: A
+            queryType: range
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: avg(rate(container_cpu_usage_seconds_total{container_label_com_docker_swarm_service_name=~"lunaroja_backend"}[5m])) * 100
+              legendFormat: 'CPU %'
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'CPU del backend > 80% durante 5 minutos'
+        labels:
+          severity: critical
+        isPaused: false
+        notification_settings:
+          receiver: email
+          group_by: ['alertname']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+
+      - uid: high_latency
+        title: Latencia API elevada
+        condition: B
+        data:
+          - refId: B
+            queryType: range
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="backend"}[5m])) by (le))
+              legendFormat: 'p95 latency'
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'Latencia p95 > 500ms durante 5 minutos'
+        labels:
+          severity: warning
+        isPaused: false
+        notification_settings:
+          receiver: email
+          group_by: ['alertname']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+
+      - uid: high_error_rate
+        title: Tasa de errores elevada
+        condition: C
+        data:
+          - refId: C
+            queryType: range
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100
+              legendFormat: 'Error rate %'
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'Tasa de errores 5xx > 1% durante 5 minutos'
+        labels:
+          severity: critical
+        isPaused: false
+        notification_settings:
+          receiver: email
+          group_by: ['alertname']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h

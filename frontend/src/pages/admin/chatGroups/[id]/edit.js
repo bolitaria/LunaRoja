@@ -5,6 +5,7 @@ import AdminLayout from '../../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaSave } from 'react-icons/fa';
+import { unwrapList } from '../../../../utils/apiHelpers';
 
 export default function EditChatGroup() {
   const router = useRouter();
@@ -36,14 +37,14 @@ export default function EditChatGroup() {
     const fetchData = async () => {
       try {
         const [campRes, bdsRes, actRes, groupRes] = await Promise.all([
-          api.get('/campaigns'),
-          api.get('/bds'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/bds', { params: { limit: 1000 } }),
           api.get('/actions'),
           api.get(`/chat-groups/${id}`),
         ]);
-        setCampaigns(campRes.data);
-        setBds(bdsRes.data);
-        setActions(actRes.data);
+        setCampaigns(unwrapList(campRes.data));
+        setBds(unwrapList(bdsRes.data));
+        setActions(unwrapList(actRes.data));
 
         const g = groupRes.data;
         let associationType = '';

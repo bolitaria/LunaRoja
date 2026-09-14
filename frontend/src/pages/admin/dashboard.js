@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import {
   FaCalendarAlt, FaBullhorn, FaUsers, FaEnvelope, FaNewspaper,
-  FaPlus, FaList, FaArrowRight
+  FaPlus, FaList, FaArrowRight, FaExternalLinkAlt, FaHandHoldingHeart, FaUserFriends
 } from 'react-icons/fa';
 
 function StatCard({ title, value, icon, color, link }) {
@@ -26,42 +26,14 @@ function StatCard({ title, value, icon, color, link }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalActions: 0,
-    totalCampaigns: 0,
-    totalBDS: 0,
-    totalUsers: 0,
-    totalSubscribers: 0,
-    totalNews: 0,
-  });
-  const [recentActions, setRecentActions] = useState([]);
-  const [recentCampaigns, setRecentCampaigns] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [actionsRes, campaignsRes, bdsRes, usersRes, subscribersRes, newsRes] =
-          await Promise.all([
-            api.get('/actions'),
-            api.get('/campaigns'),
-            api.get('/bds'),
-            api.get('/users'),
-            api.get('/subscribers'),
-            api.get('/news'),
-          ]);
-
-        setStats({
-          totalActions: actionsRes.data.length,
-          totalCampaigns: campaignsRes.data.length,
-          totalBDS: bdsRes.data.length,
-          totalUsers: usersRes.data.length,
-          totalSubscribers: subscribersRes.data.length,
-          totalNews: newsRes.data.length,
-        });
-
-        setRecentActions(actionsRes.data.slice(0, 5));
-        setRecentCampaigns(campaignsRes.data.slice(0, 5));
+        const res = await api.get('/dashboard/stats');
+        setStats(res.data);
       } catch (error) {
         console.error('Error fetching dashboard data', error);
       } finally {
@@ -95,6 +67,17 @@ export default function Dashboard() {
     );
   }
 
+  // Si no hay stats, mostrar mensaje
+  if (!stats || !stats.totals) {
+    return (
+      <AdminLayout title="Dashboard">
+        <p className="text-center py-8 text-red-600">No se pudieron cargar las estadísticas.</p>
+      </AdminLayout>
+    );
+  }
+
+  const metabaseUrl = process.env.NEXT_PUBLIC_METABASE_URL || 'http://localhost:3001';
+
   return (
     <AdminLayout title="Dashboard">
       <div className="mb-8">
@@ -104,14 +87,36 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-10">
-        <StatCard title="Acciones" value={stats.totalActions} icon={<FaCalendarAlt className="w-6 h-6 text-purple-600" />} color="bg-purple-100" link="/admin/actions" />
-        <StatCard title="Campañas" value={stats.totalCampaigns} icon={<FaBullhorn className="w-6 h-6 text-emerald-600" />} color="bg-emerald-100" link="/admin/campaigns" />
-        <StatCard title="Campañas BDS" value={stats.totalBDS} icon={<FaBullhorn className="w-6 h-6 text-rose-600" />} color="bg-rose-100" link="/admin/bds" />
-        <StatCard title="Usuarios" value={stats.totalUsers} icon={<FaUsers className="w-6 h-6 text-sky-600" />} color="bg-sky-100" link="/admin/users" />
-        <StatCard title="Suscriptores" value={stats.totalSubscribers} icon={<FaEnvelope className="w-6 h-6 text-amber-600" />} color="bg-amber-100" link="/admin/subscribers" />
-        <StatCard title="Noticias" value={stats.totalNews} icon={<FaNewspaper className="w-6 h-6 text-violet-600" />} color="bg-violet-100" link="/admin/news" />
+      {/* Botón a Metabase */}
+      <div className="flex justify-end mb-6">
+        <a
+          href={metabaseUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors shadow-sm"
+        >
+          <FaExternalLinkAlt className="w-4 h-4" />
+          Análisis avanzado (Metabase)
+        </a>
       </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-10">
+        <StatCard title="Acciones" value={stats.totals.actions} icon={<FaCalendarAlt className="w-6 h-6 text-purple-600" />} color="bg-purple-100" link="/admin/actions" />
+        <StatCard title="Campañas" value={stats.totals.campaigns} icon={<FaBullhorn className="w-6 h-6 text-emerald-600" />} color="bg-emerald-100" link="/admin/campaigns" />
+        <StatCard title="BDS" value={stats.totals.bds || 0} icon={<FaBullhorn className="w-6 h-6 text-rose-600" />} color="bg-rose-100" link="/admin/bds" />
+        <StatCard title="Usuarios" value={stats.totals.users} icon={<FaUsers className="w-6 h-6 text-sky-600" />} color="bg-sky-100" link="/admin/users" />
+        <StatCard title="Suscriptores" value={stats.totals.subscribers} icon={<FaEnvelope className="w-6 h-6 text-amber-600" />} color="bg-amber-100" link="/admin/subscribers" />
+        <StatCard title="Noticias" value={stats.totals.noticias || stats.totals.news || 0} icon={<FaNewspaper className="w-6 h-6 text-violet-600" />} color="bg-violet-100" link="/admin/news" />
+      </div>
+
+      {/* Tarjetas adicionales si existen */}
+      {stats.totals.donations !== undefined && (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+          <StatCard title="Donaciones" value={stats.totals.donations} icon={<FaHandHoldingHeart className="w-6 h-6 text-red-600" />} color="bg-red-100" link="/admin/donations" />
+          <StatCard title="Siguen acciones" value={stats.totals.followersActions} icon={<FaUserFriends className="w-6 h-6 text-indigo-600" />} color="bg-indigo-100" link="/admin/actions" />
+          <StatCard title="Siguen campañas" value={stats.totals.followersCampaigns} icon={<FaUserFriends className="w-6 h-6 text-cyan-600" />} color="bg-cyan-100" link="/admin/campaigns" />
+        </div>
+      )}
 
       {quickLinks.length > 0 && (
         <div className="mb-10">
@@ -130,62 +135,43 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Actividad reciente */}
         <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-700">📅 Últimas acciones</h3>
-            <Link href="/admin/actions" className="text-sm text-purple-600 hover:underline inline-flex items-center gap-1">
-              Ver todas <FaArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {recentActions.length === 0 ? (
-            <p className="text-gray-500 text-sm">No hay acciones recientes.</p>
-          ) : (
-            <ul className="divide-y divide-purple-100">
-              {recentActions.map(action => (
-                <li key={action.id} className="py-3 flex items-center justify-between">
-                  <div className="flex-1">
-                    <Link href={`/admin/actions/${action.id}/edit`} className="text-sm font-medium text-gray-800 hover:text-purple-700 transition-colors line-clamp-1">
-                      {action.title}
-                    </Link>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(action.datetime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Actividad reciente</h3>
+          {stats.recentActivity && stats.recentActivity.length > 0 ? (
+            <ul className="divide-y divide-gray-100">
+              {stats.recentActivity.map((item, idx) => (
+                <li key={idx} className="py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{item.type}</span>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${new Date(action.datetime) < new Date() ? 'bg-gray-100 text-gray-600' : 'bg-emerald-100 text-emerald-700'}`}>
-                    {new Date(action.datetime) < new Date() ? 'Pasada' : 'Próxima'}
-                  </span>
+                  <span className="text-xs text-gray-400">{new Date(item.date).toLocaleDateString('es-ES')}</span>
                 </li>
               ))}
             </ul>
+          ) : (
+            <p className="text-gray-500 text-sm">No hay actividad reciente.</p>
           )}
         </div>
 
+        {/* Próximas acciones */}
         <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-700">📢 Últimas campañas</h3>
-            <Link href="/admin/campaigns" className="text-sm text-purple-600 hover:underline inline-flex items-center gap-1">
-              Ver todas <FaArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {recentCampaigns.length === 0 ? (
-            <p className="text-gray-500 text-sm">No hay campañas recientes.</p>
-          ) : (
-            <ul className="divide-y divide-purple-100">
-              {recentCampaigns.map(campaign => (
-                <li key={campaign.id} className="py-3 flex items-center gap-3">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: campaign.color }} />
-                  <div className="flex-1">
-                    <Link href={`/admin/campaigns/${campaign.id}/edit`} className="text-sm font-medium text-gray-800 hover:text-purple-700 transition-colors line-clamp-1">
-                      {campaign.name}
-                    </Link>
-                    <p className="text-xs text-gray-400 mt-1">{campaign.description?.substring(0, 60) || 'Sin descripción'}</p>
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Próximas acciones</h3>
+          {stats.upcomingActions && stats.upcomingActions.length > 0 ? (
+            <ul className="divide-y divide-gray-100">
+              {stats.upcomingActions.map(action => (
+                <li key={action.id} className="py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{action.title}</p>
+                    <p className="text-xs text-gray-400">{new Date(action.datetime).toLocaleDateString('es-ES')}</p>
                   </div>
-                  <Link href={`/admin/campaigns/${campaign.id}/edit`} className="text-xs text-gray-400 hover:text-purple-600 transition-colors">
-                    Editar
-                  </Link>
+                  <Link href={`/admin/actions/${action.id}/edit`} className="text-xs text-purple-600 hover:underline">Editar</Link>
                 </li>
               ))}
             </ul>
+          ) : (
+            <p className="text-gray-500 text-sm">No hay acciones próximas.</p>
           )}
         </div>
       </div>

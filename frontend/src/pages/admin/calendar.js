@@ -4,6 +4,7 @@ import AdminLayout from '../../components/AdminLayout';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import { FaChevronLeft, FaChevronRight, FaFilter, FaTimes } from 'react-icons/fa';
+import { unwrapList } from '../../../utils/apiHelpers';
 
 function AdminCalendar() {
   const { user } = useAuth();
@@ -23,10 +24,10 @@ function AdminCalendar() {
     try {
       const [actionsRes, campaignsRes] = await Promise.all([
         api.get('/actions'),
-        api.get('/campaigns')
+        api.get('/campaigns', { params: { limit: 1000 } })
       ]);
-      setActions(actionsRes.data);
-      setCampaigns(campaignsRes.data);
+      setActions(unwrapList(actionsRes.data));
+      setCampaigns(unwrapList(campaignsRes.data));
     } catch (error) {
       console.error('Error fetching calendar data', error);
     } finally {

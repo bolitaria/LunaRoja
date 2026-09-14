@@ -1,0 +1,12 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email
+    receivers:
+      - uid: email-prod
+        type: email
+        settings:
+          addresses: vocesdepalestina@tutamail.com
+          singleEmail: false
+        disableResolveMessage: false

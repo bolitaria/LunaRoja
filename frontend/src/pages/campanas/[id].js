@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import 'react-calendar/dist/Calendar.css';
 import { categoryLabels, categoryStyles } from '../../utils/categoryConfig';
+import api from '../../lib/axios';
+import { unwrapList } from '../../utils/apiHelpers';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -54,8 +56,8 @@ export default function CampanaDetalle() {
   const [campaignGroups, setCampaignGroups] = useState([]);
   const [platformFilter, setPlatformFilter] = useState(null); // 'whatsapp', 'telegram', 'signal'
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
+  const apiUrl = '/api';
+  const baseUrl = '';
 
   const openModal = (index = 0) => { setCurrentImageIndex(index); setIsModalOpen(true); };
   const closeModal = () => setIsModalOpen(false);
@@ -67,11 +69,11 @@ export default function CampanaDetalle() {
     const fetchData = async () => {
       try {
         const [campRes, actionsRes] = await Promise.all([
-          axios.get(`${apiUrl}/campaigns/${id}`),
-          axios.get(`${apiUrl}/actions?campaignId=${id}`),
+          axios.get(`/api/campaigns/${id}`),
+          axios.get(`/api/actions?campaignId=${id}`),
         ]);
-        setCampaign(campRes.data);
-        setActions(actionsRes.data);
+        setCampaign(unwrapList(campRes.data));
+        setActions(unwrapList(actionsRes.data));
       } catch (error) { console.error('Error fetching campaign', error); }
       finally { setLoading(false); }
     };
@@ -81,7 +83,7 @@ export default function CampanaDetalle() {
   // Cargar grupos de esta campaña
   useEffect(() => {
     if (!campaign?.id) return;
-    axios.get(`${apiUrl}/chat-groups?campaignId=${campaign.id}`)
+    axios.get(`/api/chat-groups?campaignId=${campaign.id}`)
       .then(res => setCampaignGroups(res.data))
       .catch(console.error);
   }, [campaign?.id, apiUrl]);
@@ -144,7 +146,7 @@ export default function CampanaDetalle() {
   const getImageUrl = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
-    return `${baseUrl}${url}`;
+    return `${url}`;
   };
 
   const getFileDetails = (url) => {

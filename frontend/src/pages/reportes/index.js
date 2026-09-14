@@ -41,7 +41,7 @@ export default function Reports() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
           <div className="flex gap-3">
             <button onClick={() => handleFilter('blog')} className={filterBtnClass('blog')}>📝Entradas del Blog</button>
-            <button onClick={() => handleFilter('report')} className={filterBtnClass('report')}>📄 Reportes Oficiales</button>
+            <button onClick={() => handleFilter('report')} className={filterBtnClass('report')}>📄 Reportes Peticiones Externases</button>
           </div>
           <div className="relative w-full sm:w-64">
             <input

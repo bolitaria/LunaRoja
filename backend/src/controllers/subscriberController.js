@@ -5,12 +5,13 @@ const validator = require('validator');
 
 const isValidEmail = (email) => validator.isEmail(email) && email.length <= 255;
 
+// Obtener lista de suscriptores SIN emails (solo id, fecha, estado, preferencias)
 exports.getAllSubscribers = async (req, res) => {
   try {
-    if (req.user && req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Acceso denegado' });
-    }
-    const subscribers = await Subscriber.findAll({ order: [['subscribedAt', 'DESC']] });
+    const subscribers = await Subscriber.findAll({
+      attributes: ['id', 'subscribedAt', 'status', 'sendReminders'],
+      order: [['subscribedAt', 'DESC']],
+    });
     res.json(subscribers);
   } catch (error) {
     console.error('getAllSubscribers error:', error);
@@ -18,6 +19,19 @@ exports.getAllSubscribers = async (req, res) => {
   }
 };
 
+// Obtener solo el total de suscriptores activos
+exports.getSubscriberCount = async (req, res) => {
+  try {
+    const count = await Subscriber.count({ where: { status: 'active' } });
+    res.json({ totalActiveSubscribers: count });
+  } catch (error) {
+    console.error('getSubscriberCount error:', error);
+    res.status(500).json({ message: 'Error retrieving subscriber count' });
+  }
+};
+
+// Las demás funciones (create, unsubscribe, delete, updatePreferences) se mantienen igual que antes,
+// ya que el email se usa para operaciones internas pero no se devuelve en listados.
 exports.createSubscriber = async (req, res) => {
   try {
     const { email, sendReminders = false } = req.body;
@@ -29,7 +43,7 @@ exports.createSubscriber = async (req, res) => {
       if (existing.status === 'unsubscribed') {
         await existing.update({ status: 'active', sendReminders });
         sendWelcomeEmail(email).catch(err => console.error('Welcome email error (reactivation):', err));
-        return res.json({ message: 'Subscription reactivated', subscriber: existing });
+        return res.json({ message: 'Subscription reactivated', subscriber: { id: existing.id, status: existing.status } });
       } else {
         return res.status(400).json({ message: 'This email is already subscribed' });
       }
@@ -43,7 +57,7 @@ exports.createSubscriber = async (req, res) => {
     });
 
     enqueueWelcomeEmail(email).catch(err => console.error('Welcome queue error:', err));
-    res.status(201).json({ message: 'Subscription successful', subscriber });
+    res.status(201).json({ message: 'Subscription successful', subscriber: { id: subscriber.id, status: subscriber.status } });
   } catch (error) {
     console.error('createSubscriber error:', error);
     res.status(500).json({ message: 'Error creating subscriber' });
@@ -87,7 +101,7 @@ exports.updatePreferences = async (req, res) => {
     const subscriber = await Subscriber.findOne({ where: { email } });
     if (!subscriber) return res.status(404).json({ message: 'Subscriber not found' });
     await subscriber.update({ sendReminders });
-    res.json({ message: 'Preferences updated', subscriber });
+    res.json({ message: 'Preferences updated', subscriber: { id: subscriber.id, sendReminders: subscriber.sendReminders } });
   } catch (error) {
     console.error('updatePreferences error:', error);
     res.status(500).json({ message: 'Error updating preferences' });

@@ -10,11 +10,11 @@ export default function SingleLink() {
   const { id } = router.query;
   const [link, setLink] = useState(null);
   const [error, setError] = useState(false);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const apiUrl = '/api';
 
   useEffect(() => {
     if (!id) return;
-    axios.get(`${apiUrl}/links/public`)
+    axios.get(`/api/links/public`)
       .then(res => {
         const allLinks = Object.values(res.data).flat();
         const found = allLinks.find(l => l.id === id);

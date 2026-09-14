@@ -1,0 +1,55 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "timezone": "Europe/Madrid",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "labels": ["dependencies"],
+  "minimumReleaseAge": "7 days",
+  "packageRules": [
+    {
+      "description": "Docker non-major: espera 7 dias antes de proponer actualizaciones menores o de parche",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "docker non-major",
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Pin digests en el compose de produccion",
+      "matchFiles": ["docker-compose.prod.yml"],
+      "pinDigests": true,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Postgres: bloquea major/minor (revisar manualmente)",
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Grafana: bloquea major (revisar manualmente)",
+      "matchPackageNames": ["grafana/grafana"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Prometheus: bloquea major (revisar manualmente)",
+      "matchPackageNames": ["prom/prometheus"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false,
+      "minimumReleaseAge": "7 days"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "automerge": true
+  },
+  "osvVulnerabilityAlerts": true
+}

@@ -74,13 +74,13 @@ export default function PetitionDetailPage() {
 
   if (petition.type === 'official') {
     return (
-      <Layout title={`${petition.title} - Petición Oficial`}>
+      <Layout title={`${petition.title} - Petición Peticiones Externas`}>
         <main className="max-w-2xl mx-auto px-4 py-12">
           <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
             {petition.featured_image && (
               <img src={getImageUrl(petition.featured_image)} alt={petition.title} className="w-full h-64 md:h-80 object-cover rounded-xl mb-6" />
             )}
-            <span className="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full mb-3">Petición Oficial</span>
+            <span className="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full mb-3">Petición Peticiones Externas</span>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">{petition.title}</h1>
             <p className="text-gray-600 mb-8">Esta petición se encuentra alojada en una plataforma externa.</p>
             <a

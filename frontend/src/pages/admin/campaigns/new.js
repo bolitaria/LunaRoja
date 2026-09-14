@@ -5,6 +5,7 @@ import AdminLayout from '../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ColorPicker from '../../../components/ColorPicker';
 import CampaignPreview from '../../../components/CampaignPreview';
+import DocumentManager from '../../../components/DocumentManager';
 
 export default function NewCampaign() {
   const router = useRouter();
@@ -18,7 +19,6 @@ export default function NewCampaign() {
   const [privateGroups, setPrivateGroups] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [images, setImages] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -33,23 +33,6 @@ export default function NewCampaign() {
       reader.readAsDataURL(file);
     }
   };
-
-  const addImage = (file) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImages((prev) => [...prev, { id: Date.now(), file, preview: reader.result }]);
-    };
-    reader.readAsDataURL(file);
-  };
-  const removeImage = (id) => setImages(images.filter((img) => img.id !== id));
-
-  const addPublicDocument = (name, file) => {
-    setDocuments((prev) => [...prev, { id: Date.now(), name, file, isPublic: true }]);
-  };
-  const addPrivateDocument = (name, file) => {
-    setDocuments((prev) => [...prev, { id: Date.now(), name, file, isPublic: false }]);
-  };
-  const removeDocument = (id) => setDocuments(documents.filter((doc) => doc.id !== id));
 
   // Grupos públicos
   const addPublicGroup = () => setPublicGroups([...publicGroups, { platform: 'whatsapp', link: '' }]);
@@ -74,8 +57,8 @@ export default function NewCampaign() {
     setLoading(true);
     try {
       const allGroups = [
-        ...publicGroups.map(g => ({ ...g, isPublic: true })),
-        ...privateGroups.map(g => ({ ...g, isPublic: false })),
+        ...publicGroups.map((g) => ({ ...g, isPublic: true })),
+        ...privateGroups.map((g) => ({ ...g, isPublic: false })),
       ];
 
       const formData = new FormData();
@@ -85,11 +68,15 @@ export default function NewCampaign() {
       formData.append('privateLink', form.privateLink || '');
       formData.append('groups', JSON.stringify(allGroups));
       if (imageFile) formData.append('image', imageFile);
-      images.forEach((img) => formData.append('images[]', img.file));
       documents.forEach((doc, idx) => {
         formData.append(`documents[${idx}][name]`, doc.name);
-        formData.append(`documents[${idx}][file]`, doc.file);
-        formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
+        formData.append(`documents[${idx}][source]`, doc.source);
+        formData.append(`documents[${idx}][visibility]`, doc.visibility);
+        if (doc.source === 'upload' && doc.file) {
+          formData.append(`documents[${idx}][file]`, doc.file);
+        } else if (doc.source === 'link') {
+          formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
+        }
       });
 
       await api.post('/campaigns', formData, {
@@ -127,11 +114,45 @@ export default function NewCampaign() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Color de etiqueta</label>
-                <div className="flex items-center gap-3">
-                  <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
-                  <span className="text-sm text-gray-500">{form.color}</span>
+                <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
+              </div>
+              {/* Imagen principal (única) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Imagen de la campaña</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed border-fuchsia-300 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-fuchsia-50 transition-colors">
+                    {imagePreview ? (
+                      <div className="relative w-full h-full">
+                        <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setImageFile(null);
+                            setImagePreview(null);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-xs text-gray-500">Subir imagen</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                  </label>
+                  <div className="text-sm text-gray-600">
+                    <p>Portada de la campaña.</p>
+                    <p className="text-xs text-gray-400">JPG, PNG, WebP</p>
+                  </div>
                 </div>
               </div>
+
               {/* GRUPOS PÚBLICOS */}
               <div className="border-t pt-4 mt-4">
                 <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
@@ -168,144 +189,13 @@ export default function NewCampaign() {
             </div>
           </div>
 
-          {/* ARCHIVOS PÚBLICOS */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-              <span>📂</span> Archivos públicos
-            </h3>
-            <p className="text-xs text-gray-400 mb-2">Estos documentos serán visibles para todos los usuarios.</p>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Nombre del archivo"
-                    id="docNamePublicCampNew"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-                  />
-                  <input
-                    type="file"
-                    id="docFilePublicCampNew"
-                    className="flex-1 text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer"
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const name = document.getElementById('docNamePublicCampNew').value.trim();
-                      const file = document.getElementById('docFilePublicCampNew').files[0];
-                      if (name && file) {
-                        addPublicDocument(name, file);
-                        document.getElementById('docNamePublicCampNew').value = '';
-                        document.getElementById('docFilePublicCampNew').value = '';
-                      } else {
-                        toast.warning('Completa nombre y archivo');
-                      }
-                    }}
-                    className="bg-fuchsia-600 text-white px-4 py-1.5 rounded-lg hover:bg-fuchsia-700 transition-colors text-sm"
-                  >
-                    Añadir
-                  </button>
-                </div>
-              </div>
-              <ul className="space-y-1 mt-2">
-                {documents.filter((d) => d.isPublic).map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                    <span className="text-sm">{doc.name} 🔓</span>
-                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">
-                      Eliminar
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* GALERÍA */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-              <span>📸 </span> Galería de imágenes
-            </h3>
-            <p className="text-xs text-gray-400 mb-2">Imágenes que se mostrarán en la galería pública.</p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Imagen principal</label>
-                <div className="flex items-center gap-4">
-                  <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed border-fuchsia-300 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-fuchsia-50 transition-colors">
-                    {imagePreview ? (
-                      <div className="relative w-full h-full">
-                        <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover rounded-lg" />
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setImageFile(null);
-                            setImagePreview(null);
-                          }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span className="text-xs text-gray-500">Subir imagen</span>
-                      </>
-                    )}
-                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                  </label>
-                  <div className="text-sm text-gray-600">
-                    <p>Portada de la campaña.</p>
-                    <p className="text-xs text-gray-400">JPG, PNG, WebP</p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Galería (máx. 20)</label>
-                <div className="grid grid-cols-4 gap-4">
-                  {images.map((img) => (
-                    <div key={img.id} className="relative group">
-                      <img src={img.preview} alt="Preview" className="h-20 w-20 object-cover rounded-lg shadow-sm" />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img.id)}
-                        className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700 transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  <label className="flex flex-col items-center justify-center h-20 w-20 border-2 border-dashed border-fuchsia-300 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-fuchsia-50 transition-colors">
-                    <svg className="w-5 h-5 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span className="text-xs text-gray-500">Añadir</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        Array.from(e.target.files).forEach((file) => addImage(file));
-                        e.target.value = '';
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* DOCUMENTOS */}
+          <DocumentManager
+            entityType="campaign"
+            documents={documents}
+            onChange={setDocuments}
+          section="public"
+            />
 
           {/* ZONA PRIVADA */}
           <div className="border-l-2 border-rose-400 pl-4 mt-8 relative">
@@ -348,59 +238,14 @@ export default function NewCampaign() {
                 </button>
               </div>
 
-              {/* ARCHIVOS PRIVADOS */}
-              <div>
-                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-                  <span>🔐</span> Archivos privados
-                </h3>
-                <p className="text-xs text-gray-400 mb-2">Solo visibles para administradores.</p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Nombre del archivo"
-                      id="docNamePrivateCampNew"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-                    />
-                    <input
-                      type="file"
-                      id="docFilePrivateCampNew"
-                      className="flex-1 text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer"
-                    />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const name = document.getElementById('docNamePrivateCampNew').value.trim();
-                        const file = document.getElementById('docFilePrivateCampNew').files[0];
-                        if (name && file) {
-                          addPrivateDocument(name, file);
-                          document.getElementById('docNamePrivateCampNew').value = '';
-                          document.getElementById('docFilePrivateCampNew').value = '';
-                        } else {
-                          toast.warning('Completa nombre y archivo');
-                        }
-                      }}
-                      className="bg-fuchsia-600 text-white px-4 py-1.5 rounded-lg hover:bg-fuchsia-700 transition-colors text-sm"
-                    >
-                      Añadir
-                    </button>
-                  </div>
-                </div>
-                <ul className="space-y-1 mt-2">
-                  {documents.filter((d) => !d.isPublic).map((doc) => (
-                    <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <span className="text-sm">{doc.name} 🔒</span>
-                      <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-xs">
-                        Eliminar
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                            <DocumentManager
+                entityType="campaign"
+                documents={documents}
+                onChange={setDocuments}
+                section="private"
+              />
 
-              <div>
+<div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
                 <input
                   type="url"
@@ -430,7 +275,7 @@ export default function NewCampaign() {
             description={form.description}
             color={form.color}
             image={imagePreview}
-            groups={[...publicGroups.map(g => ({ ...g, isPublic: true })), ...privateGroups.map(g => ({ ...g, isPublic: false }))]}
+            groups={[...publicGroups.map((g) => ({ ...g, isPublic: true })), ...privateGroups.map((g) => ({ ...g, isPublic: false }))]}
             documents={documents}
             privateLink={form.privateLink}
           />

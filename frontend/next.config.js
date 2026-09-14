@@ -9,7 +9,7 @@ const nextConfig = {
 
   async rewrites() {
     // Use the public API URL if set, otherwise default to the Docker service name
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:5000';
+    const backendUrl = (process.env.INTERNAL_API_URL || 'http://backend:5000').replace(/\/$/, '');
     return [
       {
         source: '/api/:path*',

@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = '/api';
 
 const categoryLabels = {
   webinar: 'Webinar', talk: 'Charla', protest: 'Concentración',
@@ -29,12 +29,14 @@ export default function Calendario() {
 
         // Normalizar campañas para que tengan una fecha (campo `startDate` o similar)
         // Ajusta el nombre del campo según tu modelo de campaña.
-        const campaigns = campaignsRes.data.map(c => ({
+        const campaignsList = Array.isArray(campaignsRes.data) ? campaignsRes.data : (campaignsRes.data?.data || []);
+        const campaigns = campaignsList.map(c => ({
           ...c,
           datetime: c.startDate || c.datetime,   // usa el campo correcto
           type: 'campaign'
         }));
-        const actions = actionsRes.data.map(a => ({ ...a, type: 'action' }));
+        const actionsList = Array.isArray(actionsRes.data) ? actionsRes.data : (actionsRes.data?.data || []);
+        const actions = actionsList.map(a => ({ ...a, type: 'action' }));
 
         setEvents([...actions, ...campaigns]);
       } catch (error) {

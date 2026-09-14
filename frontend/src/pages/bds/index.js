@@ -5,6 +5,7 @@ import Layout from '../../components/Layout';
 import Link from 'next/link';
 import 'react-calendar/dist/Calendar.css';
 import { categoryLabels, categoryStyles } from '../../utils/categoryConfig';
+import { unwrapList } from '../../utils/apiHelpers';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -27,7 +28,7 @@ export default function BDSList() {
   const [filterUrgency, setFilterUrgency] = useState(false);
   const [error, setError] = useState(null);
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
+  const baseUrl = '';
   const whatsappLink = process.env.NEXT_PUBLIC_BDS_WHATSAPP || '#';
   const telegramLink = process.env.NEXT_PUBLIC_BDS_TELEGRAM || '#';
   const signalLink = process.env.NEXT_PUBLIC_BDS_SIGNAL || '#';
@@ -36,11 +37,11 @@ export default function BDSList() {
     const fetchData = async () => {
       try {
         const [bdsRes, actionsRes] = await Promise.all([
-          api.get('/bds'),
+          api.get('/bds', { params: { limit: 1000 } }),
           api.get('/actions?bdsId=any'),
         ]);
-        setBdsList(bdsRes.data);
-        setActions(actionsRes.data);
+        setBdsList(unwrapList(bdsRes.data));
+        setActions(unwrapList(actionsRes.data));
         setError(null);
       } catch (err) {
         console.error('Error fetching BDS data:', err);
@@ -172,7 +173,7 @@ export default function BDSList() {
                   <p className="text-sm text-gray-600 line-clamp-2">{bds.description || 'Sin descripción'}</p>
                   <div className="mt-3 text-xs text-gray-400">{bdsActions.filter(a => a.bdsId === bds.id).length} acciones</div>
                 </div>
-                {bds.imageUrl && <div className="h-40 bg-gray-100 overflow-hidden"><img src={`${baseUrl}${bds.imageUrl}`} alt={bds.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" /></div>}
+                {bds.imageUrl && <div className="h-40 bg-gray-100 overflow-hidden"><img src={`${bds.imageUrl}`} alt={bds.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" /></div>}
               </div>
             </Link>
           ))}
@@ -193,8 +194,8 @@ export default function BDSList() {
                   const isOnline = action.locationType === 'online';
                   const bds = bdsMap[action.bdsId];
                   let imageUrl = null;
-                  if (action.featuredImage) imageUrl = `${baseUrl}${action.featuredImage}`;
-                  else if (action.images && action.images.length > 0) imageUrl = `${baseUrl}${action.images[0].url}`;
+                  if (action.featuredImage) imageUrl = `${action.featuredImage}`;
+                  else if (action.images && action.images.length > 0) imageUrl = `${action.images[0].url}`;
                   return (
                     <Link key={action.id} href={`/acciones/${action.id}`} className="group">
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition h-full flex flex-col">

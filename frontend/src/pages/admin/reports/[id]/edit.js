@@ -1,332 +1,348 @@
+// frontend/src/pages/admin/reports/[id]/edit.js
 import api from '../../../../lib/axios';
 import { useState, useEffect } from 'react';
-import AdminLayout from '../../../../components/AdminLayout';
 import { useRouter } from 'next/router';
+import AdminLayout from '../../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import dynamic from 'next/dynamic';
-import 'react-quill-new/dist/quill.snow.css';
-import DOMPurify from 'dompurify';
+import ReportPreview from '../../../../components/ReportPreview';
+import DocumentManager from '../../../../components/DocumentManager';
+import { FaArrowLeft, FaPlus, FaTrash } from 'react-icons/fa';
 
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
-
-const quillModules = {
-  toolbar: [
-    [{ header: '1' }, { header: '2' }, { font: [] }],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    ['bold', 'italic', 'underline'],
-    [{ align: [] }],
-    ['link'],
-    ['clean'],
-  ],
-};
-
-const inputClass =
-  "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
-const selectClass = inputClass;
+const MAX_BIBLIOGRAPHY = 5;
 
 export default function EditReport() {
   const router = useRouter();
   const { id } = router.query;
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    content: '',
-    type: 'blog',
-    source: '',
-    author: '',
-    currentFileUrl: null,
-    file: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
 
-  // 🆕 Método de contenido original (para cargar estado inicial)
-  const [contentMethod, setContentMethod] = useState('write'); // 'write' o 'pdf'
+  const [form, setForm] = useState({
+    title: '', description: '', content: '',
+    type: 'blog', source: '', author: '', publishedAt: '',
+  });
+  const [contentMode, setContentMode] = useState('text');
+  const [documents, setDocuments] = useState([]);
+  const [bibliography, setBibliography] = useState([{ url: '', source: '' }]);
+
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    const fetchReport = async () => {
+    const fetchData = async () => {
       try {
         const res = await api.get(`/reports/${id}`);
-        const report = res.data;
+        const r = res.data;
         setForm({
-          title: report.title || '',
-          description: report.description || '',
-          content: report.content || '',
-          type: report.type || 'blog',
-          source: report.source || '',
-          author: report.author || '',
-          currentFileUrl: report.fileUrl || null,
-          file: null,
+          title: r.title || '',
+          description: r.description || '',
+          content: r.content || '',
+          type: r.type || 'blog',
+          source: r.source || '',
+          author: r.author || '',
+          publishedAt: r.publishedAt ? new Date(r.publishedAt).toISOString().slice(0, 16) : '',
         });
 
-        // Inferir método original: si hay contenido y no fileUrl, asumimos "write"
-        if (report.content && !report.fileUrl) {
-          setContentMethod('write');
-        } else if (report.fileUrl) {
-          setContentMethod('pdf');
-        } else {
-          setContentMethod('write'); // por defecto
+        // Detectar modo de contenido: si hay documentos → file, si no → text
+        const docs = (r.documents || []).map((doc) => ({
+          id: doc.id,
+          name: doc.title,
+          source: doc.source,
+          file: null,
+          externalUrl: doc.externalUrl || null,
+          visibility: doc.visibility,
+          filePath: doc.filePath || null,
+          isNew: false,
+        }));
+        setDocuments(docs);
+        setContentMode(docs.length > 0 ? 'file' : 'text');
+
+        // Cargar bibliografía
+        if (Array.isArray(r.bibliography) && r.bibliography.length > 0) {
+          setBibliography(r.bibliography);
         }
-      } catch (err) {
-        console.error('Error al cargar el reporte:', err);
-        setError('No se pudo cargar la entrada. Verifica que el ID sea válido.');
-        toast.error('No se pudo cargar la entrada');
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Error al cargar el reporte');
       } finally {
-        setLoading(false);
+        setLoadingData(false);
       }
     };
-    fetchReport();
+    fetchData();
   }, [id]);
 
   const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
-    if (type === 'file') {
-      setForm(prev => ({ ...prev, file: files[0] }));
-    } else {
-      setForm(prev => ({ ...prev, [name]: value }));
-    }
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleContentChange = (value) => {
-    setForm(prev => ({ ...prev, content: value }));
+  // ─── Bibliografía ──────────────────────────────────────────
+  const addBibliographyEntry = () => {
+    if (bibliography.length >= MAX_BIBLIOGRAPHY) {
+      toast.warning(`Máximo ${MAX_BIBLIOGRAPHY} fuentes bibliográficas`);
+      return;
+    }
+    setBibliography((prev) => [...prev, { url: '', source: '' }]);
+  };
+  const removeBibliographyEntry = (idx) => {
+    setBibliography((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const updateBibliographyEntry = (idx, field, value) => {
+    setBibliography((prev) =>
+      prev.map((entry, i) => (i === idx ? { ...entry, [field]: value } : entry))
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) {
-      toast.warning('El título es obligatorio');
+    if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
+
+    if (form.type === 'blog' && !form.author.trim()) {
+      toast.warning('Los blogs deben tener firma del autor');
       return;
     }
-    if (contentMethod === 'write' && !form.content.trim()) {
-      toast.warning('Debes escribir contenido antes de guardar');
+    if (form.type === 'report') {
+      const validBib = bibliography.filter((b) => b.url.trim() !== '');
+      if (validBib.length === 0) {
+        toast.warning('Los reportes deben tener al menos una fuente bibliográfica');
+        return;
+      }
+    }
+
+    const newDocs = documents.filter((d) => d.isNew);
+    const existingDocs = documents.filter((d) => !d.isNew);
+    const totalDocs = newDocs.length + existingDocs.length;
+
+    if (contentMode === 'text' && !form.content.trim()) {
+      toast.warning('Escribe el contenido o cambia a subir un PDF');
       return;
     }
-    if (contentMethod === 'pdf' && !form.file && !form.currentFileUrl) {
-      toast.warning('Debes adjuntar un archivo PDF');
+    if (contentMode === 'file' && totalDocs === 0) {
+      toast.warning('Sube un PDF o cambia a escribir contenido');
       return;
     }
 
-    setSaving(true);
+    setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('title', form.title.trim());
-      formData.append('description', form.description.trim());
-      formData.append('content', contentMethod === 'write' ? form.content : '');
+      formData.append('title', form.title);
+      formData.append('description', form.description || '');
       formData.append('type', form.type);
-      formData.append('source', form.source.trim());
-      formData.append('author', form.author.trim());
-      if (contentMethod === 'pdf' && form.file) formData.append('file', form.file);
+      formData.append('source', form.source || '');
+      formData.append('author', form.type === 'blog' ? form.author : '');
+      formData.append('publishedAt', form.publishedAt || new Date().toISOString());
+
+      // Si estamos en modo texto → mandamos content. Si modo file → content vacío
+      formData.append('content', contentMode === 'text' ? form.content : '');
+
+      if (form.type === 'report') {
+        const validBib = bibliography.filter((b) => b.url.trim() !== '');
+        formData.append('bibliography', JSON.stringify(validBib));
+      }
+
+      // Solo enviamos documentos NUEVOS (los existentes ya están en BD)
+      newDocs.forEach((doc, idx) => {
+        formData.append(`documents[${idx}][name]`, doc.name);
+        formData.append(`documents[${idx}][source]`, doc.source);
+        formData.append(`documents[${idx}][visibility]`, doc.visibility);
+        if (doc.source === 'upload' && doc.file) {
+          formData.append(`documents[${idx}][file]`, doc.file);
+        } else if (doc.source === 'link') {
+          formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
+        }
+      });
 
       await api.put(`/reports/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Entrada actualizada');
-      router.push('/admin/reports');
-    } catch (err) {
-      console.error('Error updating report:', err);
-      toast.error(err.response?.data?.message || 'No se pudo actualizar');
+      toast.success('Reporte actualizado');
+      router.push(`/admin/reports/${id}`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Error al actualizar reporte');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout title="Editar Entrada">
-        <p className="text-center py-8 text-lg text-gray-500">Cargando...</p>
-      </AdminLayout>
-    );
-  }
+  const inputClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400";
 
-  if (error) {
-    return (
-      <AdminLayout title="Editar Entrada">
-        <div className="text-center py-8">
-          <p className="text-red-600 text-lg">{error}</p>
-          <button
-            onClick={() => router.push('/admin/reports')}
-            className="mt-4 px-5 py-2.5 bg-fuchsia-600 text-white rounded-lg text-base"
-          >
-            Volver al listado
-          </button>
-        </div>
-      </AdminLayout>
-    );
+  if (loadingData) {
+    return <AdminLayout title="Editar Reporte"><p className="text-center py-8">Cargando...</p></AdminLayout>;
   }
-
-  const sanitizedContent = typeof window !== 'undefined' ? DOMPurify.sanitize(form.content) : '';
 
   return (
-    <AdminLayout title="Editar Entrada Blog/Reporte">
+    <AdminLayout title="Editar Reporte">
       <ToastContainer />
+      <button type="button" onClick={() => router.push(`/admin/reports/${id}`)}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+        <FaArrowLeft /> Volver a Reportes
+      </button>
+
       <div className="flex flex-col lg:flex-row gap-8">
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">Editar Entrada</h2>
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
 
-          {/* Tipo */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
-            <select name="type" value={form.type} onChange={handleChange} className={selectClass}>
-              <option value="blog">📝 Blog (interno)</option>
-              <option value="report">📄 Reporte (externo)</option>
-            </select>
-          </div>
-
-          {/* Título */}
           <div>
             <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
             <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputClass} />
           </div>
 
-          {/* Descripción */}
           <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Descripción</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={3} className={inputClass} />
+            <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
+            <select name="type" value={form.type} onChange={handleChange} className={inputClass}>
+              <option value="blog">Blog (con firma del autor)</option>
+              <option value="report">Reporte (con bibliografía)</option>
+            </select>
           </div>
 
-          {/* Fuente (solo reportes) */}
-          {form.type === 'report' && (
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-1">Fuente(s) oficial(es) *</label>
-              <input name="source" value={form.source} onChange={handleChange} required className={inputClass} placeholder="URL o nombre de la fuente" />
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows="3" className={inputClass} />
+          </div>
+
+          {form.type === 'blog' && (
+            <div className="border-l-2 border-fuchsia-500 pl-4 relative">
+              <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-fuchsia-500"></span>
+              <label className="block text-base font-medium text-gray-700 mb-1">Firma del autor *</label>
+              <input
+                type="text"
+                name="author"
+                value={form.author}
+                onChange={handleChange}
+                placeholder="Nombre de quien escribe"
+                className={inputClass}
+              />
+              <p className="text-xs text-gray-400 mt-1">Obligatorio. Aparecerá como firma del artículo.</p>
             </div>
           )}
 
-          {/* Autor */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Autor</label>
-            <input name="author" value={form.author} onChange={handleChange} className={inputClass} />
-          </div>
+          {form.type === 'report' && (
+            <div className="border-l-2 border-blue-500 pl-4 relative">
+              <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <label className="block text-base font-medium text-gray-700">Bibliografía *</label>
+                  <p className="text-xs text-gray-400">Fuentes de donde se ha sacado la información (mín. 1, máx. {MAX_BIBLIOGRAPHY}).</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addBibliographyEntry}
+                  disabled={bibliography.length >= MAX_BIBLIOGRAPHY}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    bibliography.length >= MAX_BIBLIOGRAPHY
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  <FaPlus className="w-3 h-3" /> Añadir
+                </button>
+              </div>
+              <div className="space-y-2">
+                {bibliography.map((entry, idx) => (
+                  <div key={idx} className="flex gap-2 items-start">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="url"
+                        placeholder="https://... (URL)"
+                        value={entry.url}
+                        onChange={(e) => updateBibliographyEntry(idx, 'url', e.target.value)}
+                        className={inputClass}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nombre de la fuente (opcional)"
+                        value={entry.source}
+                        onChange={(e) => updateBibliographyEntry(idx, 'source', e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeBibliographyEntry(idx)}
+                      className="mt-2 text-red-600 hover:text-red-800"
+                      title="Eliminar"
+                    >
+                      <FaTrash className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* 🆕 Selector de método de contenido */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-2">Contenido</label>
-            <div className="flex gap-6 mb-4">
+          <div className="border-t pt-4">
+            <label className="block text-base font-medium text-gray-700 mb-2">Contenido *</label>
+            <div className="flex gap-6 mb-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="contentMethod"
-                  value="write"
-                  checked={contentMethod === 'write'}
-                  onChange={() => setContentMethod('write')}
+                  name="contentMode"
+                  value="text"
+                  checked={contentMode === 'text'}
+                  onChange={() => { setContentMode('text'); setDocuments([]); }}
                   className="text-fuchsia-600 focus:ring-fuchsia-500"
                 />
-                <span className="text-base">Escribir manualmente</span>
+                <span className="text-base">Escribir texto aquí</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="contentMethod"
-                  value="pdf"
-                  checked={contentMethod === 'pdf'}
-                  onChange={() => setContentMethod('pdf')}
+                  name="contentMode"
+                  value="file"
+                  checked={contentMode === 'file'}
+                  onChange={() => { setContentMode('file'); }}
                   className="text-fuchsia-600 focus:ring-fuchsia-500"
                 />
                 <span className="text-base">Subir PDF</span>
               </label>
             </div>
 
-            {contentMethod === 'write' ? (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">✍️</span>
-                  <h3 className="font-medium text-gray-800">Editor de texto</h3>
-                </div>
-                <ReactQuill
-                  theme="snow"
-                  value={form.content}
-                  onChange={handleContentChange}
-                  modules={quillModules}
-                  placeholder="Escribe el contenido..."
-                  className="bg-white"
-                />
-              </div>
-            ) : (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📎</span>
-                  <h3 className="font-medium text-gray-800">Archivo PDF</h3>
-                </div>
-                {form.currentFileUrl && !form.file && (
-                  <p className="text-base text-blue-600 mb-2">
-                    <a href={form.currentFileUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                      Ver archivo actual
-                    </a>
-                  </p>
-                )}
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100"
-                />
-                {form.file && <p className="mt-2 text-base text-fuchsia-700">📄 Nuevo: {form.file.name}</p>}
-              </div>
+            {contentMode === 'text' && (
+              <textarea
+                name="content"
+                value={form.content}
+                onChange={handleChange}
+                rows="8"
+                placeholder="Escribe aquí el contenido del artículo..."
+                className={inputClass}
+              />
+            )}
+
+            {contentMode === 'file' && (
+              <DocumentManager
+                entityType="report"
+                documents={documents}
+                onChange={setDocuments}
+                maxPublic={1}
+                maxAdmin={0}
+                maxLinks={0}
+              />
             )}
           </div>
 
-          {/* Botones */}
-          <div className="flex gap-3 pt-4">
-            <button type="submit" disabled={saving} className="inline-flex items-center justify-center px-5 py-2.5 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-base font-medium">
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
-            </button>
-            <button type="button" onClick={() => router.back()} className="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-base font-medium">
-              Cancelar
-            </button>
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Fuente original (opcional)</label>
+            <input
+              type="text"
+              name="source"
+              value={form.source}
+              onChange={handleChange}
+              placeholder="Ej: Amnistía Internacional, El País..."
+              className={inputClass}
+            />
           </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Fecha de publicación</label>
+            <input type="datetime-local" name="publishedAt" value={form.publishedAt} onChange={handleChange} className={inputClass} />
+          </div>
+
+          <button type="submit" disabled={loading}
+            className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 font-medium text-lg">
+            {loading ? 'Guardando...' : 'Actualizar Reporte'}
+          </button>
         </form>
 
-        {/* Vista previa */}
-        <div className="lg:w-1/3">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <span>📄</span> Vista previa
-            </h3>
-            {!form.title ? (
-              <p className="text-gray-400 text-base">Completa el formulario para ver la vista previa.</p>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Título</h4>
-                  <p className="text-gray-800 font-semibold">{form.title}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${form.type === 'report' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                    {form.type === 'report' ? '📄 Reporte' : '📝 Blog'}
-                  </span>
-                  {form.source && <span className="text-base text-gray-500">Fuente: {form.source}</span>}
-                  {form.author && <span className="text-base text-gray-500">✍️ {form.author}</span>}
-                </div>
-                {form.description && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
-                    <p className="text-gray-700 text-base whitespace-pre-wrap">{form.description}</p>
-                  </div>
-                )}
-                {contentMethod === 'write' && form.content && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Contenido</h4>
-                    <div className="text-gray-700 text-base" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
-                  </div>
-                )}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Archivo</h4>
-                  {contentMethod === 'pdf' && form.file ? (
-                    <p className="text-base text-fuchsia-600">📎 {form.file.name} (nuevo)</p>
-                  ) : contentMethod === 'pdf' && form.currentFileUrl ? (
-                    <p className="text-base text-blue-600 underline">
-                      <a href={form.currentFileUrl} target="_blank" rel="noopener noreferrer">Ver archivo actual</a>
-                    </p>
-                  ) : (
-                    <p className="text-base text-gray-400">Sin archivo adjunto</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="lg:w-1/3 lg:self-start">
+          <ReportPreview form={form} />
         </div>
       </div>
     </AdminLayout>

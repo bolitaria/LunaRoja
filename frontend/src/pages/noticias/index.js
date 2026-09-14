@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import NewsCard from '../../components/NewsCard';
+import { unwrapList } from '../../utils/apiHelpers';
 
 export default function Noticias() {
   const [news, setNews] = useState([]);
@@ -15,11 +16,11 @@ export default function Noticias() {
     const fetchData = async () => {
       try {
         const [newsRes, campaignsRes, actionsRes] = await Promise.all([
-          api.get('/news'), api.get('/campaigns'), api.get('/actions')
+          api.get('/news'), api.get('/campaigns', { params: { limit: 1000 } }), api.get('/actions')
         ]);
-        setNews(newsRes.data);
-        setCampaigns(campaignsRes.data);
-        setActions(actionsRes.data);
+        setNews(unwrapList(newsRes.data));
+        setCampaigns(unwrapList(campaignsRes.data));
+        setActions(unwrapList(actionsRes.data));
       } catch (error) { console.error('Error fetching data:', error); }
       finally { setLoading(false); }
     };

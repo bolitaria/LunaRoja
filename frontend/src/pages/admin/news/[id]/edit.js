@@ -1,10 +1,14 @@
+// frontend/src/pages/admin/news/[id]/edit.js
 import api from '../../../../lib/axios';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import AdminLayout from '../../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useRouter } from 'next/router';
-import NewsCard from '../../../../components/NewsCard';
+import Link from 'next/link';
+import NewsPreview from '../../../../components/NewsPreview';
+import { unwrapList } from '../../../../utils/apiHelpers';
+import { FaArrowLeft, FaYoutube } from 'react-icons/fa';
 
 export default function EditNews() {
   const router = useRouter();
@@ -16,178 +20,174 @@ export default function EditNews() {
     description: '',
     youtubeUrl: '',
     thumbnail: '',
-    isNews: false,
+    publishedAt: '',
+    isNews: true,
     campaignId: '',
-    actionId: ''
+    actionId: '',
   });
-  const [saving, setSaving] = useState(false);
-
-  const getYoutubeId = (url) => {
-    if (!url) return null;
-    const m = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
-    return (m && m[2].length === 11) ? m[2] : null;
-  };
+  const [thumbnailPreview, setThumbnailPreview] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     const fetchData = async () => {
+      setLoadingData(true);
       try {
         const [newsRes, campRes, actRes] = await Promise.all([
           api.get(`/news/${id}`),
-          api.get('/campaigns'),
-          api.get('/actions')
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/actions', { params: { limit: 1000 } }),
         ]);
-        const item = newsRes.data;
+        const n = newsRes.data;
         setForm({
-          title: item.title,
-          description: item.description || '',
-          youtubeUrl: item.youtubeUrl,
-          thumbnail: item.thumbnail || '',
-          isNews: item.isNews || false,
-          campaignId: item.campaignId || '',
-          actionId: item.actionId || ''
+          title: n.title || '',
+          description: n.description || '',
+          youtubeUrl: n.youtubeUrl || '',
+          thumbnail: n.thumbnail || '',
+          publishedAt: n.publishedAt ? new Date(n.publishedAt).toISOString().slice(0, 16) : '',
+          isNews: n.isNews !== undefined ? n.isNews : true,
+          campaignId: n.campaignId || '',
+          actionId: n.actionId || '',
         });
-        setCampaigns(campRes.data);
-        setActions(actRes.data);
-      } catch (error) { toast.error('Error al cargar la noticia'); }
+        setThumbnailPreview(n.thumbnail || '');
+        setCampaigns(unwrapList(campRes.data));
+        setActions(unwrapList(actRes.data));
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        toast.error(error.response?.data?.message || 'Error al cargar la noticia');
+      } finally {
+        setLoadingData(false);
+      }
     };
     fetchData();
   }, [id]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const newValue = type === 'checkbox' ? checked : value;
-    setForm(prev => {
-      const updated = { ...prev, [name]: newValue };
-      if (name === 'youtubeUrl') {
-        const videoId = getYoutubeId(value);
-        updated.thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
-      }
-      return updated;
-    });
+    setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleThumbnailChange = (e) => {
+    const url = e.target.value;
+    setForm(prev => ({ ...prev, thumbnail: url }));
+    setThumbnailPreview(url);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
     if (!form.youtubeUrl.trim()) { toast.warning('La URL de YouTube es obligatoria'); return; }
-    setSaving(true);
+
+    setLoading(true);
     try {
-      await api.put(`/news/${id}`, {
-        ...form,
-        campaignId: form.campaignId === '' ? null : Number(form.campaignId),
-        actionId: form.actionId === '' ? null : Number(form.actionId),
-      });
+      const payload = {
+        title: form.title,
+        description: form.description || '',
+        youtubeUrl: form.youtubeUrl,
+        thumbnail: form.thumbnail || null,
+        publishedAt: form.publishedAt || new Date(),
+        isNews: form.isNews,
+        campaignId: form.campaignId || null,
+        actionId: form.actionId || null,
+      };
+      await api.put(`/news/${id}`, payload);
       toast.success('Noticia actualizada');
       router.push('/admin/news');
     } catch (error) {
+      console.error(error);
       toast.error(error.response?.data?.message || 'Error al actualizar noticia');
-    } finally { setSaving(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const previewNoticia = {
-    title: form.title,
-    description: form.description,
-    youtubeUrl: form.youtubeUrl,
-    thumbnail: form.thumbnail,
-    isNews: form.isNews,
-    publishedAt: new Date().toISOString(),
-  };
-  const previewCampaign = form.campaignId ? campaigns.find(c => c.id === Number(form.campaignId)) : null;
-  const previewAction = form.actionId ? actions.find(a => a.id === Number(form.actionId)) : null;
+  const inputClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
+  const selectClass = inputClass;
+
+  const campaignName = campaigns.find(c => String(c.id) === String(form.campaignId))?.name;
+  const actionName = actions.find(a => String(a.id) === String(form.actionId))?.title;
+
+  if (loadingData) {
+    return <AdminLayout title="Editar Noticia"><p className="text-center py-8">Cargando...</p></AdminLayout>;
+  }
 
   return (
     <AdminLayout title="Editar Noticia">
       <ToastContainer />
+      <button
+        type="button"
+        onClick={() => router.push('/admin/news')}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <FaArrowLeft /> Volver a Noticias
+      </button>
+
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Formulario a la izquierda */}
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">Editar Noticia</h2>
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
+            <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows="4" className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">
+              URL de YouTube * <FaYoutube className="inline text-red-500 ml-1" />
+            </label>
+            <input type="url" name="youtubeUrl" value={form.youtubeUrl} onChange={handleChange} required
+              placeholder="https://youtube.com/watch?v=..." className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">URL de miniatura</label>
+            <input type="url" name="thumbnail" value={form.thumbnail} onChange={handleThumbnailChange}
+              placeholder="https://... o /uploads/..." className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Fecha de publicación</label>
+            <input type="datetime-local" name="publishedAt" value={form.publishedAt} onChange={handleChange} className={inputClass} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="isNews" name="isNews" checked={form.isNews} onChange={handleChange}
+              className="h-5 w-5 text-fuchsia-600 focus:ring-fuchsia-500" />
+            <label htmlFor="isNews" className="text-base text-gray-700">Marcar como noticia (si no, es un artículo)</label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-              <input
-                type="text"
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-              />
+              <label className="block text-base font-medium text-gray-700 mb-1">Campaña</label>
+              <select name="campaignId" value={form.campaignId} onChange={handleChange} className={selectClass}>
+                <option value="">-- Sin campaña --</option>
+                {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows="3"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL de YouTube *</label>
-              <input
-                type="url"
-                name="youtubeUrl"
-                value={form.youtubeUrl}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-              />
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="isNews"
-                checked={form.isNews}
-                onChange={handleChange}
-                className="mr-2 rounded border-gray-300 text-fuchsia-600 focus:ring-fuchsia-500"
-              />
-              <label className="text-sm text-gray-700">Es noticia destacada</label>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Campaña</label>
-                <select
-                  name="campaignId"
-                  value={form.campaignId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-                >
-                  <option value="">-- Ninguna --</option>
-                  {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Acción</label>
-                <select
-                  name="actionId"
-                  value={form.actionId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
-                >
-                  <option value="">-- Ninguna --</option>
-                  {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
-                </select>
-              </div>
+              <label className="block text-base font-medium text-gray-700 mb-1">Acción</label>
+              <select name="actionId" value={form.actionId} onChange={handleChange} className={selectClass}>
+                <option value="">-- Sin acción --</option>
+                {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+              </select>
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors font-medium"
-          >
-            {saving ? 'Guardando...' : 'Actualizar Noticia'}
+
+          <button type="submit" disabled={loading}
+            className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors font-medium text-lg">
+            {loading ? 'Guardando...' : 'Actualizar Noticia'}
           </button>
         </form>
 
-        {/* Vista previa a la derecha */}
-        <div className="lg:w-1/3">
-          <div className="sticky top-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Vista previa</h3>
-            <NewsCard noticia={previewNoticia} campaign={previewCampaign} action={previewAction} />
-          </div>
+        <div className="lg:w-1/3 lg:self-start">
+          <NewsPreview
+            form={{ ...form, campaignName, actionName }}
+            featuredImage={thumbnailPreview}
+          />
         </div>
       </div>
     </AdminLayout>

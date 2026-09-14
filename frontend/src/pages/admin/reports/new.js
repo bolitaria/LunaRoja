@@ -1,303 +1,314 @@
+// frontend/src/pages/admin/reports/new.js
 import api from '../../../lib/axios';
 import { useState } from 'react';
-import AdminLayout from '../../../components/AdminLayout';
-import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/router';
+import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import dynamic from 'next/dynamic';
-import 'react-quill-new/dist/quill.snow.css';
+import ReportPreview from '../../../components/ReportPreview';
+import DocumentManager from '../../../components/DocumentManager';
+import { FaArrowLeft, FaPlus, FaTrash } from 'react-icons/fa';
 
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
-
-const quillModules = {
-  toolbar: [
-    [{ header: '1' }, { header: '2' }, { font: [] }],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    ['bold', 'italic', 'underline'],
-    [{ align: [] }],
-    ['link'],
-    ['clean'],
-  ],
-};
-
-// Clases reutilizables con letra grande y foco sutil
-const inputClass =
-  "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
-const selectClass = inputClass;
+const MAX_BIBLIOGRAPHY = 5;
 
 export default function NewReport() {
-  const { user } = useAuth();
   const router = useRouter();
+
   const [form, setForm] = useState({
     title: '',
     description: '',
     content: '',
-    type: 'blog', // por defecto blog
+    type: 'blog',
     source: '',
     author: '',
+    publishedAt: new Date().toISOString().slice(0, 16),
   });
-  const [file, setFile] = useState(null);
+  // 'text' → escribe contenido | 'file' → sube PDF (mutuamente excluyentes)
+  const [contentMode, setContentMode] = useState('text');
+  const [documents, setDocuments] = useState([]);
+  // Bibliografía solo para type='report'
+  const [bibliography, setBibliography] = useState([{ url: '', source: '' }]);
+
   const [loading, setLoading] = useState(false);
 
-  // 🆕 Control de método de contenido
-  const [contentMethod, setContentMethod] = useState('write'); // 'write' o 'pdf'
-
-  const isBlogAdmin = user?.role === 'blog_admin';
-  const hasContent = form.content.trim().length > 0;
-  const hasFile = file !== null;
-
   const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
-    if (type === 'file') {
-      setFile(files[0]);
-    } else {
-      setForm({ ...form, [name]: value });
-    }
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleContentChange = (value) => {
-    setForm({ ...form, content: value });
+  // ─── Bibliografía ──────────────────────────────────────────
+  const addBibliographyEntry = () => {
+    if (bibliography.length >= MAX_BIBLIOGRAPHY) {
+      toast.warning(`Máximo ${MAX_BIBLIOGRAPHY} fuentes bibliográficas`);
+      return;
+    }
+    setBibliography((prev) => [...prev, { url: '', source: '' }]);
+  };
+  const removeBibliographyEntry = (idx) => {
+    setBibliography((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const updateBibliographyEntry = (idx, field, value) => {
+    setBibliography((prev) =>
+      prev.map((entry, i) => (i === idx ? { ...entry, [field]: value } : entry))
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) {
-      toast.warning('El título es obligatorio');
+    if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
+
+    // Validaciones por tipo
+    if (form.type === 'blog' && !form.author.trim()) {
+      toast.warning('Los blogs deben tener firma del autor');
       return;
     }
-    if (!isBlogAdmin && form.type === 'report' && !form.source.trim()) {
-      toast.warning('Los reportes requieren al menos una fuente oficial');
+    if (form.type === 'report') {
+      const validBib = bibliography.filter((b) => b.url.trim() !== '');
+      if (validBib.length === 0) {
+        toast.warning('Los reportes deben tener al menos una fuente bibliográfica');
+        return;
+      }
+    }
+
+    // Validación de modo de contenido
+    if (contentMode === 'text' && !form.content.trim()) {
+      toast.warning('Escribe el contenido o cambia a subir un PDF');
       return;
     }
-    // Validación según método elegido
-    if (contentMethod === 'write' && !hasContent) {
-      toast.warning('Debes escribir contenido antes de guardar');
-      return;
-    }
-    if (contentMethod === 'pdf' && !hasFile) {
-      toast.warning('Debes adjuntar un archivo PDF');
+    if (contentMode === 'file' && documents.length === 0) {
+      toast.warning('Sube un PDF o cambia a escribir contenido');
       return;
     }
 
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('title', form.title.trim());
-      formData.append('description', form.description.trim());
-      formData.append('content', contentMethod === 'write' ? form.content : '');
-      formData.append('type', isBlogAdmin ? 'blog' : form.type);
-      if (form.source) formData.append('source', form.source.trim());
-      if (form.author) formData.append('author', form.author.trim());
-      if (contentMethod === 'pdf' && file) formData.append('file', file);
+      formData.append('title', form.title);
+      formData.append('description', form.description || '');
+      formData.append('type', form.type);
+      formData.append('source', form.source || '');
+      formData.append('author', form.type === 'blog' ? form.author : '');
+      formData.append('publishedAt', form.publishedAt || new Date().toISOString());
+
+      if (contentMode === 'text') {
+        formData.append('content', form.content);
+      }
+      // Si contentMode === 'file', el contenido viene del Document (PDF subido)
+
+      if (form.type === 'report') {
+        const validBib = bibliography.filter((b) => b.url.trim() !== '');
+        formData.append('bibliography', JSON.stringify(validBib));
+      }
+
+      // Documentos (solo en modo 'file' - 1 PDF público)
+      documents.forEach((doc, idx) => {
+        formData.append(`documents[${idx}][name]`, doc.name);
+        formData.append(`documents[${idx}][source]`, doc.source);
+        formData.append(`documents[${idx}][visibility]`, doc.visibility);
+        if (doc.source === 'upload' && doc.file) {
+          formData.append(`documents[${idx}][file]`, doc.file);
+        } else if (doc.source === 'link') {
+          formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
+        }
+      });
 
       await api.post('/reports', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Entrada creada correctamente');
+      toast.success('Reporte creado');
       router.push('/admin/reports');
     } catch (error) {
-      console.error('Error creating report:', error);
-      toast.error(error.response?.data?.message || 'No se pudo crear la entrada');
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Error al crear reporte');
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400";
+
   return (
-    <AdminLayout title="Nueva Entrada">
+    <AdminLayout title="Nuevo Reporte">
       <ToastContainer />
+      <button type="button" onClick={() => router.push('/admin/reports')}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+        <FaArrowLeft /> Volver a Reportes
+      </button>
+
       <div className="flex flex-col lg:flex-row gap-8">
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
-          <h2 className="text-xl font-semibold text-gray-700">
-            {isBlogAdmin ? 'Nuevo Blog' : 'Nueva Entrada (Blog/Reporte)'}
-          </h2>
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
 
-          {/* Tipo (solo si no es blog_admin) */}
-          {!isBlogAdmin && (
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
-              <select name="type" value={form.type} onChange={handleChange} className={selectClass}>
-                <option value="blog">📝 Blog (interno)</option>
-                <option value="report">📄 Reporte (externo)</option>
-              </select>
-            </div>
-          )}
-
-          {/* Título */}
+          {/* TÍTULO */}
           <div>
             <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
-            <input
-              type="text"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
-              className={inputClass}
-            />
+            <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputClass} />
           </div>
 
-          {/* Descripción breve */}
+          {/* TIPO */}
           <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Descripción breve (opcional)</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows="2"
-              className={inputClass}
-            />
+            <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
+            <select name="type" value={form.type} onChange={handleChange} className={inputClass}>
+              <option value="blog">Blog (con firma del autor)</option>
+              <option value="report">Reporte (con bibliografía)</option>
+            </select>
           </div>
 
-          {/* Fuente (solo para reportes no blog_admin) */}
-          {!isBlogAdmin && form.type === 'report' && (
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-1">Fuente(s) oficial(es) *</label>
+          {/* DESCRIPCIÓN */}
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows="3" className={inputClass} />
+          </div>
+
+          {/* AUTOR — solo si type='blog' */}
+          {form.type === 'blog' && (
+            <div className="border-l-2 border-fuchsia-500 pl-4 relative">
+              <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-fuchsia-500"></span>
+              <label className="block text-base font-medium text-gray-700 mb-1">Firma del autor *</label>
               <input
-                name="source"
-                value={form.source}
+                type="text"
+                name="author"
+                value={form.author}
                 onChange={handleChange}
-                required
+                placeholder="Nombre de quien escribe"
                 className={inputClass}
-                placeholder="URL o nombre de la fuente"
               />
+              <p className="text-xs text-gray-400 mt-1">Obligatorio. Aparecerá como firma del artículo.</p>
             </div>
           )}
 
-          {/* Autor */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Autor (opcional)</label>
-            <input
-              name="author"
-              value={form.author}
-              onChange={handleChange}
-              className={inputClass}
-              placeholder="Tu nombre o seudónimo"
-            />
-          </div>
+          {/* BIBLIOGRAFÍA — solo si type='report' */}
+          {form.type === 'report' && (
+            <div className="border-l-2 border-blue-500 pl-4 relative">
+              <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <label className="block text-base font-medium text-gray-700">Bibliografía *</label>
+                  <p className="text-xs text-gray-400">Fuentes de donde se ha sacado la información (mín. 1, máx. {MAX_BIBLIOGRAPHY}).</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addBibliographyEntry}
+                  disabled={bibliography.length >= MAX_BIBLIOGRAPHY}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    bibliography.length >= MAX_BIBLIOGRAPHY
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  <FaPlus className="w-3 h-3" /> Añadir
+                </button>
+              </div>
+              <div className="space-y-2">
+                {bibliography.map((entry, idx) => (
+                  <div key={idx} className="flex gap-2 items-start">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="url"
+                        placeholder="https://... (URL)"
+                        value={entry.url}
+                        onChange={(e) => updateBibliographyEntry(idx, 'url', e.target.value)}
+                        className={inputClass}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nombre de la fuente (opcional)"
+                        value={entry.source}
+                        onChange={(e) => updateBibliographyEntry(idx, 'source', e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeBibliographyEntry(idx)}
+                      className="mt-2 text-red-600 hover:text-red-800"
+                      title="Eliminar"
+                    >
+                      <FaTrash className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* 🆕 Selector de método de contenido */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-2">Contenido</label>
-            <div className="flex gap-6 mb-4">
+          {/* CONTENIDO: texto XOR PDF */}
+          <div className="border-t pt-4">
+            <label className="block text-base font-medium text-gray-700 mb-2">Contenido *</label>
+            <div className="flex gap-6 mb-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="contentMethod"
-                  value="write"
-                  checked={contentMethod === 'write'}
-                  onChange={() => setContentMethod('write')}
+                  name="contentMode"
+                  value="text"
+                  checked={contentMode === 'text'}
+                  onChange={() => { setContentMode('text'); setDocuments([]); }}
                   className="text-fuchsia-600 focus:ring-fuchsia-500"
                 />
-                <span className="text-base">Escribir manualmente</span>
+                <span className="text-base">Escribir texto aquí</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="contentMethod"
-                  value="pdf"
-                  checked={contentMethod === 'pdf'}
-                  onChange={() => setContentMethod('pdf')}
+                  name="contentMode"
+                  value="file"
+                  checked={contentMode === 'file'}
+                  onChange={() => { setContentMode('file'); }}
                   className="text-fuchsia-600 focus:ring-fuchsia-500"
                 />
                 <span className="text-base">Subir PDF</span>
               </label>
             </div>
 
-            {/* Área condicional */}
-            {contentMethod === 'write' ? (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">✍️</span>
-                  <h3 className="font-medium text-gray-800">Editor de texto</h3>
-                  {hasContent && <span className="text-xs text-green-600 ml-2">✓</span>}
-                </div>
-                <ReactQuill
-                  theme="snow"
-                  value={form.content}
-                  onChange={handleContentChange}
-                  modules={quillModules}
-                  placeholder="Escribe aquí..."
-                  className="bg-white"
-                />
-              </div>
-            ) : (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📎</span>
-                  <h3 className="font-medium text-gray-800">Archivo PDF</h3>
-                  {hasFile && <span className="text-xs text-green-600 ml-2">✓</span>}
-                </div>
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100"
-                />
-                {file && <p className="mt-2 text-base text-fuchsia-700">📄 {file.name}</p>}
-              </div>
+            {contentMode === 'text' && (
+              <textarea
+                name="content"
+                value={form.content}
+                onChange={handleChange}
+                rows="8"
+                placeholder="Escribe aquí el contenido del artículo..."
+                className={inputClass}
+              />
+            )}
+
+            {contentMode === 'file' && (
+              <DocumentManager
+                entityType="report"
+                documents={documents}
+                onChange={setDocuments}
+                maxPublic={1}
+                maxAdmin={0}
+                maxLinks={0}
+              />
             )}
           </div>
 
-          {/* Botones */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center justify-center px-5 py-2.5 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 transition-colors text-base font-medium"
-            >
-              {loading ? 'Creando...' : 'Crear Entrada'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-base font-medium"
-            >
-              Cancelar
-            </button>
+          {/* FUENTE */}
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Fuente original (opcional)</label>
+            <input
+              type="text"
+              name="source"
+              value={form.source}
+              onChange={handleChange}
+              placeholder="Ej: Amnistía Internacional, El País..."
+              className={inputClass}
+            />
           </div>
+
+          {/* FECHA */}
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-1">Fecha de publicación</label>
+            <input type="datetime-local" name="publishedAt" value={form.publishedAt} onChange={handleChange} className={inputClass} />
+          </div>
+
+          <button type="submit" disabled={loading}
+            className="w-full bg-fuchsia-600 text-white px-5 py-3 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50 font-medium text-lg">
+            {loading ? 'Guardando...' : 'Crear Reporte'}
+          </button>
         </form>
 
-        {/* Vista previa (sin cambios) */}
-        <div className="lg:w-1/3">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Vista previa</h3>
-            {!form.title && !hasContent && !hasFile ? (
-              <p className="text-gray-400 text-base">Completa el formulario para ver la vista previa.</p>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Título</h4>
-                  <p className="text-gray-800 font-semibold">{form.title}</p>
-                </div>
-                <div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${form.type === 'report' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                    {form.type === 'report' ? '📄 Reporte' : '📝 Blog'}
-                  </span>
-                </div>
-                {form.description && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
-                    <p className="text-gray-700 text-base">{form.description}</p>
-                  </div>
-                )}
-                {contentMethod === 'write' && hasContent && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Contenido</h4>
-                    <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: form.content }} />
-                  </div>
-                )}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Archivo</h4>
-                  {contentMethod === 'pdf' && file ? (
-                    <p className="text-base text-fuchsia-600">📎 {file.name}</p>
-                  ) : (
-                    <p className="text-base text-gray-400">Sin archivo</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="lg:w-1/3 lg:self-start">
+          <ReportPreview form={form} />
         </div>
       </div>
     </AdminLayout>

@@ -6,6 +6,7 @@ import Layout from '../../components/Layout';
 import Link from 'next/link';
 import 'react-calendar/dist/Calendar.css';
 import { categoryLabels, categoryStyles } from '../../utils/categoryConfig';
+import { unwrapList } from '../../utils/apiHelpers';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -25,7 +26,7 @@ export default function BDSDetalle() {
   const [urgencyFilter, setUrgencyFilter] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('todas');
   const [filterLocation, setFilterLocation] = useState('todos');
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
+  const baseUrl = '';
 
   useEffect(() => {
     if (!id) return;
@@ -35,8 +36,8 @@ export default function BDSDetalle() {
           api.get(`/bds/${id}`),
           api.get(`/actions?bdsId=${id}`),
         ]);
-        setBds(bdsRes.data);
-        setActions(actionsRes.data);
+        setBds(unwrapList(bdsRes.data));
+        setActions(unwrapList(actionsRes.data));
       } catch (error) {
         console.error('Error fetching BDS detail', error);
       } finally {
@@ -138,7 +139,7 @@ export default function BDSDetalle() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-8 flex flex-col md:flex-row gap-8">
           <div className="md:w-1/3 flex-shrink-0">
             {bds.imageUrl ? (
-              <img src={`${baseUrl}${bds.imageUrl}`} alt={bds.name} className="w-full h-64 object-cover rounded-xl shadow-md border border-gray-200" />
+              <img src={`${bds.imageUrl}`} alt={bds.name} className="w-full h-64 object-cover rounded-xl shadow-md border border-gray-200" />
             ) : (
               <div className="w-full h-64 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">Sin imagen</div>
             )}
@@ -194,7 +195,7 @@ export default function BDSDetalle() {
               )}
               {bds.document && (
                 <a
-                  href={`${baseUrl}${bds.document}`}
+                  href={`${bds.document}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition text-sm font-medium"
@@ -305,7 +306,7 @@ export default function BDSDetalle() {
                     const catStyle = categoryStyles[action.category] || { backgroundColor: '#f3f4f6', color: '#1f2937', borderColor: '#d1d5db' };
                     const catLabel = categoryLabels[action.category] || action.category;
                     const isOnline = action.locationType === 'online';
-                    let imageUrl = action.featuredImage ? `${baseUrl}${action.featuredImage}` : action.images?.[0]?.url ? `${baseUrl}${action.images[0].url}` : null;
+                    let imageUrl = action.featuredImage ? `${action.featuredImage}` : action.images?.[0]?.url ? `${action.images[0].url}` : null;
 
                     return (
                       <Link key={action.id} href={`/acciones/${action.id}`} className="group">
