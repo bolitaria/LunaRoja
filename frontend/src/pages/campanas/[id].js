@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import axios from 'axios';
 import Layout from '../../components/Layout';
@@ -43,6 +43,21 @@ export default function CampanaDetalle() {
   const router = useRouter();
   const { id } = router.query;
   const [campaign, setCampaign] = useState(null);
+  // Galería memoizada: referencia estable entre renders.
+  // Evita recalcular el array y permite usar galleryImages.length como dep en useCallback.
+  const galleryImages = useMemo(() => {
+    if (!campaign) return [];
+    const imgs = [];
+    if (campaign.imageUrl) imgs.push({ id: 'main', url: campaign.imageUrl });
+    if (campaign.images && Array.isArray(campaign.images)) {
+      campaign.images.forEach((img) => {
+        if (img && img.url && img.url.trim() !== '') {
+          imgs.push({ id: img.id || img.url, url: img.url });
+        }
+      });
+    }
+    return imgs;
+  }, [campaign]);
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -61,8 +76,13 @@ export default function CampanaDetalle() {
 
   const openModal = (index = 0) => { setCurrentImageIndex(index); setIsModalOpen(true); };
   const closeModal = () => setIsModalOpen(false);
-  const nextImage = () => setCurrentImageIndex((p) => (p + 1) % galleryImages.length);
-  const prevImage = () => setCurrentImageIndex((p) => (p - 1 + galleryImages.length) % galleryImages.length);
+  const nextImage = useCallback(() => {
+    setCurrentImageIndex((p) => (p + 1) % galleryImages.length);
+  }, [galleryImages.length]);
+
+  const prevImage = useCallback(() => {
+    setCurrentImageIndex((p) => (p - 1 + galleryImages.length) % galleryImages.length);
+  }, [galleryImages.length]);
 
   useEffect(() => {
     if (!id) return;
@@ -97,10 +117,14 @@ export default function CampanaDetalle() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen, currentImageIndex]);
+  }, [isModalOpen, currentImageIndex, nextImage, prevImage]);
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // `now` memoizado: referencia estable, no invalida los useMemo que lo usan.
+  const now = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   const actionsByDate = useMemo(() => {
     const map = new Map();
@@ -159,12 +183,6 @@ export default function CampanaDetalle() {
   };
 
   const validGroups = campaign.groups?.filter(g => g.link && g.link.trim() !== '') || [];
-  const galleryImages = [];
-  if (campaign.imageUrl) galleryImages.push({ id: 'main', url: campaign.imageUrl });
-  if (campaign.images && Array.isArray(campaign.images)) {
-    campaign.images.forEach(img => { if (img && img.url && img.url.trim() !== '') galleryImages.push({ id: img.id || img.url, url: img.url }); });
-  }
-
   // Filtrar grupos por plataforma
   const filteredCampaignGroups = platformFilter
     ? campaignGroups.filter(g => g.platform === platformFilter)

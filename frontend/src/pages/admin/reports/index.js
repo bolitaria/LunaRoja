@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/reports/index.js
 import api from '../../../lib/axios';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -46,7 +46,7 @@ function AdminReports() {
   const exportMenuRef = useRef(null);
   const lastSelectedIdRef = useRef(null);
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -69,12 +69,12 @@ function AdminReports() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => { fetchReports(); }, [
+  }, [
     currentPage, itemsPerPage, searchTerm, filterType, filterSource,
-    filterAuthor, filterHasFileUrl, dateFrom, dateTo
+    filterAuthor, filterHasFileUrl, dateFrom, dateTo,
   ]);
+
+  useEffect(() => { fetchReports(); }, [fetchReports]);
 
   useEffect(() => {
     const onKey = (e) => {

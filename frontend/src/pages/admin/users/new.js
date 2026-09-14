@@ -46,7 +46,7 @@ export default function NewUser() {
       }
     };
     fetchOptions();
-  }, []);
+  }, [currentUser?.role, currentUser?.campaigns]);
 
   // Solo superadmin y campaign_admin pueden crear usuarios
   if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'campaign_admin')) {

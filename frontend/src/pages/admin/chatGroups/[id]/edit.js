@@ -77,7 +77,7 @@ export default function EditChatGroup() {
     };
 
     fetchData();
-  }, [id]);
+  }, [id, router]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;

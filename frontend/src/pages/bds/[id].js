@@ -47,8 +47,13 @@ export default function BDSDetalle() {
     fetchData();
   }, [id]);
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // `now` memoizado: se calcula una vez al montar para que su referencia
+  // sea estable y no invalide el useMemo de `filteredActions` en cada render.
+  const now = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   const toggleLocation = (value) => {
     setFilterLocation(prev => (prev === value ? 'todos' : value));

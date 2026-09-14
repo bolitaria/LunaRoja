@@ -2,7 +2,7 @@
 // Componente reutilizable: vista pública de una acción.
 // Se usa tanto en /acciones/[id] como en /admin/actions/[id].
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
@@ -83,6 +83,32 @@ export default function ActionPublicView({ id }) {
     fetchAction();
   }, [id, apiUrl]);
 
+  // Galería memoizada: referencia estable entre renders → permite usar
+  // galleryImages.length como dependencia de useCallback sin loops.
+  const galleryImages = useMemo(() => {
+    if (!action) return [];
+    const imgs = [];
+    if (action.featuredImage && action.featuredImage.trim() !== '') {
+      imgs.push({ id: 'featured', url: action.featuredImage });
+    }
+    if (action.images && Array.isArray(action.images)) {
+      action.images.forEach((img) => {
+        if (img && img.url && img.url.trim() !== '') {
+          imgs.push({ id: img.id || img.url, url: img.url });
+        }
+      });
+    }
+    return imgs;
+  }, [action]);
+
+  const nextImage = useCallback(() => {
+    setCurrentImageIndex((p) => (p + 1) % galleryImages.length);
+  }, [galleryImages.length]);
+
+  const prevImage = useCallback(() => {
+    setCurrentImageIndex((p) => (p - 1 + galleryImages.length) % galleryImages.length);
+  }, [galleryImages.length]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isModalOpen) return;
@@ -92,7 +118,7 @@ export default function ActionPublicView({ id }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen, currentImageIndex]);
+  }, [isModalOpen, currentImageIndex, nextImage, prevImage]);
 
   const getImageUrl = (url) => {
     if (!url) return '';
@@ -171,17 +197,6 @@ export default function ActionPublicView({ id }) {
   if (error) return <p className="text-center py-20 text-red-600">{error}</p>;
   if (!action) return <p className="text-center py-20">Acción no encontrada</p>;
 
-  const galleryImages = [];
-  if (action.featuredImage && action.featuredImage.trim() !== '') {
-    galleryImages.push({ id: 'featured', url: action.featuredImage });
-  }
-  if (action.images && Array.isArray(action.images)) {
-    action.images.forEach((img) => {
-      if (img && img.url && img.url.trim() !== '') {
-        galleryImages.push({ id: img.id || img.url, url: img.url });
-      }
-    });
-  }
 
   const openModal = (i) => {
     setShowMapModal(false);
@@ -189,8 +204,6 @@ export default function ActionPublicView({ id }) {
     setIsModalOpen(true);
   };
   const closeModal = () => setIsModalOpen(false);
-  const nextImage = () => setCurrentImageIndex((p) => (p + 1) % galleryImages.length);
-  const prevImage = () => setCurrentImageIndex((p) => (p - 1 + galleryImages.length) % galleryImages.length);
 
   const openMapModal = () => {
     setIsModalOpen(false);

@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/news/index.js
 import api from '../../../lib/axios';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -65,7 +65,7 @@ function AdminNews() {
     }
   };
 
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -89,13 +89,13 @@ function AdminNews() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    currentPage, itemsPerPage, searchTerm, filterCampaignId, filterIsNews,
+    filterHasYoutube, filterHasThumbnail, filterHasAction, dateFrom, dateTo,
+  ]);
 
   useEffect(() => { fetchCampaigns(); }, []);
-  useEffect(() => { fetchNews(); }, [
-    currentPage, itemsPerPage, searchTerm, filterCampaignId, filterIsNews,
-    filterHasYoutube, filterHasThumbnail, filterHasAction, dateFrom, dateTo
-  ]);
+  useEffect(() => { fetchNews(); }, [fetchNews]);
 
   // Atajo: Escape limpia la selección activa
   useEffect(() => {

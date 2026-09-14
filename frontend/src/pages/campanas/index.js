@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
@@ -48,9 +48,13 @@ export default function Campanas() {
     fetchData();
   }, []);
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const todayStr = getLocalDateStr(now);
+  // now y todayStr memoizados: referencias estables entre renders.
+  const now = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const todayStr = useMemo(() => getLocalDateStr(now), [now]);
 
   const actionsByDate = useMemo(() => {
     const map = new Map();
@@ -62,24 +66,27 @@ export default function Campanas() {
     return map;
   }, [actions]);
 
-  const hasActionToday = (campaignId) => {
+  const hasActionToday = useCallback((campaignId) => {
     const campaignActions = actions.filter(a => a.campaignId === campaignId);
     return campaignActions.some(a => getLocalDateStr(a.datetime) === todayStr);
-  };
+  }, [actions, todayStr]);
 
-  const isActive = (campaignId) => actions.filter(a => a.campaignId === campaignId).some(action => new Date(action.datetime) > now);
+  const isActive = useCallback(
+    (campaignId) => actions.filter(a => a.campaignId === campaignId).some(action => new Date(action.datetime) > now),
+    [actions, now]
+  );
 
-  const hasUrgency = (campaignId) => {
+  const hasUrgency = useCallback((campaignId) => {
     const campaignActions = actions.filter(a => a.campaignId === campaignId);
     return campaignActions.some(a => a.urgent);
-  };
+  }, [actions]);
 
-  const getNextAction = (campaignId) => {
+  const getNextAction = useCallback((campaignId) => {
     const upcoming = actions
       .filter(a => a.campaignId === campaignId && new Date(a.datetime) > now)
       .sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
     return upcoming[0] || null;
-  };
+  }, [actions, now]);
 
   const filteredCampaigns = useMemo(() => {
     let filtered = campaigns;
@@ -137,7 +144,8 @@ export default function Campanas() {
         return 0;
       }
     });
-  }, [campaigns, selectedDate, actionsByDate, actions, timeFilter, filterUrgency, now, todayStr]);
+  }, [campaigns, selectedDate, actionsByDate, actions, timeFilter, filterUrgency, now,
+      hasActionToday, isActive, hasUrgency, getNextAction]);
 
   const tileClassName = ({ date, view }) => {
     if (view !== 'month') return null;

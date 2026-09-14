@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/actions/index.js
 import api from '../../../lib/axios';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -73,7 +73,7 @@ function AdminActions() {
     workshop: 'bg-orange-100 text-orange-800'
   };
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       const res = await api.get('/campaigns', { params: { limit: 1000 } });
       const payload = res.data;
@@ -82,9 +82,9 @@ function AdminActions() {
       console.warn('No se pudieron cargar campañas', error);
       setCampaigns([]);
     }
-  };
+  }, []);
 
-  const fetchActions = async () => {
+  const fetchActions = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -116,15 +116,19 @@ function AdminActions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    currentPage, itemsPerPage, searchTerm, filterCategory, filterCampaignId,
+    filterLocationType, filterStatus, filterUrgency, filterHasPrivateDoc,
+    filterHasPublicDoc, dateFrom, dateTo,
+  ]);
 
   useEffect(() => {
     fetchCampaigns();
-  }, []);
+  }, [fetchCampaigns]);
 
   useEffect(() => {
     fetchActions();
-  }, [currentPage, itemsPerPage, searchTerm, filterCategory, filterCampaignId, filterLocationType, filterStatus, filterUrgency, filterHasPrivateDoc, filterHasPublicDoc, dateFrom, dateTo]);
+  }, [fetchActions]);
 
   const handleFilterChange = (setter) => (value) => {
     setCurrentPage(1);

@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/petitions/index.js
 import api from '../../../lib/axios';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -68,7 +68,7 @@ function AdminPetitions() {
   const exportMenuRef = useRef(null);
   const lastSelectedIdRef = useRef(null);
 
-  const fetchPetitions = async () => {
+  const fetchPetitions = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -100,11 +100,14 @@ function AdminPetitions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    currentPage, itemsPerPage, searchTerm, filterUrgency, filterType,
+    filterHidden, minSignatures, createdFrom, createdTo, deadlineFrom, deadlineTo,
+  ]);
 
   useEffect(() => {
     fetchPetitions();
-  }, [currentPage, itemsPerPage, searchTerm, filterUrgency, filterType, filterHidden, minSignatures, createdFrom, createdTo, deadlineFrom, deadlineTo]);
+  }, [fetchPetitions]);
 
   const handleFilterChange = (setter) => (value) => {
     setCurrentPage(1);

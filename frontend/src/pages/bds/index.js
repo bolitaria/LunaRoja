@@ -51,8 +51,13 @@ export default function BDSList() {
     fetchData();
   }, []);
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // `now` memoizado: se calcula una vez al montar (a medianoche del día de carga)
+  // para que su referencia sea estable y no invalide los useMemo que lo consumen.
+  const now = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
   const bdsMap = useMemo(() => bdsList.reduce((m, b) => ({ ...m, [b.id]: b }), {}), [bdsList]);
   const actionsByDate = useMemo(() => {
     const map = new Map();

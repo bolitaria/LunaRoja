@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/campaigns/index.js
 import api from '../../../lib/axios';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router'; 
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
@@ -65,7 +65,7 @@ function AdminCampaigns() {
   const exportMenuRef = useRef(null);
   const lastSelectedIdRef = useRef(null);
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -98,11 +98,15 @@ function AdminCampaigns() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    currentPage, itemsPerPage, searchTerm, filterUrgency, filterVisibility,
+    filterHasActions, filterActionCategory, filterHasPublicDoc, filterHasPrivateDoc,
+    dateFrom, dateTo,
+  ]);
 
   useEffect(() => {
     fetchCampaigns();
-  }, [currentPage, itemsPerPage, searchTerm, filterUrgency, filterVisibility, filterHasActions, filterActionCategory, filterHasPublicDoc, filterHasPrivateDoc, dateFrom, dateTo]);
+  }, [fetchCampaigns]);
 
   const handleFilterChange = (setter) => (value) => {
     setCurrentPage(1);

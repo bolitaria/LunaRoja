@@ -18,7 +18,9 @@ function AdminCalendar() {
   const [showPast, setShowPast] = useState(true);
   const [showFuture, setShowFuture] = useState(true);
 
-  const now = new Date();
+  // `now` memoizado: se calcula una vez al montar para que su referencia
+  // sea estable y no invalide los useMemo que lo consumen en cada render.
+  const now = useMemo(() => new Date(), []);
 
   const fetchData = useCallback(async () => {
     try {

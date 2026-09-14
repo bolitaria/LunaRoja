@@ -8,6 +8,9 @@ import DocumentManager from '../../../../components/DocumentManager';
 import { unwrapList } from '../../../../utils/apiHelpers';
 import { FaArrowLeft } from 'react-icons/fa';
 
+const DEFAULT_LAT = 36.7213;
+const DEFAULT_LNG = -4.4214;
+
 function EditAction() {
   const router = useRouter();
   const { id } = router.query;
@@ -52,9 +55,6 @@ function EditAction() {
   const [linkType, setLinkType] = useState('none');
 
   const baseUrl = '';
-  const DEFAULT_LAT = 36.7213;
-  const DEFAULT_LNG = -4.4214;
-
   // ---------- LEAFLET ----------
   const loadLeaflet = () => {
     if (typeof window === 'undefined') return;
@@ -138,12 +138,15 @@ function EditAction() {
     loadLeaflet();
   }, [id]);
 
-  // Sincronizar categoría
+  // Sincronizar categoría con el tipo de vínculo.
+  // - Entrar en BDS  → fuerza category = 'bds'
+  // - Salir de BDS   → vacía la categoría (el admin debe elegir de nuevo)
+  // Functional updates para no depender de `form.category` como dep.
   useEffect(() => {
     if (linkType === 'bds') {
-      setForm(prev => ({ ...prev, category: 'bds' }));
+      setForm(prev => prev.category === 'bds' ? prev : { ...prev, category: 'bds' });
     } else {
-      if (form.category === 'bds') setForm(prev => ({ ...prev, category: 'protest' }));
+      setForm(prev => prev.category === 'bds' ? { ...prev, category: '' } : prev);
     }
   }, [linkType]);
 
@@ -239,6 +242,10 @@ function EditAction() {
   // Envío
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.category || !form.category.trim()) {
+      toast.warning('Selecciona una categoría');
+      return;
+    }
     if (form.locationType === 'online' && !form.registrationLink.trim()) {
       toast.warning('Recomendamos incluir un enlace de registro, pero puedes continuar.');
     }
@@ -374,6 +381,7 @@ function EditAction() {
                   </div>
                 ) : (
                   <select name="category" value={form.category} onChange={handleChange} className={selectClass}>
+                    <option value="">-- Selecciona categoría --</option>
                     {linkType !== 'campaign' && <option value="bds">Acción BDS</option>}
                     <option value="solidarity_action">Acción Solidaria</option>
                     <option value="talk">Charla</option>

@@ -1,47 +1,40 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { FaFileAlt, FaLock, FaLink, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaFileAlt, FaTrash } from 'react-icons/fa';
 import api from '../lib/axios';
 
 /**
- * DocumentManager — Componente reutilizable para gestionar documentos
- * de cualquier entidad (action, campaign, bds, report).
+ * DocumentManager — Gestor de documentos subidos (upload) para una entidad.
  *
- * Modos:
- *   - Documentos públicos  → upload, visible en web pública
- *   - Documentos privados  → upload, visible solo para admins con scope
- *   - Enlace externo (Drive) → link, siempre admin
+ * Modos (prop `section`):
+ *   - 'public'  → solo documentos públicos (visibilidad='public')
+ *   - 'private' → solo documentos privados (visibilidad='admin')
+ *   - 'all'     → muestra ambas secciones apiladas
  *
- * Formato de cada documento en el estado `documents`:
+ * El componente NO añade bordes laterales. Se asume que el padre lo coloca
+ * dentro de una sección con su propio `border-l-2` (verde para públicos,
+ * rojo/rosa para privados). Aquí solo renderizamos:
+ *   • Un dot de color (verde/rojo) + emoji + título + contador
+ *   • La lista de documentos existentes
+ *   • Una zona dashed clickable para añadir
+ *
+ * Formato de cada documento en el array `documents`:
  *   {
- *     id: 'tmp-XXX' | 123,           // temporal (nuevo) o id de BD (existente)
- *     name: 'Manifiesto',            // o `title` si viene de BD
- *     source: 'upload' | 'link',
- *     file: File | null,             // solo si source='upload' y es nuevo
- *     externalUrl: string | null,    // solo si source='link'
+ *     id: 'tmp-XXX' | 123,
+ *     name: 'Manifiesto',
+ *     source: 'upload',
+ *     file: File | null,         // solo si es nuevo
  *     visibility: 'public' | 'admin',
- *     filePath: string | null,       // solo si viene de BD
- *     isNew: boolean,                // true si es nuevo (aún no en BD)
+ *     filePath: string | null,   // solo si viene de BD
+ *     isNew: boolean,
  *   }
- *
- * Al enviar, el form padre debe convertirlo a FormData:
- *   documents.forEach((doc, idx) => {
- *     formData.append(`documents[${idx}][name]`, doc.name || doc.title);
- *     formData.append(`documents[${idx}][source]`, doc.source);
- *     formData.append(`documents[${idx}][visibility]`, doc.visibility);
- *     if (doc.source === 'upload' && doc.file) {
- *       formData.append(`documents[${idx}][file]`, doc.file);
- *     } else if (doc.source === 'link') {
- *       formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
- *     }
- *   });
  */
 
-const DEFAULT_LIMITS = {
-  action:   { maxPublic: 5, maxAdmin: 5, maxLinks: 1 },
-  campaign: { maxPublic: 5, maxAdmin: 5, maxLinks: 1 },
-  bds:      { maxPublic: 5, maxAdmin: 5, maxLinks: 1 },
-  report:   { maxPublic: 1, maxAdmin: 0, maxLinks: 0 },
+const DEFAULTS = {
+  action:   { maxPublic: 5, maxAdmin: 5 },
+  campaign: { maxPublic: 5, maxAdmin: 5 },
+  bds:      { maxPublic: 5, maxAdmin: 5 },
+  report:   { maxPublic: 1, maxAdmin: 0 },
 };
 
 function displayName(doc) {
@@ -54,89 +47,45 @@ export default function DocumentManager({
   onChange,
   maxPublic,
   maxAdmin,
-  maxLinks,
   className = '',
   section = 'all',
+  publicHint = null,
+  adminHint = null,
 }) {
-  const defaults = DEFAULT_LIMITS[entityType] || DEFAULT_LIMITS.action;
+  const defaults = DEFAULTS[entityType] || DEFAULTS.action;
   const limitPublic = maxPublic !== undefined ? maxPublic : defaults.maxPublic;
-  const limitAdmin = maxAdmin !== undefined ? maxAdmin : defaults.maxAdmin;
-  const limitLinks = maxLinks !== undefined ? maxLinks : defaults.maxLinks;
+  const limitAdmin  = maxAdmin  !== undefined ? maxAdmin  : defaults.maxAdmin;
 
-  const [adding, setAdding] = useState(null); // 'public' | 'admin' | 'link' | null
+  const [adding, setAdding] = useState(null);
   const [draftName, setDraftName] = useState('');
   const [draftFile, setDraftFile] = useState(null);
-  const [draftUrl, setDraftUrl] = useState('');
 
   const publics = documents.filter((d) => d.source === 'upload' && d.visibility === 'public');
   const admins  = documents.filter((d) => d.source === 'upload' && d.visibility === 'admin');
-  const links   = documents.filter((d) => d.source === 'link');
 
-  const resetDraft = () => {
-    setAdding(null);
-    setDraftName('');
-    setDraftFile(null);
-    setDraftUrl('');
-  };
+  const resetDraft = () => { setAdding(null); setDraftName(''); setDraftFile(null); };
 
   const handleAdd = (kind) => {
-    if (!draftName.trim()) {
-      toast.warning('El nombre es obligatorio');
-      return;
-    }
+    if (!draftName.trim()) { toast.warning('El nombre es obligatorio'); return; }
+    if (!draftFile) { toast.warning('Selecciona un fichero'); return; }
 
-    if (kind === 'public' || kind === 'admin') {
-      if (!draftFile) {
-        toast.warning('Selecciona un fichero');
-        return;
-      }
-      const max = kind === 'public' ? limitPublic : limitAdmin;
-      const current = kind === 'public' ? publics.length : admins.length;
-      if (current >= max) {
-        toast.warning(`Máximo ${max} documento(s) alcanzado`);
-        return;
-      }
-      onChange([
-        ...documents,
-        {
-          id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: draftName.trim(),
-          source: 'upload',
-          file: draftFile,
-          externalUrl: null,
-          visibility: kind === 'public' ? 'public' : 'admin',
-          filePath: null,
-          isNew: true,
-        },
-      ]);
-    } else if (kind === 'link') {
-      if (!draftUrl.trim()) {
-        toast.warning('Introduce una URL');
-        return;
-      }
-      if (!/^https?:\/\/.+/.test(draftUrl.trim())) {
-        toast.warning('La URL debe empezar por http:// o https://');
-        return;
-      }
-      if (links.length >= limitLinks) {
-        toast.warning(`Máximo ${limitLinks} enlace(s) alcanzado`);
-        return;
-      }
-      onChange([
-        ...documents,
-        {
-          id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: draftName.trim(),
-          source: 'link',
-          file: null,
-          externalUrl: draftUrl.trim(),
-          visibility: 'admin', // forzado por backend
-          filePath: null,
-          isNew: true,
-        },
-      ]);
-    }
+    const max = kind === 'public' ? limitPublic : limitAdmin;
+    const current = kind === 'public' ? publics.length : admins.length;
+    if (current >= max) { toast.warning(`Máximo ${max} documento(s) alcanzado`); return; }
 
+    onChange([
+      ...documents,
+      {
+        id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: draftName.trim(),
+        source: 'upload',
+        file: draftFile,
+        externalUrl: null,
+        visibility: kind === 'public' ? 'public' : 'admin',
+        filePath: null,
+        isNew: true,
+      },
+    ]);
     resetDraft();
   };
 
@@ -146,7 +95,7 @@ export default function DocumentManager({
       (typeof doc.id === 'string' && /^\d+$/.test(doc.id));
 
     if (isExisting) {
-      if (!confirm(`¿Eliminar el documento "${displayName(doc)}"? Esta acción no se puede deshacer.`)) return;
+      if (!confirm(`¿Eliminar "${displayName(doc)}"? Esta acción no se puede deshacer.`)) return;
       try {
         await api.delete(`/documents/${doc.id}`);
         toast.success('Documento eliminado');
@@ -160,47 +109,64 @@ export default function DocumentManager({
     onChange(documents.filter((d) => d.id !== doc.id));
   };
 
-  // ────────────────────────────────────────────────────────────
-  // Render secciones
-  // ────────────────────────────────────────────────────────────
+  const renderSection = (kind) => {
+    const isPublic = kind === 'public';
+    const docs = isPublic ? publics : admins;
+    const limit = isPublic ? limitPublic : limitAdmin;
 
-  const renderUploadSection = (kind, title, icon, docs, limit, color) => {
+    if (limit === 0) return null;
+
+    const title = isPublic ? 'Archivos públicos' : 'Archivos privados';
+    const icon = isPublic ? '🔓' : '🔐';
+    const dotColor = isPublic ? 'bg-green-500' : 'bg-rose-400';
+    const hint = isPublic ? publicHint : adminHint;
     const isFull = docs.length >= limit;
     const isAdding = adding === kind;
-    // Si el componente se usa con section (lo pone el padre), no pintamos
-    // la barra lateral aquí: la hereda del bloque superior.
-    const flat = section !== 'all';
-    const containerCls = flat ? 'relative' : `border-l-2 ${color.border} pl-4 relative`;
-    const dot = flat ? null : (
-      <span className={`absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full ${color.dot}`}></span>
-    );
 
     return (
-      <div className={containerCls}>
-        {dot}
-        <div className="flex items-center justify-between mb-2">
+      <div className="relative">
+        {/* Header: dot + emoji + título + contador */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`inline-block w-2.5 h-2.5 rounded-full ${dotColor}`}></span>
           <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-            {icon} {title}
+            <span>{icon}</span> {title}
             <span className={`text-sm font-normal ${isFull ? 'text-red-600' : 'text-gray-500'}`}>
               ({docs.length} / {limit})
             </span>
           </h3>
-          <button
-            type="button"
-            onClick={() => { resetDraft(); setAdding(kind); }}
-            disabled={isFull || isAdding}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-              isFull || isAdding
-                ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                : 'border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50'
-            }`}
-          >
-            <FaPlus className="w-3 h-3" /> Añadir
-          </button>
         </div>
 
-        {isAdding && (
-          <div className="bg-gray-50 p-3 rounded-lg mb-2 space-y-2">
+        {hint && <p className="text-sm text-gray-400 mb-2">{hint}</p>}
+
+        {/* Lista de documentos existentes */}
+        {docs.length > 0 && (
+          <ul className="space-y-1 mb-3">
+            {docs.map((doc) => (
+              <li
+                key={doc.id}
+                className="flex items-center justify-between bg-white border border-gray-200 p-2.5 rounded-lg text-sm"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <FaFileAlt className="text-gray-400 flex-shrink-0" />
+                  <span className="truncate">{displayName(doc)}</span>
+                  {doc.isNew && <span className="text-xs text-fuchsia-600">(nuevo)</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(doc)}
+                  className="text-red-600 hover:text-red-800 flex-shrink-0 ml-2"
+                  title="Eliminar"
+                >
+                  <FaTrash className="w-3.5 h-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Mini-form O zona clickable */}
+        {isAdding ? (
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
             <input
               type="text"
               placeholder="Nombre del documento (ej: Manifiesto 2026)"
@@ -231,135 +197,26 @@ export default function DocumentManager({
               </button>
             </div>
           </div>
-        )}
-
-        <ul className="space-y-1">
-          {docs.map((doc) => (
-            <li
-              key={doc.id}
-              className="flex items-center justify-between bg-white border border-gray-200 p-2.5 rounded-lg text-sm"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <FaFileAlt className="text-gray-400 flex-shrink-0" />
-                <span className="truncate">{displayName(doc)}</span>
-                {doc.isNew && <span className="text-xs text-fuchsia-600">(nuevo)</span>}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleRemove(doc)}
-                className="text-red-600 hover:text-red-800 flex-shrink-0 ml-2"
-                title="Eliminar"
-              >
-                <FaTrash className="w-3.5 h-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  };
-
-  const renderLinkSection = () => {
-    const isFull = links.length >= limitLinks;
-    const isAdding = adding === 'link';
-    const flat = section !== 'all';
-    const containerCls = flat ? 'relative' : 'border-l-2 border-blue-500 pl-4 relative';
-    const dot = flat ? null : (
-      <span className={`absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-blue-500`}></span>
-    );
-
-    return (
-      <div className={containerCls}>
-        {dot}
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-            <FaLink className="text-fuchsia-500" /> Enlace externo (Drive)
-            <span className={`text-sm font-normal ${isFull ? 'text-red-600' : 'text-gray-500'}`}>
-              ({links.length} / {limitLinks})
-            </span>
-          </h3>
+        ) : (
           <button
             type="button"
-            onClick={() => { resetDraft(); setAdding('link'); }}
-            disabled={isFull || isAdding}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-              isFull || isAdding
+            onClick={() => { resetDraft(); setAdding(kind); }}
+            disabled={isFull}
+            className={`w-full border-2 border-dashed rounded-lg py-4 transition-colors flex items-center justify-center gap-2 text-sm ${
+              isFull
                 ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                : 'border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50'
+                : 'border-gray-300 text-gray-500 hover:border-fuchsia-400 hover:text-fuchsia-600 hover:bg-fuchsia-50'
             }`}
           >
-            <FaPlus className="w-3 h-3" /> Añadir
+            {isFull ? (
+              <>Límite de {limit} alcanzado</>
+            ) : (
+              <>
+                <span>📎</span> Click para añadir documento
+              </>
+            )}
           </button>
-        </div>
-        <p className="text-sm text-gray-400 mb-2">
-          Los enlaces externos <strong>solo son visibles para administradores</strong>. Úsalos para enlazar carpetas de Drive u otros recursos internos.
-        </p>
-
-        {isAdding && (
-          <div className="bg-gray-50 p-3 rounded-lg mb-2 space-y-2">
-            <input
-              type="text"
-              placeholder="Nombre del enlace (ej: Carpeta Drive material)"
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
-              autoFocus
-            />
-            <input
-              type="url"
-              placeholder="https://drive.google.com/..."
-              value={draftUrl}
-              onChange={(e) => setDraftUrl(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleAdd('link')}
-                className="border border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-              >
-                Añadir
-              </button>
-              <button
-                type="button"
-                onClick={resetDraft}
-                className="bg-gray-200 text-gray-700 px-4 py-1.5 rounded-lg text-sm hover:bg-gray-300 transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
         )}
-
-        <ul className="space-y-1">
-          {links.map((doc) => (
-            <li
-              key={doc.id}
-              className="flex items-center justify-between bg-white border border-gray-200 p-2.5 rounded-lg text-sm"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <FaLink className="text-blue-500 flex-shrink-0" />
-                <span className="truncate">{displayName(doc)}</span>
-                <a
-                  href={doc.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline flex-shrink-0"
-                >
-                  abrir ↗
-                </a>
-              </span>
-              <button
-                type="button"
-                onClick={() => handleRemove(doc)}
-                className="text-red-600 hover:text-red-800 flex-shrink-0 ml-2"
-                title="Eliminar"
-              >
-                <FaTrash className="w-3.5 h-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
       </div>
     );
   };
@@ -367,29 +224,10 @@ export default function DocumentManager({
   const showPublic = section === 'all' || section === 'public';
   const showPrivate = section === 'all' || section === 'private';
 
-  const wrapperSpace = section === 'all' ? 'space-y-6' : 'space-y-4';
-
   return (
-    <div className={`${wrapperSpace} ${className}`}>
-      {showPublic && renderUploadSection(
-        'public',
-        'Archivos públicos',
-        <FaFileAlt className="text-fuchsia-500" />,
-        publics,
-        limitPublic,
-        { border: 'border-green-500', dot: 'bg-green-500' }
-      )}
-
-      {showPrivate && renderUploadSection(
-        'admin',
-        'Archivos privados',
-        <FaLock className="text-fuchsia-500" />,
-        admins,
-        limitAdmin,
-        { border: 'border-rose-400', dot: 'bg-rose-400' }
-      )}
-
-      {showPrivate && renderLinkSection()}
+    <div className={`space-y-6 ${className}`}>
+      {showPublic && renderSection('public')}
+      {showPrivate && renderSection('admin')}
     </div>
   );
 }

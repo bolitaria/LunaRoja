@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/bds/index.js
 import api from '../../../lib/axios';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
@@ -63,7 +63,7 @@ function AdminBDS() {
   const exportMenuRef = useRef(null);
   const lastSelectedIdRef = useRef(null);
 
-  const fetchBDS = async () => {
+  const fetchBDS = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -96,11 +96,15 @@ function AdminBDS() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    currentPage, itemsPerPage, searchTerm, filterUrgency, filterVisibility,
+    filterHasActions, filterActionCategory, filterHasPublicDoc, filterHasPrivateDoc,
+    dateFrom, dateTo,
+  ]);
 
   useEffect(() => {
     fetchBDS();
-  }, [currentPage, itemsPerPage, searchTerm, filterUrgency, filterVisibility, filterHasActions, filterActionCategory, filterHasPublicDoc, filterHasPrivateDoc, dateFrom, dateTo]);
+  }, [fetchBDS]);
 
   const handleFilterChange = (setter) => (value) => {
     setCurrentPage(1);

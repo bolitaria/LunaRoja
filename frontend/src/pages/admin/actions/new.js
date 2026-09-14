@@ -8,6 +8,9 @@ import DocumentManager from '../../../components/DocumentManager';
 import { unwrapList } from '../../../utils/apiHelpers';
 import { FaArrowLeft } from 'react-icons/fa';
 
+const DEFAULT_LAT = 36.7213;
+const DEFAULT_LNG = -4.4214;
+
 function NewAction() {
   const router = useRouter();
   const { campaignId, bdsId } = router.query; // preselección opcional
@@ -51,9 +54,6 @@ function NewAction() {
   const [linkType, setLinkType] = useState('none');
   // Bloquear si viene de una campaña/BDS
   const linkTypeLocked = Boolean(campaignId || bdsId);
-
-  const DEFAULT_LAT = 36.7213;
-  const DEFAULT_LNG = -4.4214;
 
   // ---------- LEAFLET ----------
   const loadLeaflet = () => {
@@ -226,12 +226,14 @@ function NewAction() {
 
   // ---------- SINCRONIZACIÓN DE CATEGORÍA ----------
   useEffect(() => {
+    // Sincronización de categoría con el tipo de vínculo.
+    // - Entrar en BDS  → fuerza category = 'bds'
+    // - Salir de BDS   → vacía la categoría (el admin debe elegir de nuevo)
+    // Usamos functional updates para no depender de `form.category` como dep.
     if (linkType === 'bds') {
-      setForm(prev => ({ ...prev, category: 'bds' }));
+      setForm(prev => prev.category === 'bds' ? prev : { ...prev, category: 'bds' });
     } else {
-      if (form.category === 'bds') {
-        setForm(prev => ({ ...prev, category: 'protest' }));
-      }
+      setForm(prev => prev.category === 'bds' ? { ...prev, category: '' } : prev);
     }
   }, [linkType]);
 
@@ -281,6 +283,10 @@ function NewAction() {
   // ---------- ENVÍO ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.category || !form.category.trim()) {
+      toast.warning('Selecciona una categoría');
+      return;
+    }
     if (form.locationType === 'online' && !form.registrationLink.trim()) {
       toast.warning('Recomendamos incluir un enlace de registro, pero puedes continuar.');
     }
@@ -468,6 +474,7 @@ function NewAction() {
                   </div>
                 ) : (
                   <select name="category" value={form.category} onChange={handleChange} className={selectClass}>
+                    <option value="">-- Selecciona categoría --</option>
                     {linkType !== 'campaign' && <option value="bds">Acción BDS</option>}
                     <option value="solidarity_action">Acción Solidaria</option>
                     <option value="talk">Charla</option>
@@ -593,46 +600,12 @@ function NewAction() {
                 </label>
               </div>
             </div>
-          </div>
 
-          {/* GRUPOS PÚBLICOS */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-              <span>💬</span> Grupos de chat públicos
-            </h3>
-            <p className="text-sm text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
-            <div className="space-y-2">
-              {groups.map((group, idx) => (
-                <div key={idx} className="flex gap-2 mb-2 items-center">
-                  <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="telegram">Telegram</option>
-                    <option value="signal">Signal</option>
-                  </select>
-                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
-                  <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={addGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1">
-                <span>+</span> Añadir grupo público
-              </button>
-            </div>
-          </div>
-
-          {/* DOCUMENTOS */}
-          <DocumentManager
-            entityType="action"
-            documents={documents}
-            onChange={setDocuments}
-            section="public"
-          />
-
-          {/* GALERÍA */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-              <span>📸 </span> Galería de imágenes
+          {/* IMÁGENES */}
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <span>📸</span> Imágenes
             </h3>
             <p className="text-sm text-gray-400 mb-2">Imágenes que se mostrarán en la galería pública.</p>
             <div className="space-y-4">
@@ -678,6 +651,43 @@ function NewAction() {
             </div>
           </div>
 
+          {/* ARCHIVOS PÚBLICOS */}
+          <DocumentManager
+            entityType="action"
+            documents={documents}
+            onChange={setDocuments}
+            section="public"
+            className="mt-6"
+            publicHint="Estos documentos serán visibles para todos los usuarios."
+          />
+
+          {/* GRUPOS PÚBLICOS */}
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <span>💬</span> Grupos de chat públicos
+            </h3>
+            <p className="text-sm text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
+            <div className="space-y-2">
+              {groups.map((group, idx) => (
+                <div key={idx} className="flex gap-2 mb-2 items-center">
+                  <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="signal">Signal</option>
+                  </select>
+                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
+                  <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1">
+                <span>+</span> Añadir grupo público
+              </button>
+            </div>
+          </div>
+
+          </div>{/* /ZONA PÚBLICA */}
+
           {/* ZONA PRIVADA */}
           <div className="border-l-2 border-rose-400 pl-4 mt-8 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-rose-400"></span>
@@ -690,6 +700,7 @@ function NewAction() {
                 documents={documents}
                 onChange={setDocuments}
                 section="private"
+                adminHint="Este enlace solo será visible para administradores."
               />
 
               <div>
