@@ -75,7 +75,8 @@ export default function ActionPublicView({ id }) {
         setError(null);
       } catch (err) {
         console.error('Error fetching action:', err);
-        setError('No se pudo cargar la acción. Intenta de nuevo.');
+        const serverMsg = err.response?.data?.message;
+        setError(serverMsg || 'No se pudo cargar la acción. Intenta de nuevo.');
       } finally {
         setLoading(false);
       }

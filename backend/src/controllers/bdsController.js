@@ -237,7 +237,7 @@ exports.getBDSById = async (req, res) => {
 
 exports.createBDS = async (req, res) => {
   try {
-    let { name, description, color, groups } = req.body;
+    let { name, description, color, groups, privateLink } = req.body;
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
 
     if (groups && typeof groups === 'string') {
@@ -253,6 +253,7 @@ exports.createBDS = async (req, res) => {
       color: color || '#E53E3E',
       imageUrl: null,
       groups,
+      privateLink: privateLink || null,
       status: 'processing',
     });
 
@@ -319,7 +320,7 @@ exports.updateBDS = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    let { name, description, color, groups } = req.body;
+    let { name, description, color, groups, privateLink } = req.body;
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
@@ -331,6 +332,7 @@ exports.updateBDS = async (req, res) => {
       description: description !== undefined ? description : bds.description,
       color: color || bds.color,
       groups: groups !== undefined ? groups : bds.groups,
+      privateLink: privateLink !== undefined ? privateLink : bds.privateLink,
     });
 
     const hasFiles = uploaded.featuredImage || uploaded.documents.length > 0;

@@ -13,19 +13,16 @@ import api from '../lib/axios';
  *
  * El componente NO añade bordes laterales. Se asume que el padre lo coloca
  * dentro de una sección con su propio `border-l-2` (verde para públicos,
- * rojo/rosa para privados). Aquí solo renderizamos:
- *   • Un dot de color (verde/rojo) + emoji + título + contador
- *   • La lista de documentos existentes
- *   • Una zona dashed clickable para añadir
+ * rojo/rosa para privados).
  *
  * Formato de cada documento en el array `documents`:
  *   {
  *     id: 'tmp-XXX' | 123,
  *     name: 'Manifiesto',
  *     source: 'upload',
- *     file: File | null,         // solo si es nuevo
+ *     file: File | null,
  *     visibility: 'public' | 'admin',
- *     filePath: string | null,   // solo si viene de BD
+ *     filePath: string | null,
  *     isNew: boolean,
  *   }
  */
@@ -39,6 +36,10 @@ const DEFAULTS = {
 
 function displayName(doc) {
   return doc.name || doc.title || 'Sin nombre';
+}
+
+function stripExtension(filename) {
+  return filename.replace(/\.[^/.]+$/, '');
 }
 
 export default function DocumentManager({
@@ -167,31 +168,67 @@ export default function DocumentManager({
         {/* Mini-form O zona clickable */}
         {isAdding ? (
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+            {/* 1º: file picker — evidente, fucsia, primero */}
+            <label
+              className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                draftFile
+                  ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                  : 'border-fuchsia-300 bg-white text-fuchsia-600 hover:border-fuchsia-500 hover:bg-fuchsia-50'
+              }`}
+            >
+              <input
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files[0] || null;
+                  setDraftFile(file);
+                  if (file) {
+                    setDraftName((prev) => (prev.trim() ? prev : stripExtension(file.name)));
+                  }
+                }}
+                className="hidden"
+              />
+              <span className="text-base flex-shrink-0">📁</span>
+              <span className="text-sm font-medium truncate flex-1">
+                {draftFile ? draftFile.name : 'Seleccionar archivo...'}
+              </span>
+              {draftFile && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDraftFile(null);
+                  }}
+                  className="flex-shrink-0 w-5 h-5 rounded-full bg-fuchsia-200 hover:bg-fuchsia-300 text-fuchsia-700 text-xs font-bold flex items-center justify-center transition-colors"
+                  title="Quitar archivo"
+                >
+                  ×
+                </button>
+              )}
+            </label>
+
+            {/* 2º: nombre (auto-rellenado desde el archivo) */}
             <input
               type="text"
               placeholder="Nombre del documento (ej: Manifiesto 2026)"
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-300 focus:border-fuchsia-500"
-              autoFocus
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-fuchsia-300 focus:border-fuchsia-500"
             />
-            <input
-              type="file"
-              onChange={(e) => setDraftFile(e.target.files[0] || null)}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer"
-            />
-            <div className="flex gap-2">
+
+            {/* 3º: botones */}
+            <div className="flex gap-2 pt-0.5">
               <button
                 type="button"
                 onClick={() => handleAdd(kind)}
-                className="border border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                className="border border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50 px-3 py-1 rounded-lg text-xs font-medium transition-colors"
               >
                 Añadir
               </button>
               <button
                 type="button"
                 onClick={resetDraft}
-                className="bg-gray-200 text-gray-700 px-4 py-1.5 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs hover:bg-gray-300 transition-colors"
               >
                 Cancelar
               </button>
@@ -202,7 +239,7 @@ export default function DocumentManager({
             type="button"
             onClick={() => { resetDraft(); setAdding(kind); }}
             disabled={isFull}
-            className={`w-full border-2 border-dashed rounded-lg py-4 transition-colors flex items-center justify-center gap-2 text-sm ${
+            className={`w-full border border-dashed rounded-lg py-2.5 transition-colors flex items-center justify-center gap-2 text-sm ${
               isFull
                 ? 'border-gray-200 text-gray-300 cursor-not-allowed'
                 : 'border-gray-300 text-gray-500 hover:border-fuchsia-400 hover:text-fuchsia-600 hover:bg-fuchsia-50'

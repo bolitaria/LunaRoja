@@ -464,14 +464,8 @@ function AdminPetitions() {
         </div>
       )}
 
-      {/* Control de vista y métricas */}
-      <div className="flex items-center justify-between mb-4 pl-6">
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setSelected([]); setAutoSelected(false); }} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors focus:outline-none bg-white border border-gray-300 text-gray-600 hover:bg-gray-50">
-            <FaEye className="w-4 h-4" /> Vista
-          </button>
-        </div>
-
+      {/* Control de métricas */}
+      <div className="flex items-center justify-end mb-4 pl-6">
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setFilterUrgency(false); setFilterType('all'); setCurrentPage(1); }}
@@ -566,7 +560,18 @@ function AdminPetitions() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{p.title}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    <div className="flex items-center gap-3">
+                      {(p.featured_image || p.imageUrl) && (
+                        <img
+                          src={p.featured_image || p.imageUrl}
+                          alt=""
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-200"
+                        />
+                      )}
+                      <span>{p.title}</span>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{p.type === 'official' ? 'Peticiones Externas' : 'Peticiones Internas'}</td>
                   <td className="px-6 py-4 hidden md:table-cell">{p.urgency ? <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium"><FaFire className="w-3 h-3" /> Urgente</span> : '—'}</td>
                   <td className="px-6 py-4 hidden md:table-cell text-gray-500">{p.total_signatures}</td>

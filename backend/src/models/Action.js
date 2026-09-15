@@ -87,6 +87,10 @@ const Action = sequelize.define('Action', {
     type: DataTypes.JSON,
     allowNull: true,
   },
+  privateLink: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+  },
   urgent: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

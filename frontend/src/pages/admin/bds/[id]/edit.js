@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import CampaignPreview from '../../../../components/CampaignPreview';
 import DocumentManager from '../../../../components/DocumentManager';
 import ColorPicker from '../../../../components/ColorPicker';
-import { FaArrowLeft, FaTimes } from 'react-icons/fa';;
+import { FaArrowLeft, FaTimes, FaLock } from 'react-icons/fa';
 
 export default function EditBDS() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function EditBDS() {
   const [counters, setCounters] = useState({ subscriberCount: 0, actionCount: 0, urgentActionCount: 0 });
   const [imagePreview, setImagePreview] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [privateLink, setPrivateLink] = useState('');
   const [currentImage, setCurrentImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,7 @@ export default function EditBDS() {
         const res = await api.get(`/bds/${id}`);
         const bds = res.data;
         setName(bds.name || '');
+        setPrivateLink(bds.privateLink || '');
         setDescription(bds.description || '');
         setColor(bds.color || '#E53E3E');
         const allGroups = bds.groups || [];
@@ -103,6 +105,7 @@ export default function EditBDS() {
       formData.append('description', description.trim());
       formData.append('color', color);
       formData.append('groups', JSON.stringify(allGroups));
+      formData.append('privateLink', privateLink || '');
       const newDocs = documents.filter(d => d.isNew);
       newDocs.forEach((doc, idx) => {
         formData.append(`documents[${idx}][name]`, doc.name);
@@ -153,11 +156,11 @@ export default function EditBDS() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Color de etiqueta</label>
@@ -179,20 +182,21 @@ export default function EditBDS() {
                 entityType="bds"
                 documents={documents}
                 onChange={setDocuments}
-              section="public"
-            />
+                section="public"
+                publicHint="Estos documentos serán visibles de forma pública."
+              />
 
               <div className="border-t pt-4 mt-4">
-                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2"><span>💬</span> Grupos de chat públicos</h3>
+                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span><span>💬</span> Grupos de chat públicos</h3>
                 <p className="text-xs text-gray-400 mb-2">Estos grupos aparecerán en la web pública.</p>
                 {publicGroups.map((group, idx) => (
                   <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <select value={group.platform} onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                    <select value={group.platform} onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500">
                       <option value="whatsapp">WhatsApp</option>
                       <option value="telegram">Telegram</option>
                       <option value="signal">Signal</option>
                     </select>
-                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500" />
                     <button type="button" onClick={() => removePublicGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
                   </div>
                 ))}
@@ -208,17 +212,37 @@ export default function EditBDS() {
               <span>🔒</span> Área privada de administración
             </h2>
             <div className="space-y-4">
+              <DocumentManager
+                entityType="bds"
+                documents={documents}
+                onChange={setDocuments}
+                section="private"
+              />
+
               <div>
-                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2"><span>🔐</span> Grupos internos (privados)</h3>
-                <p className="text-xs text-gray-400 mb-2">Solo visibles para administradores.</p>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                  <FaLock className="w-3.5 h-3.5 text-rose-500" />
+                  Enlace externo a documentos privados
+                </label>
+                <input type="url" value={privateLink} onChange={(e) => setPrivateLink(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500" />
+              </div>
+
+              {/* GRUPOS PRIVADOS */}
+              <div>
+                <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                  <span>☁️</span> Grupos de chat privados
+                </h3>
+                <p className="text-xs text-gray-400 mb-2">Estos grupos solo serán visibles para administradores.</p>
                 {privateGroups.map((group, idx) => (
                   <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <select value={group.platform} onChange={(e) => updatePrivateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500">
+                    <select value={group.platform} onChange={(e) => updatePrivateGroup(idx, 'platform', e.target.value)} className="px-2 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500">
                       <option value="whatsapp">WhatsApp</option>
                       <option value="telegram">Telegram</option>
                       <option value="signal">Signal</option>
                     </select>
-                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePrivateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:ring-2 focus:ring-fuchsia-500" />
+                    <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePrivateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500" />
                     <button type="button" onClick={() => removePrivateGroup(idx)} className="text-red-600 hover:text-red-800">✕</button>
                   </div>
                 ))}
@@ -242,6 +266,7 @@ export default function EditBDS() {
             image={previewImage}
             groups={[...publicGroups.map((g) => ({ ...g, isPublic: true })), ...privateGroups.map((g) => ({ ...g, isPublic: false }))]}
             documents={documents}
+            privateLink={privateLink}
             subscriberCount={counters.subscriberCount}
             actionCount={counters.actionCount}
             urgentActionCount={counters.urgentActionCount}

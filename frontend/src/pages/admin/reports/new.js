@@ -138,32 +138,62 @@ export default function NewReport() {
       <div className="flex flex-col lg:flex-row gap-8">
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
 
-          {/* TÍTULO */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
-            <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputClass} />
-          </div>
+          {/* ZONA PÚBLICA */}
+          <div className="border-l-2 border-green-500 pl-4 relative">
+            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            <h2 className="text-xl font-semibold text-gray-700 flex items-center gap-2 mb-4">
+              <span>🌍</span> Información pública
+            </h2>
+            <div className="space-y-4">
+              {/* TÍTULO */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
+                <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputClass} />
+              </div>
 
-          {/* TIPO */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
-            <select name="type" value={form.type} onChange={handleChange} className={inputClass}>
-              <option value="blog">Blog (con firma del autor)</option>
-              <option value="report">Reporte (con bibliografía)</option>
-            </select>
-          </div>
+              {/* TIPO */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-1">Tipo *</label>
+                <select name="type" value={form.type} onChange={handleChange} className={inputClass}>
+                  <option value="blog">Blog (con firma del autor)</option>
+                  <option value="report">Reporte (con bibliografía)</option>
+                </select>
+              </div>
 
-          {/* DESCRIPCIÓN */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Descripción</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows="3" className={inputClass} />
+              {/* DESCRIPCIÓN */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-1">Descripción</label>
+                <textarea name="description" value={form.description} onChange={handleChange} rows="3" className={inputClass} />
+              </div>
+
+              {/* FUENTE */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-1">Fuente original (opcional)</label>
+                <input
+                  type="text"
+                  name="source"
+                  value={form.source}
+                  onChange={handleChange}
+                  placeholder="Ej: Amnistía Internacional, El País..."
+                  className={inputClass}
+                />
+              </div>
+
+              {/* FECHA */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-1">Fecha de publicación</label>
+                <input type="datetime-local" name="publishedAt" value={form.publishedAt} onChange={handleChange} className={inputClass} />
+              </div>
+            </div>
           </div>
 
           {/* AUTOR — solo si type='blog' */}
           {form.type === 'blog' && (
-            <div className="border-l-2 border-fuchsia-500 pl-4 relative">
-              <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-fuchsia-500"></span>
-              <label className="block text-base font-medium text-gray-700 mb-1">Firma del autor *</label>
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                <span>✍️</span> Firma del autor
+              </h3>
               <input
                 type="text"
                 name="author"
@@ -172,19 +202,18 @@ export default function NewReport() {
                 placeholder="Nombre de quien escribe"
                 className={inputClass}
               />
-              <p className="text-xs text-gray-400 mt-1">Obligatorio. Aparecerá como firma del artículo.</p>
+              <p className="text-sm text-gray-400 mt-1">Obligatorio. Aparecerá como firma del artículo.</p>
             </div>
           )}
 
           {/* BIBLIOGRAFÍA — solo si type='report' */}
           {form.type === 'report' && (
-            <div className="border-l-2 border-blue-500 pl-4 relative">
-              <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+            <div className="mt-6">
               <div className="flex items-center justify-between mb-2">
-                <div>
-                  <label className="block text-base font-medium text-gray-700">Bibliografía *</label>
-                  <p className="text-xs text-gray-400">Fuentes de donde se ha sacado la información (mín. 1, máx. {MAX_BIBLIOGRAPHY}).</p>
-                </div>
+                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                  <span>📚</span> Bibliografía
+                </h3>
                 <button
                   type="button"
                   onClick={addBibliographyEntry}
@@ -192,12 +221,13 @@ export default function NewReport() {
                   className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                     bibliography.length >= MAX_BIBLIOGRAPHY
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'border border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50'
                   }`}
                 >
                   <FaPlus className="w-3 h-3" /> Añadir
                 </button>
               </div>
+              <p className="text-sm text-gray-400 mb-2">Fuentes de donde se ha sacado la información (mín. 1, máx. {MAX_BIBLIOGRAPHY}).</p>
               <div className="space-y-2">
                 {bibliography.map((entry, idx) => (
                   <div key={idx} className="flex gap-2 items-start">
@@ -232,8 +262,12 @@ export default function NewReport() {
           )}
 
           {/* CONTENIDO: texto XOR PDF */}
-          <div className="border-t pt-4">
-            <label className="block text-base font-medium text-gray-700 mb-2">Contenido *</label>
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <span>📝</span> Contenido
+            </h3>
+            <p className="text-sm text-gray-400 mb-2">Elige entre escribir texto o subir un PDF. Solo uno de los dos.</p>
             <div className="flex gap-6 mb-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -242,7 +276,7 @@ export default function NewReport() {
                   value="text"
                   checked={contentMode === 'text'}
                   onChange={() => { setContentMode('text'); setDocuments([]); }}
-                  className="text-fuchsia-600 focus:ring-fuchsia-500"
+                  className="text-fuchsia-600 focus:outline-none focus:ring-2 focus:ring-fuchsia-200"
                 />
                 <span className="text-base">Escribir texto aquí</span>
               </label>
@@ -253,7 +287,7 @@ export default function NewReport() {
                   value="file"
                   checked={contentMode === 'file'}
                   onChange={() => { setContentMode('file'); }}
-                  className="text-fuchsia-600 focus:ring-fuchsia-500"
+                  className="text-fuchsia-600 focus:outline-none focus:ring-2 focus:ring-fuchsia-200"
                 />
                 <span className="text-base">Subir PDF</span>
               </label>
@@ -280,25 +314,6 @@ export default function NewReport() {
                 maxLinks={0}
               />
             )}
-          </div>
-
-          {/* FUENTE */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Fuente original (opcional)</label>
-            <input
-              type="text"
-              name="source"
-              value={form.source}
-              onChange={handleChange}
-              placeholder="Ej: Amnistía Internacional, El País..."
-              className={inputClass}
-            />
-          </div>
-
-          {/* FECHA */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">Fecha de publicación</label>
-            <input type="datetime-local" name="publishedAt" value={form.publishedAt} onChange={handleChange} className={inputClass} />
           </div>
 
           <button type="submit" disabled={loading}

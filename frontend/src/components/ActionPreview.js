@@ -28,7 +28,9 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
   const hasAddress = address || placeName;
   const hasImages = Array.isArray(images) && images.length > 0;
   const isUrgent = Boolean(urgent);
-  const hasGroups = Array.isArray(groups) && groups.length > 0;
+  const publicGroups = (groups || []).filter(g => g.isPublic !== false);
+  const privateGroupsCount = (groups || []).filter(g => g.isPublic === false).length;
+  const hasGroups = publicGroups.length > 0 || privateGroupsCount > 0;
   const hasDocs = (Array.isArray(documents) && documents.length > 0) || Boolean(documentLink);
   const hasCoords = latitude && longitude;
 
@@ -142,7 +144,7 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">📁 Documentos</span>
             )}
             {hasGroups && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-full border border-purple-200">💬 {groups.length} grupos</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-full border border-purple-200">💬 {publicGroups.length} públicos{privateGroupsCount > 0 && ` · 🔒 ${privateGroupsCount} privados`}</span>
             )}
           </div>
 

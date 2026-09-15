@@ -35,6 +35,10 @@ const Campaign = sequelize.define('Campaign', {
     type: DataTypes.JSON,
     allowNull: true,
   },
+  privateLink: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+  },
   visible: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

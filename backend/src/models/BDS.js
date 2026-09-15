@@ -30,6 +30,10 @@ const BDS = sequelize.define('BDS', {
   groups: {
     type: DataTypes.JSON,
   },
+  privateLink: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+  },
   visible: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

@@ -221,6 +221,13 @@ export default function NewPetition() {
               <textarea name="description" value={form.description} onChange={handleChange} rows="2" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
             </div>
 
+            {!isInternal && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">URL de la petición *</label>
+                <input type="url" name="externalUrl" value={form.externalUrl} onChange={handleChange} required placeholder="https://www.change.org/..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-500" />
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Imagen destacada (opcional)</label>
               <div className="flex items-center gap-4">
@@ -244,13 +251,6 @@ export default function NewPetition() {
                 </div>
               </div>
             </div>
-
-            {!isInternal && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL de la petición *</label>
-                <input type="url" name="externalUrl" value={form.externalUrl} onChange={handleChange} required placeholder="https://www.change.org/..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
-              </div>
-            )}
           </div>
 
           {/* CONFIGURACIÓN DEL EMAIL */}
@@ -316,7 +316,7 @@ export default function NewPetition() {
         </form>
 
         {/* VISTAS PREVIAS */}
-        <div className="lg:w-1/3 flex flex-col gap-8">  {/* espacio vertical aumentado */}
+        <div className="lg:w-1/3 flex flex-col gap-12">
           {/* Vista previa pública */}
           <div>
             <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">

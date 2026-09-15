@@ -246,7 +246,7 @@ exports.getCampaignById = async (req, res) => {
 
 exports.createCampaign = async (req, res) => {
   try {
-    let { name, description, color, groups } = req.body;
+    let { name, description, color, groups, privateLink } = req.body;
     if (!name) return res.status(400).json({ message: 'Nombre requerido' });
 
     if (groups && typeof groups === 'string') {
@@ -261,6 +261,7 @@ exports.createCampaign = async (req, res) => {
       color: color || '#E53E3E',
       imageUrl: null,
       groups: groups || [],
+      privateLink: privateLink || null,
       status: 'processing',
     });
 
@@ -324,7 +325,7 @@ exports.updateCampaign = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    let { name, description, color, groups } = req.body;
+    let { name, description, color, groups, privateLink } = req.body;
     if (groups && typeof groups === 'string') {
       try { groups = JSON.parse(groups); } catch (e) { groups = null; }
     }
@@ -337,6 +338,7 @@ exports.updateCampaign = async (req, res) => {
       description: description !== undefined ? description : campaign.description,
       color: color || campaign.color,
       groups: groups || [],
+      privateLink: privateLink !== undefined ? privateLink : campaign.privateLink,
     });
 
     // Ficheros async

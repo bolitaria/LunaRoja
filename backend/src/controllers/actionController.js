@@ -97,9 +97,10 @@ exports.getAllActions = async (req, res) => {
 
     const where = {};
 
-    // Los usuarios anónimos solo ven acciones publicadas (status='published').
-    // Los admins ven todas (incluyendo 'processing' y 'error').
-    if (!req.user) {
+    // Solo los admins ven acciones no publicadas (processing/error).
+    // Anónimos y usuarios logados sin rol de gestión ven solo 'published'.
+    const isAdmin = req.user && ['superadmin', 'campaign_admin', 'bds_admin', 'action_admin'].includes(req.user.role);
+    if (!isAdmin) {
       where.status = 'published';
     }
 
@@ -230,7 +231,15 @@ exports.getActionById = async (req, res) => {
   try {
     const { id } = req.params;
     if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
-    const action = await Action.findByPk(id, {
+
+    // Solo admins pueden ver acciones en 'processing'/'error'.
+    // El resto (anónimos y logados sin rol de gestión) solo ven 'published'.
+    const isAdmin = req.user && ['superadmin', 'campaign_admin', 'bds_admin', 'action_admin'].includes(req.user.role);
+    const where = { id };
+    if (!isAdmin) where.status = 'published';
+
+    const action = await Action.findOne({
+      where,
       include: [
         { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
         { model: BDS, as: 'bds', attributes: ['id', 'name', 'color'] },
@@ -250,7 +259,7 @@ exports.createAction = async (req, res) => {
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
       registrationLink, recordingUrl, isLive, campaignId, bdsId,
-      groups, documentLink,
+      groups, documentLink, privateLink,
     } = req.body;
 
     const parsedCampaignId = toInt(campaignId);
@@ -317,6 +326,7 @@ exports.createAction = async (req, res) => {
       imageUrl: null,
       galleryImages: [],
       groups: groups || [],
+      privateLink: privateLink || null,
       status: 'processing',
     });
 
@@ -399,7 +409,7 @@ exports.updateAction = async (req, res) => {
       title, description, category, datetime,
       locationType, onlineLink, placeName, address, latitude, longitude,
       registrationLink, recordingUrl, isLive, campaignId, bdsId,
-      groups,
+      groups, privateLink,
     } = req.body;
 
     let parsedCampaignId = toInt(campaignId);
@@ -473,6 +483,7 @@ exports.updateAction = async (req, res) => {
       campaignId: parsedCampaignId,
       bdsId: parsedBdsId,
       groups: groups || [],
+      privateLink: privateLink !== undefined ? privateLink : action.privateLink,
     });
 
     // 2. Si hay ficheros nuevos → encolar procesamiento async
