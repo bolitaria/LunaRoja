@@ -64,6 +64,7 @@ async function getDefaultPetitionTemplate() {
 exports.createPetition = async (req, res, next) => {
   try {
     const title = req.body.title;
+    const description = req.body.description;
     const content = req.body.content;
     const type = req.body.type;
     const externalUrl = getField(req.body, 'externalUrl', 'external_url');
@@ -72,15 +73,9 @@ exports.createPetition = async (req, res, next) => {
     const hidden = req.body.hidden;
     let emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
     const emailSubject = getField(req.body, 'emailSubject', 'email_subject');
+    const emailContentMode = getField(req.body, 'emailContentMode', 'email_content_mode') || 'rich';
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
-
-    const headerColor = req.body.headerColor || null;
-    const buttonColor = req.body.buttonColor || null;
-    const footerColor = req.body.footerColor || null;
-    const backgroundColor = req.body.backgroundColor || null;
-    const titleColor = req.body.titleColor || '#ffffff';
-    const footerTitleColor = req.body.footerTitleColor || '#ffffff';
 
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : null;
     if (!featuredImage && req.body.imageBase64) {
@@ -103,6 +98,7 @@ exports.createPetition = async (req, res, next) => {
       }
       petition = await Petition.create({
         title,
+        description: description || null,
         content: `Serás redirigido al sitio oficial: ${externalUrl}`,
         target_emails: [],
         signature_fields: [],
@@ -114,12 +110,6 @@ exports.createPetition = async (req, res, next) => {
         emailTemplateId: emailTemplateId || null,
         featured_image: featuredImage,
         email_subject: emailSubject || null,
-        header_color: headerColor,
-        title_color: titleColor,
-        footer_title_color: footerTitleColor,
-        button_color: buttonColor,
-        footer_color: footerColor,
-        background_color: backgroundColor,
         created_by: req.user.id,
       });
     } else {
@@ -134,7 +124,9 @@ exports.createPetition = async (req, res, next) => {
 
       petition = await Petition.create({
         title,
+        description: description || null,
         content,
+        email_content_mode: emailContentMode === 'text' ? 'text' : 'rich',
         target_emails: emails,
         signature_fields: signatureFields,
         type: 'custom',
@@ -144,12 +136,6 @@ exports.createPetition = async (req, res, next) => {
         emailTemplateId: emailTemplateId || null,
         featured_image: featuredImage,
         email_subject: emailSubject || null,
-        header_color: headerColor,
-        title_color: titleColor,
-        footer_title_color: footerTitleColor,
-        button_color: buttonColor,
-        footer_color: footerColor,
-        background_color: backgroundColor,
         created_by: req.user.id,
       });
     }
@@ -169,7 +155,7 @@ exports.createPetition = async (req, res, next) => {
 exports.getPetition = async (req, res, next) => {
   try {
     const petition = await Petition.findByPk(req.params.id, {
-      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at', 'header_color', 'title_color', 'footer_color', 'footer_title_color', 'target_emails', 'emailTemplateId'],
+      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at', 'description', 'email_subject', 'target_emails', 'emailTemplateId', 'email_content_mode'],
     });
     if (!petition) throw createError(404, 'Petición no encontrada');
     res.json(petition);
@@ -202,13 +188,6 @@ exports.signPetition = async (req, res, next) => {
     const emailData = {};
     petition.signature_fields.forEach(f => { emailData[f.label || f.name] = value[f.name] || ''; });
 
-    const colors = {
-      headerColor: petition.header_color,
-      buttonColor: petition.button_color,
-      footerColor: petition.footer_color,
-      backgroundColor: petition.background_color,
-    };
-
     // ¿Hay cuota ahora mismo?
     const canSendNow = await quotaService.hasCapacity();
 
@@ -220,17 +199,10 @@ exports.signPetition = async (req, res, next) => {
         if (petition.emailTemplateId) {
           const template = await EmailTemplate.findByPk(petition.emailTemplateId);
           if (template) {
-            const mergedColors = {
-              headerColor: colors.headerColor || template.headerColor,
-              buttonColor: colors.buttonColor || template.buttonColor,
-              footerColor: colors.footerColor || template.footerColor,
-              backgroundColor: colors.backgroundColor || template.backgroundColor,
-            };
             sent = await sendEmailWithTemplate(
               petition.target_emails,
               template,
-              { ...emailData, petition },
-              mergedColors
+              { ...emailData, petition }
             );
           }
         }
@@ -259,7 +231,6 @@ exports.signPetition = async (req, res, next) => {
             petitionId: petition.id,
             targetEmails: petition.target_emails,
             templateId: petition.emailTemplateId || null,
-            colors,
             emailData,
           },
           {
@@ -290,22 +261,18 @@ exports.updatePetition = async (req, res, next) => {
     if (petition.total_signatures > 0) return res.status(403).json({ message: 'No se puede editar una petición que ya tiene firmas' });
 
     const title = req.body.title;
+    const description = req.body.description;
     const content = req.body.content;
     const type = req.body.type;
+    const emailSubject = getField(req.body, 'emailSubject', 'email_subject');
     const externalUrl = getField(req.body, 'externalUrl', 'external_url');
     const urgency = req.body.urgency;
     const deadline = req.body.deadline;
     const hidden = req.body.hidden;
     const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
+    const emailContentMode = getField(req.body, 'emailContentMode', 'email_content_mode');
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
-    const headerColor = req.body.headerColor !== undefined ? req.body.headerColor : petition.header_color;
-    const buttonColor = req.body.buttonColor !== undefined ? req.body.buttonColor : petition.button_color;
-    const footerColor = req.body.footerColor !== undefined ? req.body.footerColor : petition.footer_color;
-    const backgroundColor = req.body.backgroundColor !== undefined ? req.body.backgroundColor : petition.background_color;
-    const titleColor = req.body.titleColor !== undefined ? req.body.titleColor : petition.title_color;
-    const footerTitleColor = req.body.footerTitleColor !== undefined ? req.body.footerTitleColor : petition.footer_title_color;
-
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : petition.featured_image;
     if (!req.file && req.body.imageBase64) {
       try {
@@ -317,7 +284,10 @@ exports.updatePetition = async (req, res, next) => {
 
     await petition.update({
       title: title || petition.title,
+      description: description !== undefined ? description : petition.description,
       content: content || petition.content,
+      email_subject: emailSubject !== undefined ? emailSubject : petition.email_subject,
+      email_content_mode: emailContentMode !== undefined ? (emailContentMode === 'text' ? 'text' : 'rich') : petition.email_content_mode,
       target_emails: isExternal ? [] : (targetEmailsRaw ? parseEmails(targetEmailsRaw) : petition.target_emails),
       signature_fields: isExternal ? [] : (signatureFields || petition.signature_fields),
       type: isExternal ? 'official' : 'custom',
@@ -327,12 +297,6 @@ exports.updatePetition = async (req, res, next) => {
       hidden: hidden !== undefined ? hidden : petition.hidden,
       emailTemplateId: emailTemplateId !== undefined ? emailTemplateId : petition.emailTemplateId,
       featured_image: featuredImage,
-      header_color: headerColor,
-      title_color: titleColor,
-      footer_title_color: footerTitleColor,
-      button_color: buttonColor,
-      footer_color: footerColor,
-      background_color: backgroundColor,
     });
 
     await cacheMiddleware.invalidateResource('petitions', petition.id);
@@ -487,7 +451,7 @@ exports.listPublicPetitions = async (req, res, next) => {
   try {
     const petitions = await Petition.findAll({
       where: { hidden: false },
-      attributes: ['id', 'title', 'type', 'urgency', 'deadline', 'total_signatures', 'featured_image', 'external_url', 'created_at'],
+      attributes: ['id', 'title', 'type', 'urgency', 'deadline', 'total_signatures', 'featured_image', 'external_url', 'created_at', 'email_content_mode'],
       order: [['created_at', 'DESC']],
     });
     res.json(petitions);

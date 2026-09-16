@@ -14,33 +14,49 @@ export default function PetitionDetailPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailHtml, setEmailHtml] = useState('');
+  const [defaultTemplateId, setDefaultTemplateId] = useState(null);
 
   useEffect(() => {
     if (id) {
       api.get(`/petitions/${id}`)
         .then(res => {
-          setPetition(res.data);
-          if (res.data.type !== 'official') {
+          const data = res.data;
+          setPetition(data);
+          if (data.type !== 'official') {
+            const fields = Array.isArray(data.signature_fields) ? data.signature_fields : [];
             const initial = {};
-            res.data.signature_fields.forEach(f => { initial[f.name] = ''; });
+            fields.forEach(f => { initial[f.name] = ''; });
             setFormData(initial);
             fetchCsrfToken();
           }
         })
-        .catch(() => setError('Petición no encontrada'));
+        .catch((err) => {
+          const status = err?.response?.status;
+          if (status === 404) setError('Petición no encontrada');
+          else if (status === 403) setError('Esta petición no está disponible');
+          else setError('No se pudo cargar la petición. Intenta de nuevo.');
+        });
     }
   }, [id]);
 
+  // Cargar la plantilla por defecto (fallback) una sola vez
+  useEffect(() => {
+    api.get('/email-templates/default-petition')
+      .then((res) => setDefaultTemplateId(res.data.id))
+      .catch(() => setDefaultTemplateId(null));
+  }, []);
+
   useEffect(() => {
     if (petition && petition.type !== 'official') {
-      const templateId = petition.emailTemplateId || 121;
-      const url = `/api/email-templates/${templateId}/preview?headerColor=${encodeURIComponent(petition.header_color || '#b91c1c')}&titleColor=${encodeURIComponent(petition.title_color || '#ffffff')}&footerColor=${encodeURIComponent(petition.footer_color || '#1f2937')}&footerTitleColor=${encodeURIComponent(petition.footer_title_color || '#ffffff')}&title=${encodeURIComponent(petition.title || '')}&content=${encodeURIComponent(petition.content || '')}&subject=${encodeURIComponent(petition.email_subject || '')}`;
+      const templateId = petition.emailTemplateId || defaultTemplateId;
+      if (!templateId) return;
+      const url = `/api/email-templates/${templateId}/preview?title=${encodeURIComponent(petition.title || '')}&content=${encodeURIComponent(petition.content || '')}&subject=${encodeURIComponent(petition.email_subject || '')}`;
       fetch(url)
         .then(res => res.text())
         .then(html => setEmailHtml(html))
         .catch(() => setEmailHtml(''));
     }
-  }, [petition]);
+  }, [petition, defaultTemplateId]);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 

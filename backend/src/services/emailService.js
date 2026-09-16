@@ -86,13 +86,80 @@ const getPreferencesLink = (email) => {
  * @param {object} data - Datos a inyectar
  * @returns {string} HTML renderizado
  */
+/**
+ * Convierte texto plano del cuerpo del email en HTML seguro:
+ *   · Escapa HTML (&, <, >, ", ').
+ *   · Agrupa párrafos por doble salto de línea → <p>.
+ *   · Saltos simples dentro de un párrafo → <br>.
+ *   · Autolink de URLs http(s):// y www. → <a>.
+ *
+ * Se usa solo cuando `email_content_mode === 'text'`.
+ * En modo 'rich' el contenido ya es HTML (viene de Quill).
+ */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function autolink(escapedText) {
+  // El texto ya está escapado, así que URLs son seguras
+  return escapedText.replace(
+    /\b((?:https?:\/\/|www\.)[^\s<]+)/gi,
+    (url) => {
+      const href = url.startsWith('http') ? url : `https://${url}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    }
+  );
+}
+
+function textToHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p>${autolink(escapeHtml(p)).replace(/\n/g, '<br>')}</p>`)
+    .join('\n');
+}
+
+/**
+ * Normaliza el cuerpo del email según `mode`:
+ *   - 'text' → convierte texto plano a HTML
+ *   - 'rich' → asume HTML (viene de Quill), lo pasa tal cual
+ */
+function normalizeEmailBody(content, mode) {
+  if (mode === 'text') return textToHtml(content || '');
+  return content || '';
+}
+
+// ────────────────────────────────────────────────────────────
+// Caché LRU de plantillas Handlebars compiladas.
+// Evita recompilar (5-20 ms) en cada email enviado.
+// Key = el propio string del template → autoinvalida al cambiar.
+// ────────────────────────────────────────────────────────────
+const compiledTemplateCache = new Map();
+const COMPILED_CACHE_MAX = 100;
+
 const renderTemplate = (src, data) => {
-  // nosemgrep: javascript.express.security.express-insecure-template-usage.express-insecure-template-usage
-  const compiled = handlebars.compile(src, {
-    strict: false,
-    noEscape: false,
-    preventIndent: true,
-  });
+  if (!src) return '';
+  let compiled = compiledTemplateCache.get(src);
+  if (!compiled) {
+    // nosemgrep: javascript.express.security.express-insecure-template-usage.express-insecure-template-usage
+    compiled = handlebars.compile(src, {
+      strict: false,
+      noEscape: false,
+      preventIndent: true,
+    });
+    if (compiledTemplateCache.size >= COMPILED_CACHE_MAX) {
+      compiledTemplateCache.delete(compiledTemplateCache.keys().next().value);
+    }
+    compiledTemplateCache.set(src, compiled);
+  }
   return compiled(data);
 };
 
@@ -266,15 +333,15 @@ const petitionTransporter = nodemailer.createTransport({
   },
 });
 
-async function sendPetitionAlert(petition, signerData, template = null, colors = null) {
+async function sendPetitionAlert(petition, signerData, template = null) {
   if (!petition.target_emails || !petition.target_emails.length) return;
 
-  if (template && colors) {
+  if (template) {
     try {
       const EmailTemplate = require('../models/EmailTemplate');
       const tpl = await EmailTemplate.findByPk(template.id);
       if (tpl) {
-        return sendEmailWithTemplate(petition.target_emails, tpl, { ...signerData, petition }, colors);
+        return sendEmailWithTemplate(petition.target_emails, tpl, { ...signerData, petition });
       }
     } catch (err) {
       console.error('Error al enviar con plantilla personalizada:', err);
@@ -311,31 +378,71 @@ async function sendPetitionAlert(petition, signerData, template = null, colors =
   }
 }
 
-const sendEmailWithTemplate = async (to, template, data, customColors = null) => {
+// ────────────────────────────────────────────────────────────
+// Caché LRU de HTML renderizado por (petitionId, templateId).
+// Invalidación: si cambia petition.updatedAt o template.updatedAt.
+// El subject NO se cachea (puede contener variables del firmante).
+// ────────────────────────────────────────────────────────────
+const renderedEmailCache = new Map();
+const RENDERED_CACHE_MAX = 500;
+
+const sendEmailWithTemplate = async (to, template, data) => {
+  const petition = data.petition || null;
+
+  // Subject: siempre se recompila (barato, y puede contener datos del firmante)
   const subjectCompiled = renderTemplate(template.subject, data);
-  let htmlCompiled = renderTemplate(template.body, data);
-  const colors = customColors || {
-    headerColor: template.headerColor,
-    buttonColor: template.buttonColor,
-    footerColor: template.footerColor,
-    backgroundColor: template.backgroundColor,
-    titleColor: template.titleColor || '#ffffff',
-    footerTitleColor: template.footerTitleColor || '#ffffff',
-  };
+
+  // ── Cache key estable ──
+  const cacheKey = `${petition?.id || '_nop'}|${template.id}`;
+  const petitionStamp = petition?.updatedAt?.getTime?.() || 0;
+  const templateStamp = template.updatedAt?.getTime?.() || 0;
+
+  const cached = renderedEmailCache.get(cacheKey);
+  if (cached && cached.petitionStamp === petitionStamp && cached.templateStamp === templateStamp) {
+    return sendEmail(to, subjectCompiled, 'custom', { body: cached.html });
+  }
+
+  // ── Cache miss → recomputar ──
+  const rawContent = data.content || petition?.content || '';
+  const emailMode = petition?.email_content_mode || 'rich';
+  const normalizedContent = normalizeEmailBody(rawContent, emailMode);
+  const dataWithNormalizedContent = { ...data, content: normalizedContent };
+
+  let htmlCompiled = renderTemplate(template.body, dataWithNormalizedContent);
+
+  // Colores institucionales: cada plantilla tiene los suyos guardados en BD.
   htmlCompiled = htmlCompiled
-    .replace(/--header-color/g, colors.headerColor)
-    .replace(/--button-color/g, colors.buttonColor)
-    .replace(/--footer-color/g, colors.footerColor)
-    .replace(/--bg-color/g, colors.backgroundColor)
-    .replace(/--title-color/g, colors.titleColor)
-    .replace(/--footer-title-color/g, colors.footerTitleColor);
+    .replace(/--header-color/g,       template.headerColor       || '#b91c1c')
+    .replace(/--button-color/g,       template.buttonColor       || '#16a34a')
+    .replace(/--footer-color/g,       template.footerColor       || '#1f2937')
+    .replace(/--bg-color/g,           template.backgroundColor   || '#f3f4f6')
+    .replace(/--title-color/g,        template.titleColor        || '#ffffff')
+    .replace(/--footer-title-color/g, template.footerTitleColor  || '#ffffff');
+
+  // LRU: si supera el máximo, elimina la entrada más antigua
+  if (renderedEmailCache.size >= RENDERED_CACHE_MAX) {
+    renderedEmailCache.delete(renderedEmailCache.keys().next().value);
+  }
+  renderedEmailCache.set(cacheKey, {
+    html: htmlCompiled,
+    petitionStamp,
+    templateStamp,
+  });
+
   return sendEmail(to, subjectCompiled, 'custom', { body: htmlCompiled });
 };
+
+// Utilidad para invalidación manual (tests, mantenimiento)
+function clearEmailRenderCache() {
+  renderedEmailCache.clear();
+  compiledTemplateCache.clear();
+}
 
 // ========== EXPORTACIÓN ÚNICA ==========
 module.exports = {
   initEmailService,
   renderTemplate,
+  clearEmailRenderCache,
   sendEmail,
   sendWelcomeEmail,
   sendGoodbyeEmail,

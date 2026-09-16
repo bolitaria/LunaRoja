@@ -127,7 +127,7 @@ function startWorkers() {
     const petitionEmailWorker = new Worker(
       'petition-signature-email',
       async (job) => {
-        const { petitionId, targetEmails, templateId, colors, emailData } = job.data;
+        const { petitionId, targetEmails, templateId, emailData } = job.data;
 
         if (!(await quotaService.hasCapacity())) {
           throw new Error('Cuota agotada, reintentando');
@@ -144,17 +144,10 @@ function startWorkers() {
         if (templateId) {
           const template = await EmailTemplate.findByPk(templateId);
           if (template) {
-            const mergedColors = {
-              headerColor: colors?.headerColor || template.headerColor,
-              buttonColor: colors?.buttonColor || template.buttonColor,
-              footerColor: colors?.footerColor || template.footerColor,
-              backgroundColor: colors?.backgroundColor || template.backgroundColor,
-            };
             sent = await sendEmailWithTemplate(
               targetEmails,
               template,
-              { ...emailData, petition },
-              mergedColors
+              { ...emailData, petition }
             );
           }
         }

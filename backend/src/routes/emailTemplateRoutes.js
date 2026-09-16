@@ -74,6 +74,7 @@ router.get('/:id/preview', async (req, res, next) => {
       title,
       content,
       subject,
+      petition: { title, description: '', content },
       username,
       campaign: {
         name: campaignName,
@@ -116,7 +117,17 @@ router.get('/:id/preview', async (req, res, next) => {
     //   que elimina `<script>`, event handlers (on*) y esquemas peligrosos.
     // Por lo anterior, la regla se acepta como falso positivo contextual.
     // nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format
-    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>.wrapper{max-width:100%!important;padding-left:0!important;padding-right:0!important}.wrapper .container{max-width:100%!important}</style></head><body style="margin:0;padding:0;background-color:#ffffff;">${html}</body></html>`;
+    const previewCss = [
+      'html,body{margin:0;padding:0;overflow-x:hidden;}',
+      'body{word-wrap:break-word;word-break:break-word;overflow-wrap:anywhere;}',
+      'img{max-width:100%!important;height:auto;}',
+      'table{max-width:100%!important;}',
+      'a{word-break:break-all;}',
+      'pre,code{white-space:pre-wrap;word-break:break-word;}',
+      '.wrapper,.wrapper .container{max-width:100%!important;padding-left:0!important;padding-right:0!important;}',
+      '@media (max-width:480px){.container{width:100%!important;}.content{padding:24px 16px!important;}}',
+    ].join('');
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${previewCss}</style></head><body style="margin:0;padding:0;background-color:#ffffff;">${html}</body></html>`;
 
     // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     res.send(sanitizeEmailHtml(fullHtml));

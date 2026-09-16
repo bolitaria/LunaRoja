@@ -1,216 +1,479 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import api from '../../../../lib/axios';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import AdminLayout from '../../../../components/AdminLayout';
+import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import api from '../../../../lib/axios';
-import Handlebars from 'handlebars';
+import dynamic from 'next/dynamic';
+import 'react-quill-new/dist/quill.snow.css';
+import {
+  FaSave, FaEye, FaTimes, FaEnvelope, FaImage, FaLock, FaExternalLinkAlt
+} from 'react-icons/fa';
+import PetitionPreview from '../../../../components/PetitionPreview';
+import AutoHeightIframe from '../../../../components/AutoHeightIframe';
 
-const sampleData = {
-  username: 'NombreUsuario',
-  campaign: { name: 'Campaña de ejemplo', description: 'Descripción de prueba' },
-  action: { title: 'Acción de prueba', datetime: new Date().toISOString(), description: 'Detalles de la acción' },
-  unsubscribeLink: '#',
-  preferencesLink: '#',
-  currentYear: new Date().getFullYear(),
-  frontendUrl: '',
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+
+const quillModules = {
+  toolbar: [
+    [{ header: '1' }, { header: '2' }, { font: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['bold', 'italic', 'underline'],
+    [{ align: [] }],
+    ['link'],
+    ['clean'],
+  ],
 };
 
-export default function EditEmailTemplate() {
+/**
+ * HTML → texto plano (regex simple, suficiente para lo que genera Quill).
+ * Se usa al pasar de modo "rich" a "text" para no perder el contenido.
+ */
+function htmlToText(html) {
+  if (!html) return '';
+  return String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Texto plano → HTML ligero (párrafos + saltos simples).
+ * Al pasar de "text" a "rich" para que Quill lo muestre formateado.
+ * El backend re-sanitizará y autoenlazará URLs al enviar el email.
+ */
+function textToHtmlLight(text) {
+  if (!text) return '';
+  return String(text)
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+export default function EditPetition() {
   const router = useRouter();
   const { id } = router.query;
-  const [form, setForm] = useState({
-    name: '',
-    subject: '',
-    body: '',
-    associatedEvent: 'petition', // fijo para edición permitida
-    headerColor: '#b91c1c',
-    buttonColor: '#16a34a',
-    footerColor: '#1f2937',
-    backgroundColor: '#f3f4f6',
-    titleColor: '#ffffff',
-    footerTitleColor: '#ffffff',
-  });
-  const [previewHtml, setPreviewHtml] = useState('');
-  const [loading, setLoading] = useState(false);
+  const quillRef = useRef(null);
   const [fetching, setFetching] = useState(true);
 
-  const compilePreview = (body, colors) => {
-    try {
-      const template = Handlebars.compile(body);
-      let html = template(sampleData);
-      html = html
-        .replace(/--header-color/g, colors.headerColor)
-        .replace(/--button-color/g, colors.buttonColor)
-        .replace(/--footer-color/g, colors.footerColor)
-        .replace(/--bg-color/g, colors.backgroundColor)
-        .replace(/--title-color/g, colors.titleColor)
-        .replace(/--footer-title-color/g, colors.footerTitleColor);
-      setPreviewHtml(html);
-    } catch (error) {
-      setPreviewHtml(`<div style="color:red">Error: ${error.message}</div>`);
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    type: 'external',
+    externalUrl: '',
+    content: '',
+    emailSubject: '',
+    urgency: false,
+    hidden: false,
+    deadline: '',
+  });
+  const [recipientEmails, setRecipientEmails] = useState([]);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailContentMode, setEmailContentMode] = useState('rich');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [defaultTemplateId, setDefaultTemplateId] = useState(null);
+
+  // Obtener plantilla por defecto para vista previa de email
+  useEffect(() => {
+    api.get('/email-templates/default-petition')
+      .then(res => setDefaultTemplateId(res.data.id))
+      .catch(() => setDefaultTemplateId(null));
+  }, []);
+
+  // Cargar petition por id
+  useEffect(() => {
+    if (!id) return;
+    api.get(`/petitions/${id}`)
+      .then((res) => {
+        const p = res.data;
+        if (p.total_signatures > 0) {
+          toast.error('Esta petición ya tiene firmas y no puede editarse');
+          router.push('/admin/petitions');
+          return;
+        }
+        setForm({
+          title: p.title || '',
+          description: p.description || '',
+          type: p.type === 'official' ? 'external' : 'internal',
+          externalUrl: p.external_url || '',
+          content: p.content || '',
+          emailSubject: p.email_subject || '',
+          urgency: !!p.urgency,
+          hidden: !!p.hidden,
+          deadline: p.deadline ? new Date(p.deadline).toISOString().slice(0, 10) : '',
+        });
+        setEmailContentMode(p.email_content_mode === 'text' ? 'text' : 'rich');
+        setRecipientEmails(p.target_emails || []);
+        if (p.featured_image) setImagePreview(p.featured_image);
+        setFetching(false);
+      })
+      .catch(() => {
+        toast.error('Error al cargar la petición');
+        router.push('/admin/petitions');
+      });
+  }, [id, router]);
+
+  const updatePreviewUrl = useCallback(() => {
+    if (!defaultTemplateId) return;
+    let contentForPreview;
+    if (emailContentMode === 'text') {
+      contentForPreview = (form.content || '').trim();
+    } else {
+      const editor = quillRef.current?.getEditor?.();
+      contentForPreview = editor?.root?.innerHTML || form.content || '';
+    }
+    const url = `/api/email-templates/${defaultTemplateId}/preview?title=${encodeURIComponent(form.title)}&content=${encodeURIComponent(contentForPreview)}&subject=${encodeURIComponent(form.emailSubject)}`;
+    setPreviewUrl(url);
+  }, [defaultTemplateId, form.title, form.content, form.emailSubject, emailContentMode]);
+
+  useEffect(() => { updatePreviewUrl(); }, [updatePreviewUrl]);
+
+  // Mapeo para PetitionPreview
+  const previewForm = {
+    title: form.title,
+    description: form.description,
+    content: form.content,
+    type: form.type,
+    urgency: form.urgency,
+    deadline: form.deadline,
+    target_emails: recipientEmails,
+    external_url: form.externalUrl,
+    signature_fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+    featured_image: imagePreview || null,
+    email_subject: form.emailSubject,
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked, files } = e.target;
+    if (type === 'file') {
+      if (name === 'image') {
+        setImageFile(files[0]);
+        const reader = new FileReader();
+        reader.onloadend = () => setImagePreview(reader.result);
+        if (files[0]) reader.readAsDataURL(files[0]);
+        else setImagePreview(null);
+      }
+    } else {
+      setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     }
   };
 
-  useEffect(() => {
-    if (!id) return;
-    api.get(`/email-templates/${id}`)
-      .then(res => {
-        const t = res.data;
+  const handleContentChange = (value) => {
+    setForm(prev => ({ ...prev, content: value }));
+    setTimeout(() => updatePreviewUrl(), 0);
+  };
 
-        // Verificar que sea plantilla de petición
-        if (t.associatedEvent !== 'petition' || t.type === 'system') {
-          toast.error('Solo se pueden editar plantillas de petición');
-          router.push('/admin/email-templates');
-          return;
-        }
+  const handleModeChange = (mode) => {
+    if (mode === emailContentMode) return;
+    if (mode === 'text') {
+      // rich → text: convertir HTML a texto plano
+      setForm((prev) => ({ ...prev, content: htmlToText(prev.content) }));
+    } else {
+      // text → rich: convertir texto plano a HTML ligero para Quill
+      setForm((prev) => ({ ...prev, content: textToHtmlLight(prev.content) }));
+    }
+    setEmailContentMode(mode);
+    setTimeout(() => updatePreviewUrl(), 0);
+  };
 
-        const updated = {
-          name: t.name,
-          subject: t.subject,
-          body: t.body,
-          associatedEvent: 'petition',
-          headerColor: t.headerColor || '#b91c1c',
-          buttonColor: t.buttonColor || '#16a34a',
-          footerColor: t.footerColor || '#1f2937',
-          backgroundColor: t.backgroundColor || '#f3f4f6',
-          titleColor: t.titleColor || '#ffffff',
-          footerTitleColor: t.footerTitleColor || '#ffffff',
-        };
-        setForm(updated);
-        compilePreview(t.body, {
-          headerColor: updated.headerColor,
-          buttonColor: updated.buttonColor,
-          footerColor: updated.footerColor,
-          backgroundColor: updated.backgroundColor,
-          titleColor: updated.titleColor,
-          footerTitleColor: updated.footerTitleColor,
-        });
-      })
-      .catch(err => {
-        toast.error('Error al cargar plantilla');
-        router.push('/admin/email-templates');
-      })
-      .finally(() => setFetching(false));
-  }, [id, router]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    const updated = { ...form, [name]: value };
-    setForm(updated);
-    compilePreview(updated.body, {
-      headerColor: updated.headerColor,
-      buttonColor: updated.buttonColor,
-      footerColor: updated.footerColor,
-      backgroundColor: updated.backgroundColor,
-      titleColor: updated.titleColor,
-      footerTitleColor: updated.footerTitleColor,
-    });
+  const addEmail = () => {
+    const email = emailInput.trim();
+    if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.warning('Email inválido'); return; }
+    if (recipientEmails.includes(email)) { toast.warning('Email ya añadido'); return; }
+    setRecipientEmails(prev => [...prev, email]);
+    setEmailInput('');
+  };
+  const removeEmail = (index) => setRecipientEmails(prev => prev.filter((_, i) => i !== index));
+  const handleEmailInputKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      addEmail();
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.subject || !form.body) {
-      toast.error('Nombre, asunto y cuerpo son obligatorios');
+    let plainText;
+    let editorContent = form.content;
+    if (emailContentMode === 'text') {
+      plainText = (form.content || '').trim();
+    } else {
+      const editor = quillRef.current?.getEditor?.();
+      editorContent = editor?.root?.innerHTML || form.content || '';
+      plainText = (editor?.getText?.()?.trim() || '').trim();
+    }
+
+    if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
+
+    if (form.type === 'internal') {
+      if (!plainText) { toast.warning('El contenido del email es obligatorio'); return; }
+      if (!form.emailSubject.trim()) { toast.warning('El asunto del email es obligatorio'); return; }
+      if (recipientEmails.length === 0) { toast.warning('Añade al menos un destinatario'); return; }
+    } else {
+      if (!form.externalUrl.trim()) { toast.warning('La URL externa es obligatoria'); return; }
+    }
+
+    setLoading(true);
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      type: form.type,
+      urgency: form.urgency,
+      hidden: form.hidden,
+      deadline: form.deadline || null,
+      email_subject: form.emailSubject.trim() || null,
+    };
+    if (form.type === 'internal') {
+      payload.content = editorContent;
+      payload.emailContentMode = emailContentMode;
+      payload.target_emails = recipientEmails;
+      payload.signature_fields = [{ name: 'email', label: 'Email', type: 'email', required: true }];
+    } else {
+      payload.external_url = form.externalUrl.trim();
+    }
+
+    if (imageFile) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        payload.imageBase64 = reader.result;
+        try {
+          await api.put(`/petitions/${id}`, payload);
+          toast.success('Petición actualizada');
+          router.push('/admin/petitions');
+        } catch (error) {
+          toast.error(error.response?.data?.message || 'Error al actualizar petición');
+        } finally { setLoading(false); }
+      };
+      reader.readAsDataURL(imageFile);
       return;
     }
-    setLoading(true);
+
     try {
-      await api.put(`/email-templates/${id}`, form);
-      toast.success('Plantilla actualizada');
-      router.push('/admin/email-templates');
+      await api.put(`/petitions/${id}`, payload);
+      toast.success('Petición actualizada');
+      router.push('/admin/petitions');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al actualizar');
-    } finally {
-      setLoading(false);
-    }
+      toast.error(error.response?.data?.message || 'Error al actualizar petición');
+    } finally { setLoading(false); }
   };
 
-  if (fetching) {
-    return (
-      <AdminLayout title="Editar Plantilla">
-        <div className="text-center py-8">Cargando...</div>
-      </AdminLayout>
-    );
-  }
+  const isInternal = form.type === 'internal';
 
   return (
-    <AdminLayout title="Editar Plantilla de Petición">
+    <AdminLayout title="Editar Petición">
       <ToastContainer />
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
-          <h2 className="text-xl font-bold text-gray-800">Editar plantilla</h2>
-          <p className="text-sm text-gray-500">Solo se pueden editar plantillas asociadas a peticiones.</p>
+      <div className="flex flex-col lg:flex-row gap-8">
+        <form onSubmit={handleSubmit} className="lg:w-2/3 space-y-6">
+          {/* DATOS DE LA PETICIÓN */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+            <h2 className="text-lg font-semibold text-gray-700">Datos de la petición</h2>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Nombre *</label>
-            <input type="text" name="name" value={form.name} onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de petición *</label>
+              <div className="flex items-center gap-6">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="type" value="external" checked={!isInternal} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
+                  <span className="text-sm text-gray-700">Externa (enlace externo)</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="type" value="internal" checked={isInternal} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
+                  <span className="text-sm text-gray-700">Interna (contenido y email)</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+              <input type="text" name="title" value={form.title} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción breve</label>
+              <textarea name="description" value={form.description} onChange={handleChange} rows="2" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+            </div>
+
+            {!isInternal && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">URL de la petición *</label>
+                <input type="url" name="externalUrl" value={form.externalUrl} onChange={handleChange} required placeholder="https://www.change.org/..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-500" />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Imagen destacada (opcional)</label>
+              <div className="flex items-center gap-4">
+                <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed border-fuchsia-300 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-fuchsia-50 transition-colors">
+                  {imagePreview ? (
+                    <div className="relative w-full h-full">
+                      <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover rounded-lg" />
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setImageFile(null); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"><FaTimes /></button>
+                    </div>
+                  ) : (
+                    <>
+                      <FaImage className="w-8 h-8 text-gray-400 mb-2" />
+                      <span className="text-xs text-gray-500">Subir imagen</span>
+                    </>
+                  )}
+                  <input type="file" name="image" accept="image/*, .webp" onChange={handleChange} className="hidden" />
+                </label>
+                <div className="text-sm text-gray-600">
+                  <p>JPG, PNG, WebP</p>
+                  <p className="text-xs text-gray-400">Tamaño recomendado: 800x600px</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Asunto *</label>
-            <input type="text" name="subject" value={form.subject} onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
-          </div>
+          {/* CONFIGURACIÓN DEL EMAIL */}
+          {isInternal && (
+            <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-200 p-6 space-y-6">
+              <h2 className="text-lg font-semibold text-gray-700">Configuración del email</h2>
 
-          {/* Selector de evento asociado deshabilitado porque solo puede ser petition */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Evento asociado</label>
-            <input type="text" value="Petición (petition)" disabled
-              className="mt-1 block w-full border border-gray-200 bg-gray-50 rounded-lg p-2 text-gray-500 cursor-not-allowed" />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contenido del email *</label>
+                <div className="flex gap-6 mb-3">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="emailContentMode"
+                      value="rich"
+                      checked={emailContentMode === 'rich'}
+                      onChange={() => handleModeChange('rich')}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-0"
+                    />
+                    <span className="text-sm text-gray-700">Editor enriquecido</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="emailContentMode"
+                      value="text"
+                      checked={emailContentMode === 'text'}
+                      onChange={() => handleModeChange('text')}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-0"
+                    />
+                    <span className="text-sm text-gray-700">Pegar texto plano</span>
+                  </label>
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Color cabecera</label>
-              <input type="color" name="headerColor" value={form.headerColor} onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Color texto título</label>
-              <input type="color" name="titleColor" value={form.titleColor} onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Color botón</label>
-              <input type="color" name="buttonColor" value={form.buttonColor} onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Color footer</label>
-              <input type="color" name="footerColor" value={form.footerColor} onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Color texto footer</label>
-              <input type="color" name="footerTitleColor" value={form.footerTitleColor} onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Fondo general</label>
-              <input type="color" name="backgroundColor" value={form.backgroundColor} onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
-            </div>
-          </div>
+                {emailContentMode === 'rich' ? (
+                  <ReactQuill ref={quillRef} theme="snow" value={form.content} onChange={handleContentChange} modules={quillModules} placeholder="Escribe el cuerpo del correo..." className="bg-white" />
+                ) : (
+                  <textarea
+                    value={form.content}
+                    onChange={(e) => { setForm((prev) => ({ ...prev, content: e.target.value })); setTimeout(() => updatePreviewUrl(), 0); }}
+                    rows={12}
+                    placeholder="Pega aquí el texto del cuerpo del email. Los saltos de línea se respetan. Las URLs se convertirán en enlaces automáticamente."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-500 font-mono text-sm"
+                  />
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  {emailContentMode === 'rich'
+                    ? 'Editor con formato. Compatible con Gmail y Outlook.'
+                    : 'Texto plano. Los párrafos se separan con doble salto de línea. Las URLs se autoenlazan.'}
+                </p>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Cuerpo HTML *</label>
-            <textarea value={form.body} onChange={handleChange} rows={16}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 font-mono text-sm focus:ring-0 focus:border-fuchsia-500" />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Asunto del email *</label>
+                <input type="text" name="emailSubject" value={form.emailSubject} onChange={handleChange} required placeholder="Asunto que verán los destinatarios" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+              </div>
 
-          <button onClick={handleSubmit} disabled={loading}
-            className="w-full bg-fuchsia-600 text-white py-2 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
-            {loading ? 'Guardando...' : 'Actualizar plantilla'}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1"><FaEnvelope className="inline w-3 h-3 mr-1" />Destinatarios del email *</label>
+                <div className="flex flex-wrap gap-2 items-center border border-gray-300 rounded-lg p-2 bg-white">
+                  {recipientEmails.map((email, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 bg-fuchsia-100 text-fuchsia-800 px-2 py-1 rounded-full text-sm">
+                      {email}
+                      <button type="button" onClick={() => removeEmail(idx)} className="text-fuchsia-600 hover:text-red-600"><FaTimes className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                  <input type="text" placeholder="Escribe un email y pulsa espacio o Enter" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} onKeyDown={handleEmailInputKeyDown} onBlur={addEmail} className="flex-1 min-w-[150px] outline-none border-none bg-transparent" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Introduce los emails separados por espacios o Enter. Se añadirán como etiquetas.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="inline-flex items-center gap-2">
+                  <input type="checkbox" name="urgency" checked={form.urgency} onChange={handleChange} className="rounded border-gray-300 text-fuchsia-600 focus:ring-0" />
+                  <span className="text-sm text-gray-700">🔥 Urgente</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input type="checkbox" name="hidden" checked={form.hidden} onChange={handleChange} className="rounded border-gray-300 text-fuchsia-600 focus:ring-0" />
+                  <span className="text-sm text-gray-700 flex items-center gap-1"><FaLock className="w-4 h-4 text-gray-500" /> Ocultar al público</span>
+                </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha límite</label>
+                  <input type="date" name="deadline" value={form.deadline || ''} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500" />
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition font-medium">
+            <FaSave className="w-4 h-4" />
+            {loading ? 'Guardando...' : 'Guardar cambios'}
           </button>
-        </div>
+        </form>
 
-        <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Vista previa</h2>
-          <div className="border border-gray-300 rounded-xl overflow-hidden bg-white h-full max-h-[700px] overflow-y-auto p-2">
-            <iframe srcDoc={previewHtml} title="Preview" className="w-full h-full min-h-[600px] border-0" sandbox="allow-same-origin" />
+        {/* VISTAS PREVIAS */}
+        <div className="lg:w-1/3 flex flex-col gap-12">
+          {/* Vista previa pública */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <FaEye className="text-fuchsia-600" /> Vista previa pública
+            </h3>
+            <PetitionPreview
+              form={previewForm}
+              emailPreviewUrl={isInternal ? previewUrl : null}
+            />
           </div>
+
+          {/* Vista previa del email (solo interna) */}
+          {isInternal && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaEnvelope className="text-green-600" /> Vista previa del email
+                </h3>
+                <button type="button" onClick={() => window.open(previewUrl, '_blank')} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50 transition shadow-sm">
+                  <FaExternalLinkAlt className="w-3 h-3" /> Abrir
+                </button>
+              </div>
+              {form.emailSubject && (
+                <div className="bg-white rounded-xl border border-gray-200 p-3 mb-2">
+                  <p className="text-xs text-gray-400 uppercase font-medium mb-0.5">Asunto</p>
+                  <p className="text-sm font-medium text-gray-800 break-words">{form.emailSubject}</p>
+                </div>
+              )}
+              {previewUrl && (
+                <AutoHeightIframe
+                  key={previewUrl}
+                  src={previewUrl}
+                  title="Vista previa de la plantilla"
+                  minHeight={400}
+                  maxHeight={1600}
+                  className="bg-white rounded-lg border border-gray-200"
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>

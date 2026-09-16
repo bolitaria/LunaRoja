@@ -13,7 +13,10 @@ export default function Reports() {
     const fetchReports = async () => {
       try {
         const res = await api.get('/reports');
-        setReports(res.data);
+        const payload = res.data;
+        // El backend devuelve { data, total, page, limit, metrics }
+        // (o un array directo en versiones antiguas)
+        setReports(Array.isArray(payload) ? payload : (payload.data || []));
       } catch (error) { console.error('Error fetching reports:', error); }
       finally { setLoading(false); }
     };

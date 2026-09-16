@@ -10,6 +10,7 @@ import {
   FaSave, FaEye, FaTimes, FaEnvelope, FaImage, FaLock, FaExternalLinkAlt
 } from 'react-icons/fa';
 import PetitionPreview from '../../../components/PetitionPreview';
+import AutoHeightIframe from '../../../components/AutoHeightIframe';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
@@ -24,6 +25,41 @@ const quillModules = {
   ],
 };
 
+/**
+ * HTML → texto plano (regex simple, suficiente para lo que genera Quill).
+ * Se usa al pasar de modo "rich" a "text" para no perder el contenido.
+ */
+function htmlToText(html) {
+  if (!html) return '';
+  return String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Texto plano → HTML ligero (párrafos + saltos simples).
+ * Al pasar de "text" a "rich" para que Quill lo muestre formateado.
+ * El backend re-sanitizará y autoenlazará URLs al enviar el email.
+ */
+function textToHtmlLight(text) {
+  if (!text) return '';
+  return String(text)
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
 export default function NewPetition() {
   const router = useRouter();
   const quillRef = useRef(null);
@@ -31,7 +67,7 @@ export default function NewPetition() {
   const [form, setForm] = useState({
     title: '',
     description: '',
-    type: 'internal',
+    type: 'external',
     externalUrl: '',
     content: '',
     emailSubject: '',
@@ -41,16 +77,10 @@ export default function NewPetition() {
   });
   const [recipientEmails, setRecipientEmails] = useState([]);
   const [emailInput, setEmailInput] = useState('');
+  const [emailContentMode, setEmailContentMode] = useState('rich');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const [customColors, setCustomColors] = useState({
-    headerColor: '#b91c1c',
-    titleColor: '#ffffff',
-    footerColor: '#1f2937',
-    footerTitleColor: '#ffffff',
-  });
 
   const [previewUrl, setPreviewUrl] = useState('');
   const [defaultTemplateId, setDefaultTemplateId] = useState(null);
@@ -64,11 +94,18 @@ export default function NewPetition() {
 
   const updatePreviewUrl = useCallback(() => {
     if (!defaultTemplateId) return;
-    const editor = quillRef.current?.getEditor?.();
-    const plainText = (editor?.getText?.()?.trim() || form.content || '').replace(/<[^>]*>/g, '').trim();
-    const url = `/api/email-templates/${defaultTemplateId}/preview?title=${encodeURIComponent(form.title)}&content=${encodeURIComponent(plainText)}&subject=${encodeURIComponent(form.emailSubject)}&headerColor=${encodeURIComponent(customColors.headerColor)}&titleColor=${encodeURIComponent(customColors.titleColor)}&footerColor=${encodeURIComponent(customColors.footerColor)}&footerTitleColor=${encodeURIComponent(customColors.footerTitleColor)}`;
+    let contentForPreview;
+    if (emailContentMode === 'text') {
+      // texto plano tal cual (el backend lo normaliza a <p>)
+      contentForPreview = (form.content || '').trim();
+    } else {
+      // HTML real del editor (Quill) → preserva negritas, listas, alineación
+      const editor = quillRef.current?.getEditor?.();
+      contentForPreview = editor?.root?.innerHTML || form.content || '';
+    }
+    const url = `/api/email-templates/${defaultTemplateId}/preview?title=${encodeURIComponent(form.title)}&content=${encodeURIComponent(contentForPreview)}&subject=${encodeURIComponent(form.emailSubject)}`;
     setPreviewUrl(url);
-  }, [defaultTemplateId, customColors, form.title, form.content, form.emailSubject]);
+  }, [defaultTemplateId, form.title, form.content, form.emailSubject, emailContentMode]);
 
   useEffect(() => { updatePreviewUrl(); }, [updatePreviewUrl]);
 
@@ -107,6 +144,19 @@ export default function NewPetition() {
     setTimeout(() => updatePreviewUrl(), 0);
   };
 
+  const handleModeChange = (mode) => {
+    if (mode === emailContentMode) return;
+    if (mode === 'text') {
+      // rich → text: convertir HTML a texto plano
+      setForm((prev) => ({ ...prev, content: htmlToText(prev.content) }));
+    } else {
+      // text → rich: convertir texto plano a HTML ligero para Quill
+      setForm((prev) => ({ ...prev, content: textToHtmlLight(prev.content) }));
+    }
+    setEmailContentMode(mode);
+    setTimeout(() => updatePreviewUrl(), 0);
+  };
+
   const addEmail = () => {
     const email = emailInput.trim();
     if (!email) return;
@@ -125,8 +175,15 @@ export default function NewPetition() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const editor = quillRef.current?.getEditor?.();
-    const plainText = (editor?.getText?.()?.trim() || form.content || '').replace(/<[^>]*>/g, '').trim();
+    let plainText;
+    let editorContent = form.content;
+    if (emailContentMode === 'text') {
+      plainText = (form.content || '').trim();
+    } else {
+      const editor = quillRef.current?.getEditor?.();
+      plainText = (editor?.getText?.()?.trim() || form.content || '').replace(/<[^>]*>/g, '').trim();
+      editorContent = editor?.root?.innerHTML || form.content;
+    }
 
     if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
 
@@ -139,7 +196,6 @@ export default function NewPetition() {
     }
 
     setLoading(true);
-    const editorContent = editor?.root?.innerHTML || form.content;
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
@@ -151,11 +207,8 @@ export default function NewPetition() {
     };
     if (form.type === 'internal') {
       payload.content = editorContent;
+      payload.emailContentMode = emailContentMode;
       payload.target_emails = recipientEmails;
-      payload.headerColor = customColors.headerColor;
-      payload.titleColor = customColors.titleColor;
-      payload.footerColor = customColors.footerColor;
-      payload.footerTitleColor = customColors.footerTitleColor;
       payload.signature_fields = [{ name: 'email', label: 'Email', type: 'email', required: true }];
     } else {
       payload.external_url = form.externalUrl.trim();
@@ -201,12 +254,12 @@ export default function NewPetition() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de petición *</label>
               <div className="flex items-center gap-6">
                 <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="type" value="internal" checked={isInternal} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
-                  <span className="text-sm text-gray-700">Interna (contenido y email)</span>
-                </label>
-                <label className="inline-flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="type" value="external" checked={!isInternal} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
                   <span className="text-sm text-gray-700">Externa (enlace externo)</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="type" value="internal" checked={isInternal} onChange={handleChange} className="text-fuchsia-600 focus:ring-0" />
+                  <span className="text-sm text-gray-700">Interna (contenido y email)</span>
                 </label>
               </div>
             </div>
@@ -259,8 +312,48 @@ export default function NewPetition() {
               <h2 className="text-lg font-semibold text-gray-700">Configuración del email</h2>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contenido del email *</label>
-                <ReactQuill ref={quillRef} theme="snow" value={form.content} onChange={handleContentChange} modules={quillModules} placeholder="Escribe el cuerpo del correo..." className="bg-white" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contenido del email *</label>
+                <div className="flex gap-6 mb-3">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="emailContentMode"
+                      value="rich"
+                      checked={emailContentMode === 'rich'}
+                      onChange={() => handleModeChange('rich')}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-0"
+                    />
+                    <span className="text-sm text-gray-700">Editor enriquecido</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="emailContentMode"
+                      value="text"
+                      checked={emailContentMode === 'text'}
+                      onChange={() => handleModeChange('text')}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-0"
+                    />
+                    <span className="text-sm text-gray-700">Pegar texto plano</span>
+                  </label>
+                </div>
+
+                {emailContentMode === 'rich' ? (
+                  <ReactQuill ref={quillRef} theme="snow" value={form.content} onChange={handleContentChange} modules={quillModules} placeholder="Escribe el cuerpo del correo..." className="bg-white" />
+                ) : (
+                  <textarea
+                    value={form.content}
+                    onChange={(e) => { setForm((prev) => ({ ...prev, content: e.target.value })); setTimeout(() => updatePreviewUrl(), 0); }}
+                    rows={12}
+                    placeholder="Pega aquí el texto del cuerpo del email. Los saltos de línea se respetan. Las URLs se convertirán en enlaces automáticamente."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-500 font-mono text-sm"
+                  />
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  {emailContentMode === 'rich'
+                    ? 'Editor con formato. Compatible con Gmail y Outlook.'
+                    : 'Texto plano. Los párrafos se separan con doble salto de línea. Las URLs se autoenlazan.'}
+                </p>
               </div>
 
               <div>
@@ -297,15 +390,6 @@ export default function NewPetition() {
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-700 mb-2">Personalizar colores del email</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-xs text-gray-500 mb-1">Color cabecera</label><input type="color" value={customColors.headerColor} onChange={(e) => setCustomColors(prev => ({ ...prev, headerColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
-                  <div><label className="block text-xs text-gray-500 mb-1">Color texto título</label><input type="color" value={customColors.titleColor} onChange={(e) => setCustomColors(prev => ({ ...prev, titleColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
-                  <div><label className="block text-xs text-gray-500 mb-1">Color footer</label><input type="color" value={customColors.footerColor} onChange={(e) => setCustomColors(prev => ({ ...prev, footerColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
-                  <div><label className="block text-xs text-gray-500 mb-1">Color texto footer</label><input type="color" value={customColors.footerTitleColor} onChange={(e) => setCustomColors(prev => ({ ...prev, footerTitleColor: e.target.value }))} className="w-full h-10 border rounded-lg" /></div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -324,7 +408,7 @@ export default function NewPetition() {
             </h3>
             <PetitionPreview
               form={previewForm}
-              customColors={customColors}
+              emailPreviewUrl={isInternal ? previewUrl : null}
             />
           </div>
 
@@ -339,12 +423,37 @@ export default function NewPetition() {
                   <FaExternalLinkAlt className="w-3 h-3" /> Abrir
                 </button>
               </div>
+              {form.emailSubject && (
+                <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4">
+                  <p className="text-xs text-gray-400 uppercase font-medium mb-0.5">Asunto</p>
+                  <p className="text-sm font-medium text-gray-800 break-words">{form.emailSubject}</p>
+                </div>
+              )}
+              {recipientEmails.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4">
+                  <p className="text-xs text-gray-400 uppercase font-medium mb-1">
+                    Destinatarios ({recipientEmails.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {recipientEmails.map((email, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-fuchsia-50 text-fuchsia-700 text-xs px-2 py-0.5 rounded-full border border-fuchsia-200 break-all"
+                      >
+                        {email}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {previewUrl && (
-                <iframe
+                <AutoHeightIframe
+                  key={previewUrl}
                   src={previewUrl}
-                  className="w-full h-[500px] border-0"
                   title="Vista previa de la plantilla"
-                  style={{ backgroundColor: 'transparent' }}
+                  minHeight={400}
+                  maxHeight={1600}
+                  className="bg-white rounded-lg border border-gray-200"
                 />
               )}
             </div>

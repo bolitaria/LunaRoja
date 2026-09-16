@@ -24,6 +24,7 @@ class Document extends Model {
     this.belongsTo(models.Campaign, { foreignKey: 'campaignId', as: 'campaign' });
     this.belongsTo(models.BDS,      { foreignKey: 'bdsId',      as: 'bds' });
     this.belongsTo(models.Report,   { foreignKey: 'reportId',   as: 'report' });
+    this.belongsTo(models.Petition, { foreignKey: 'petitionId', as: 'petition' });
     this.belongsTo(models.User,     { foreignKey: 'uploadedBy', as: 'uploader' });
   }
 
@@ -100,6 +101,11 @@ Document.init({
     allowNull: true,
     references: { model: 'BDSs', key: 'id' },
     onDelete: 'CASCADE',
+  },
+  petitionId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: { model: 'petitions', key: 'id' },
   },
   reportId: {
     type: DataTypes.INTEGER,
