@@ -1,5 +1,5 @@
 import api from '../../../lib/axios';
-import { FaLock } from 'react-icons/fa';
+import { FaArrowLeft, FaLock } from 'react-icons/fa';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import AdminLayout from '../../../components/AdminLayout';
@@ -95,8 +95,21 @@ export default function NewCampaign() {
   };
 
   return (
-    <AdminLayout title="Nueva Campaña">
-      <div className="flex flex-col lg:flex-row gap-8">
+    <AdminLayout title="📢 Nueva Campaña">
+            <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push('/admin/campaigns');
+          }
+        }}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <FaArrowLeft /> Volver a Campañas
+      </button>
+<div className="flex flex-col lg:flex-row gap-8">
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
           {/* ZONA PÚBLICA */}
           <div className="border-l-2 border-green-500 pl-4 relative">

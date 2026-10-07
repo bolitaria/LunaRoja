@@ -242,7 +242,7 @@ function AdminBDS() {
       <div className="mb-5">
         {isSuperAdmin && (
           <Link href="/admin/bds/new" className="inline-flex items-center gap-2 text-lg font-semibold border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-7 py-3.5 rounded-xl hover:bg-fuchsia-50 transition-colors shadow-md">
-            <FaEdit className="w-5 h-5" /> Nueva Campaña BDS
+            <span className="text-lg">📢</span> Nueva Campaña BDS
           </Link>
         )}
       </div>
@@ -533,7 +533,8 @@ function AdminBDS() {
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }} />
         </>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
                 <tr>
@@ -638,10 +639,11 @@ function AdminBDS() {
               })}
             </tbody>
           </table>
-          <div className="border-t border-gray-200 px-4 py-3">
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }} />
-          </div>
         </div>
+        <div className="border-t border-gray-200 px-4 py-3 mt-auto">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }} />
+        </div>
+        </>
       )}
     </AdminLayout>
   );

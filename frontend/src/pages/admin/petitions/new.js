@@ -2,6 +2,7 @@ import api from '../../../lib/axios';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { useRouter } from 'next/router';
+import { FaArrowLeft } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from 'next/dynamic';
@@ -242,9 +243,22 @@ export default function NewPetition() {
   const isInternal = form.type === 'internal';
 
   return (
-    <AdminLayout title="Nueva Petición">
+    <AdminLayout title="✍️ Nueva Petición">
       <ToastContainer />
-      <div className="flex flex-col lg:flex-row gap-8">
+            <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push('/admin/petitions');
+          }
+        }}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <FaArrowLeft /> Volver a Peticiones
+      </button>
+<div className="flex flex-col lg:flex-row gap-8">
         <form onSubmit={handleSubmit} className="lg:w-2/3 space-y-6">
           {/* DATOS DE LA PETICIÓN */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">

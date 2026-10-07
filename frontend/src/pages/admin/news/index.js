@@ -490,7 +490,8 @@ function AdminNews() {
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={s => { setItemsPerPage(s); setCurrentPage(1); }} />
         </>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gradient-to-r from-fuchsia-50 to-fuchsia-100/60 border-b-2 border-fuchsia-200">
               <tr>
@@ -543,10 +544,11 @@ function AdminNews() {
               })}
             </tbody>
           </table>
-          <div className="border-t px-4 py-3">
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={s => { setItemsPerPage(s); setCurrentPage(1); }} />
-          </div>
         </div>
+        <div className="border-t px-4 py-3 mt-auto">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={s => { setItemsPerPage(s); setCurrentPage(1); }} />
+        </div>
+        </>
       )}
     </AdminLayout>
   );

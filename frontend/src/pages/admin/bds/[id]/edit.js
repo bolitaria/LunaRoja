@@ -131,15 +131,21 @@ export default function EditBDS() {
     }
   };
 
-  if (loading) return <AdminLayout title="Editar BDS"><p className="text-center py-8">Cargando...</p></AdminLayout>;
+  if (loading) return <AdminLayout title="📝 Editar BDS"><p className="text-center py-8">Cargando...</p></AdminLayout>;
 
   const previewImage = imagePreview || (currentImage ? currentImage : null);
 
   return (
-    <AdminLayout title="Editar BDS">
+    <AdminLayout title="📝 Editar BDS">
       <button
         type="button"
-        onClick={() => router.push(`/admin/bds/${id}`)}
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push('/admin/bds');
+          }
+        }}
         className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
       >
         <FaArrowLeft /> Volver a la campaña BDS
