@@ -161,6 +161,12 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           API_URL: http://localhost:5000
           BASE_URL: http://localhost:5000
+      - name: Show backend log (always)
+        if: always() && matrix.service == 'backend'
+        run: |
+          echo "=== BACKEND LOG (últimas 300 líneas) ==="
+          tail -300 /tmp/server.log || echo "No hay log disponible"
+          echo "=== FIN BACKEND LOG ==="
       # ─── FRONTEND SPECIFIC STEPS ───
       - name: Run frontend unit tests
         if: matrix.service == 'frontend'
@@ -214,6 +220,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "CREATE TABLE IF NOT EXISTS \"SequelizeMeta\" (name VARCHAR(255) NOT NULL PRIMARY KEY);"
@@ -250,6 +258,12 @@ jobs:
             tail -n 50 /tmp/server.log
             exit 1
           fi
+      - name: Show backend log (always)
+        if: always()
+        run: |
+          echo "=== BACKEND LOG (últimas 300 líneas) ==="
+          tail -300 /tmp/server.log || echo "No hay log disponible"
+          echo "=== FIN BACKEND LOG ==="
       - name: Build frontend
         run: |
           cd frontend
@@ -439,6 +453,13 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           REDIS_HOST: localhost
           REDIS_PORT: 6379
+
+      - name: Show backend log (always)
+        if: always()
+        run: |
+          echo "=== BACKEND LOG (últimas 300 líneas) ==="
+          tail -300 /tmp/server.log || echo "No hay log disponible"
+          echo "=== FIN BACKEND LOG ==="
 
       - name: Build frontend
         working-directory: frontend
