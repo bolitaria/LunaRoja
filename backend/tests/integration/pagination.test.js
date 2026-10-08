@@ -11,39 +11,45 @@ beforeAll(async () => {
   adminToken = res.body.token;
 }, 15000);
 
+// Helper: los endpoints devuelven un envelope { data, total, ... }
+// o un array plano, según el caso. Aceptamos ambos.
+const extractArray = (body) => {
+  if (Array.isArray(body)) return body;
+  if (body && Array.isArray(body.data)) return body.data;
+  if (body && Array.isArray(body.items)) return body.items;
+  return null;
+};
+
 describe('Paginación y filtros en endpoints públicos y admin', () => {
   test('Acciones aceptan parámetros de paginación', async () => {
-    const res = await request(API_URL)
-      .get('/api/actions?limit=2&offset=0');
-    // En CI puede devolver 500 por errores internos
-    expect([200, 500]).toContain(res.status);
-    if (res.status === 200) {
-      expect(Array.isArray(res.body)).toBe(true);
-    }
+    const res = await request(API_URL).get('/api/actions?limit=2&offset=0');
+    expect(res.status).toBe(200);
+    const arr = extractArray(res.body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   test('Campañas aceptan parámetros de paginación', async () => {
-    const res = await request(API_URL)
-      .get('/api/campaigns?limit=2&offset=0');
+    const res = await request(API_URL).get('/api/campaigns?limit=2&offset=0');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    const arr = extractArray(res.body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   test('Noticias aceptan paginación y filtro de búsqueda', async () => {
-    const res = await request(API_URL)
-      .get('/api/news?limit=2&offset=0&search=test');
+    const res = await request(API_URL).get('/api/news?limit=2&offset=0&search=test');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    const arr = extractArray(res.body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   test('Reportes aceptan paginación', async () => {
     const res = await request(API_URL)
       .get('/api/reports?limit=2&offset=0')
       .set('Authorization', `Bearer ${adminToken}`);
-    // Puede requerir token y devolver 401 si no se pasa bien
     expect([200, 401]).toContain(res.status);
     if (res.status === 200) {
-      expect(Array.isArray(res.body)).toBe(true);
+      const arr = extractArray(res.body);
+      expect(Array.isArray(arr)).toBe(true);
     }
   });
 });

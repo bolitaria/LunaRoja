@@ -342,10 +342,20 @@ async function getQueueMetrics() {
   return metrics;
 }
 
+// Stub temporal: la cola real de bienvenida aún no está implementada.
+// El controlador la llama de forma fire-and-forget, así que un no-op es seguro.
+async function enqueueWelcomeEmail(email) {
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(`[queueService] Welcome email pendiente (stub): ${email}`);
+  }
+  return { queued: false, reason: 'stub' };
+}
+
 module.exports = {
   getQueue,
   initQueueService,
   startWorkers,
   getQueueMetrics,
   connection,
+  enqueueWelcomeEmail,
 };

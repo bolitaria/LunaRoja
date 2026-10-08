@@ -169,7 +169,7 @@ exports.getAllCampaigns = async (req, res) => {
         COALESCE(ac.urgent_cnt, 0)::int AS "urgentActionCount"
       FROM "Campaigns" c
       LEFT JOIN (
-        SELECT "campaignId", COUNT(*)::int AS cnt FROM "SubscriberCampaigns" GROUP BY "campaignId"
+        SELECT "entityId" AS "campaignId", COUNT(*)::int AS cnt FROM "SubscriberCampaigns" WHERE "entityType" = 'campaign' GROUP BY "entityId"
       ) sc ON sc."campaignId" = c.id
       LEFT JOIN (
         SELECT "campaignId", COUNT(*)::int AS cnt,

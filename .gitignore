@@ -97,3 +97,7 @@ fly.toml
 security-reports/
 *.sarif
 zap-report.*
+
+# Backups locales
+*.bak-*
+*.bak

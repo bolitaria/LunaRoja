@@ -158,8 +158,8 @@ exports.getAllBDS = async (req, res) => {
         COALESCE(ac.urgent_cnt, 0)::int AS "urgentActionCount"
       FROM "BDSs" b
       LEFT JOIN (
-        SELECT "bdsId", COUNT(*)::int AS cnt FROM "SubscriberCampaigns"
-        WHERE "bdsId" IS NOT NULL GROUP BY "bdsId"
+        SELECT "entityId" AS "bdsId", COUNT(*)::int AS cnt FROM "SubscriberCampaigns"
+        WHERE "entityType" = 'bds' GROUP BY "entityId"
       ) sc ON sc."bdsId" = b.id
       LEFT JOIN (
         SELECT "bdsId", COUNT(*)::int AS cnt,
@@ -201,10 +201,10 @@ exports.getBDSById = async (req, res) => {
         COALESCE(ac.urgent_cnt, 0)::int AS "urgentActionCount"
       FROM "BDSs" b
       LEFT JOIN (
-        SELECT "bdsId", COUNT(*)::int AS cnt
+        SELECT "entityId" AS "bdsId", COUNT(*)::int AS cnt
         FROM "SubscriberCampaigns"
-        WHERE "bdsId" IS NOT NULL
-        GROUP BY "bdsId"
+        WHERE "entityType" = 'bds'
+        GROUP BY "entityId"
       ) sc ON sc."bdsId" = b.id
       LEFT JOIN (
         SELECT "bdsId", COUNT(*)::int AS cnt,

@@ -22,7 +22,7 @@ describe('Uploads de imágenes en acciones y campañas', () => {
       .field('address', 'Calle Test')
       .attach('featuredImage', Buffer.from('fake-image'), 'test.jpg');
     expect(res.status).toBe(201);
-    expect(res.body.featuredImage).toBeDefined();
+    expect(res.body.imageUrl).toBeDefined();
   });
 
   test('crea una campaña con imagen', async () => {

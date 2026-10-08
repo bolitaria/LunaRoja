@@ -157,6 +157,34 @@ async function run() {
       );
     `);
 
+    // ─── 14. Ampliar enum EmailTemplates.associatedEvent ───────
+    await sequelize.query(`ALTER TYPE "enum_EmailTemplates_associatedEvent" ADD VALUE IF NOT EXISTS 'subscriber_goodbye';`);
+    await sequelize.query(`ALTER TYPE "enum_EmailTemplates_associatedEvent" ADD VALUE IF NOT EXISTS 'password_reset';`);
+    await sequelize.query(`ALTER TYPE "enum_EmailTemplates_associatedEvent" ADD VALUE IF NOT EXISTS 'donation_available';`);
+    await sequelize.query(`ALTER TYPE "enum_EmailTemplates_associatedEvent" ADD VALUE IF NOT EXISTS 'report_created';`);
+
+    // ─── 15. Recrear AdminAuditLogs con el schema del modelo ───
+    await sequelize.query(`DROP TABLE IF EXISTS "AdminAuditLogs" CASCADE;`);
+    await sequelize.query(`
+      CREATE TABLE "AdminAuditLogs" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER REFERENCES "Users"(id) ON DELETE SET NULL,
+        username VARCHAR(255),
+        role VARCHAR(50),
+        action VARCHAR(100) NOT NULL,
+        "entityType" VARCHAR(50) NOT NULL,
+        "entityId" VARCHAR(100),
+        metadata JSONB DEFAULT '{}',
+        "ipAddress" VARCHAR(45),
+        "userAgent" TEXT,
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_audit_action" ON "AdminAuditLogs"(action);`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_audit_created" ON "AdminAuditLogs"("createdAt" DESC);`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_audit_entity" ON "AdminAuditLogs"("entityType", "entityId");`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_audit_user" ON "AdminAuditLogs"("userId");`);
+
     console.log('✅ Schema parcheado correctamente.');
   } catch (error) {
     console.error('❌ Error al parchear schema:', error.message);

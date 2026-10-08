@@ -28,6 +28,7 @@ describe('Email Templates API', () => {
         name: `template_${Date.now()}`,
         subject: 'Test Subject',
         body: '<p>Test</p>',
+        associatedEvent: 'petition',
       });
     expect(res.status).toBe(201);
     templateId = res.body.id;

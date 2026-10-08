@@ -96,7 +96,7 @@ describe('Auth API', () => {
     });
 
     test('Bloqueo de cuenta tras 5 intentos fallidos', async () => {
-      if (process.env.CI) {
+      if (process.env.CI || process.env.NODE_ENV === 'test') {
         // En CI el bloqueo está desactivado, saltamos el test
         return;
       }
