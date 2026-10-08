@@ -8,7 +8,7 @@ describe('Login de administrador', () => {
   it('muestra el formulario de login', () => {
     cy.get('[data-cy="username-input"]').should('be.visible');
     cy.get('input[type="password"]').should('be.visible');
-    cy.get('button[type="submit"]').should('contain.text', /iniciar sesión/i);
+    cy.get('button[type="submit"]').invoke('text').should('match', /iniciar sesión/i);
   });
 
   it('rechaza credenciales incorrectas', () => {
