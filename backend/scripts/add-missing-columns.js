@@ -28,6 +28,37 @@ async function run() {
   };
 
   try {
+    // ─── 0. Crear tabla BDSs si no existe ──────────────────────
+    // La migración inicial crea "BDs" (sin la S final), pero el modelo
+    // BDS.js usa tableName: 'BDSs'. En jobs sin el step "Create BDSs
+    // table directly", esto provoca ENOENT en los ALTER TABLE.
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "BDSs" (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        color VARCHAR(255) DEFAULT '#ff0000',
+        "imageUrl" VARCHAR(255),
+        groups JSON DEFAULT '[]',
+        "documentLink" VARCHAR(255),
+        document VARCHAR(255),
+        "privateLink" VARCHAR(500),
+        visible BOOLEAN NOT NULL DEFAULT true,
+        status VARCHAR(15) NOT NULL DEFAULT 'published',
+        "processingError" TEXT,
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE "BDSs" ADD CONSTRAINT "BDSs_status_check"
+          CHECK (status IN ('processing', 'published', 'error'));
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_bdss_status" ON "BDSs"(status);`);
+
     // ─── 1. Actions ────────────────────────────────────────────
     await addColumn('Actions', 'imageUrl', 'VARCHAR(255)');
     await addColumn('Actions', 'galleryImages', "JSONB DEFAULT '[]'");
