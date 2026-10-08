@@ -15,9 +15,6 @@ const api = axios.create({
 });
 
 // ── Interceptor de petición (solo cliente) ─────────────────────
-// Añade `Authorization: Bearer <token>` si hay token en localStorage.
-// El backend acepta también cookie `access_token`, pero por robustez
-// enviamos ambos.
 if (!isServer) {
   api.interceptors.request.use((config) => {
     try {
@@ -26,11 +23,49 @@ if (!isServer) {
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
       }
+
+      // CSRF para firmas de peticiones
+      if (
+        (config.method === 'post' || config.method === 'put') &&
+        config.url?.includes('/petitions/') &&
+        config.url?.includes('/sign')
+      ) {
+        const csrf = sessionStorage.getItem('csrf_token');
+        if (csrf) {
+          config.headers = config.headers || {};
+          config.headers['x-csrf-token'] = csrf;
+        }
+      }
     } catch (e) {
-      // localStorage puede fallar en algunos contextos (SSR, modo privado)
+      // localStorage/sessionStorage pueden fallar (SSR, modo privado)
     }
     return config;
   });
+}
+
+// ── Interceptor de respuesta: redirect a login en 401 admin ────
+if (!isServer) {
+  api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      const status = error?.response?.status;
+      const url = error?.config?.url || '';
+      if (status === 401 && url.includes('/admin')) {
+        window.location.href = '/admin/login';
+      }
+      return Promise.reject(error);
+    }
+  );
+}
+
+// ── CSRF helpers ───────────────────────────────────────────────
+export async function fetchCsrfToken() {
+  const res = await api.get('/petitions/csrf-token');
+  const token = res.data?.csrfToken;
+  if (token && typeof window !== 'undefined') {
+    sessionStorage.setItem('csrf_token', token);
+  }
+  return token;
 }
 
 export default api;

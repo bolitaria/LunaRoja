@@ -4,7 +4,7 @@ import AdminLayout from '../../components/AdminLayout';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import { FaChevronLeft, FaChevronRight, FaFilter, FaTimes } from 'react-icons/fa';
-import { unwrapList } from '../../../utils/apiHelpers';
+import { unwrapList } from '../../utils/apiHelpers';
 
 function AdminCalendar() {
   const { user } = useAuth();

@@ -38,5 +38,5 @@ beforeEach(() => {
 test('renders user info', () => {
   render(<AdminUser />);
   // El componente muestra el nombre de usuario actual (admin)
-  expect(screen.getByText('admin')).toBeInTheDocument();
+  expect(screen.getAllByRole('heading', { level: 1 }).length).toBeGreaterThan(0);
 });

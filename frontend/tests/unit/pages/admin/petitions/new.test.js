@@ -9,5 +9,5 @@ jest.mock('next/router', () => ({ useRouter: () => ({ pathname: '/', push: jest.
 
 test('renderiza la página', () => {
   render(<Page />);
-  expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: /nueva petición/i })).toBeInTheDocument();
 });

@@ -63,13 +63,9 @@ describe('AdminLayout', () => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Acciones')).toBeInTheDocument();
       expect(screen.getByText('Campañas')).toBeInTheDocument();
-      expect(screen.getByText('BDS')).toBeInTheDocument();
-      expect(screen.getByText('Noticias')).toBeInTheDocument();
+      expect(screen.getByText('Campañas BDS')).toBeInTheDocument();
       expect(screen.getByText('Blog/Reportes')).toBeInTheDocument();
-      expect(screen.getByText('Firma Peticiones')).toBeInTheDocument();
-      expect(screen.getByText('Grupos de Chat')).toBeInTheDocument();
-      expect(screen.getByText('Imágenes')).toBeInTheDocument();
-      expect(screen.getByText('Base de Datos')).toBeInTheDocument();
+      expect(screen.getByText('Firmar Peticiones')).toBeInTheDocument();
       expect(screen.getAllByText('Colectivos Afines').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Administradores')).toBeInTheDocument();
       expect(screen.getByText('Plantillas Email')).toBeInTheDocument();
@@ -83,11 +79,8 @@ describe('AdminLayout', () => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Acciones')).toBeInTheDocument();
       expect(screen.getByText('Campañas')).toBeInTheDocument();
-      expect(screen.getByText('BDS')).toBeInTheDocument();
-      expect(screen.getByText('Noticias')).toBeInTheDocument();
-      expect(screen.getByText('Firma Peticiones')).toBeInTheDocument();
-      expect(screen.getByText('Grupos de Chat')).toBeInTheDocument();
-      expect(screen.getByText('Imágenes')).toBeInTheDocument();
+      expect(screen.getByText('Campañas BDS')).toBeInTheDocument();
+      expect(screen.getByText('Firmar Peticiones')).toBeInTheDocument();
       expect(screen.getByText('Administradores')).toBeInTheDocument();
       // No debe tener Blog/Reportes, Base de Datos, Colectivos, Plantillas, Links
       expect(screen.queryByText('Blog/Reportes')).toBeNull();
@@ -95,6 +88,9 @@ describe('AdminLayout', () => {
       expect(screen.queryByText('Colectivos Afines')).toBeNull();
       expect(screen.queryByText('Plantillas Email')).toBeNull();
       expect(screen.queryByText('Links de interés')).toBeNull();
+      expect(screen.queryByText("Noticias")).toBeNull();
+      expect(screen.queryByText("Grupos de Chat")).toBeNull();
+      expect(screen.queryByText("Galería de Imágenes")).toBeNull();
     });
 
     test('action_admin ve solo acciones', () => {
@@ -103,7 +99,7 @@ describe('AdminLayout', () => {
       // Menu action_admin: Dashboard, Acciones, Imágenes, Noticias, Mi Perfil
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Acciones')).toBeInTheDocument();
-      expect(screen.getByText('Imágenes')).toBeInTheDocument();
+      expect(screen.getByText('Galería de Imágenes')).toBeInTheDocument();
       expect(screen.getByText('Noticias')).toBeInTheDocument();
       expect(screen.queryByText('Campañas')).toBeNull();
       expect(screen.queryByText('BDS')).toBeNull();

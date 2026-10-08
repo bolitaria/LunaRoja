@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { exportInfo } from '../utils/exportInfo';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
-import { unwrapList } from '../../utils/apiHelpers';
+import { unwrapList } from '../utils/apiHelpers';
 
 function AdminUsers() {
   const { user: currentUser } = useAuth();
