@@ -268,6 +268,7 @@ jobs:
         run: |
           cd frontend
           npm ci
+          INTERNAL_API_URL=http://localhost:5000 \
           NEXT_PUBLIC_API_URL=http://localhost:5000 \
           NEXT_PUBLIC_BASE_URL=http://localhost:3000 \
           npm run build
@@ -279,6 +280,7 @@ jobs:
           start: npm start
           wait-on: 'http://localhost:3000'
         env:
+          INTERNAL_API_URL: http://localhost:5000
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_admin_username: admin
           CYPRESS_admin_password: ${{ secrets.ADMIN_PASSWORD }}
