@@ -14,13 +14,13 @@ beforeAll(async () => {
 describe('Dashboard API', () => {
   test('Obtener estadísticas del dashboard (admin)', async () => {
     const res = await request(API_URL)
-      .get('/api/dashboard')
+      .get('/api/dashboard/stats')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
   });
 
   test('Usuario sin token no puede acceder al dashboard', async () => {
-    const res = await request(API_URL).get('/api/dashboard');
+    const res = await request(API_URL).get('/api/dashboard/stats');
     expect(res.status).toBe(401);
   });
 });

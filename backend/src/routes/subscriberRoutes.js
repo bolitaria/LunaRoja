@@ -1,8 +1,17 @@
 const express = require('express');
 const router = express.Router();
+const subscriberController = require('../controllers/subscriberController');
+const { authenticate: authMiddleware } = require('../middlewares/auth');
+const { isSuperAdmin } = require('../middlewares/authorize');
 const SubscriberCampaign = require('../models/SubscriberCampaign');
 const SubscriberAction = require('../models/SubscriberAction');
 
+// ── Rutas públicas ─────────────────────────────────────────────
+router.post('/', subscriberController.createSubscriber);
+router.post('/unsubscribe', subscriberController.unsubscribe);
+router.put('/preferences', subscriberController.updatePreferences);
+
+// ── Baja de seguimiento (público, vía email) ───────────────────
 router.get('/unfollow-campaign', async (req, res) => {
   const { subscriberId, type, id } = req.query;
   if (!subscriberId || !type || !id) return res.status(400).json({ message: 'Parámetros requeridos' });
@@ -19,5 +28,9 @@ router.get('/unfollow-action', async (req, res) => {
   await SubscriberAction.update({ isFollowing: false }, { where: { subscriberId, actionId } });
   res.send('Has dejado de seguir esta acción.');
 });
+
+// ── Rutas protegidas (solo superadmin) ─────────────────────────
+router.get('/', authMiddleware, isSuperAdmin, subscriberController.getAllSubscribers);
+router.delete('/:id', authMiddleware, isSuperAdmin, subscriberController.deleteSubscriber);
 
 module.exports = router;
