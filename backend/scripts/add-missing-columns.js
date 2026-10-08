@@ -189,6 +189,20 @@ async function run() {
       );
     `);
 
+    // ─── 13b. Repuntar FKs de BDs → BDSs ──────────────────────
+    // La migración inicial crea "BDs" (sin S), pero el modelo BDS.js usa
+    // tableName: 'BDSs'. Hay que apuntar las FKs a la tabla real.
+    await sequelize.query(`ALTER TABLE "Actions" DROP CONSTRAINT IF EXISTS "Actions_bdsId_fkey";`);
+    await sequelize.query(`ALTER TABLE "ChatGroups" DROP CONSTRAINT IF EXISTS "ChatGroups_bdsId_fkey";`);
+    await sequelize.query(`ALTER TABLE "UserBDS" DROP CONSTRAINT IF EXISTS "UserBDS_bdsId_fkey";`);
+    await sequelize.query(`ALTER TABLE "UserBDS" DROP CONSTRAINT IF EXISTS "UserBDS_bdsId_fkey1";`);
+    await sequelize.query(`ALTER TABLE "Documents" DROP CONSTRAINT IF EXISTS "Documents_bdsId_fkey";`);
+    await sequelize.query(`ALTER TABLE "SubscriberCampaigns" DROP CONSTRAINT IF EXISTS "SubscriberCampaigns_bdsId_fkey";`);
+
+    await sequelize.query(`ALTER TABLE "Actions" ADD CONSTRAINT "Actions_bdsId_fkey" FOREIGN KEY ("bdsId") REFERENCES "BDSs"(id) ON UPDATE CASCADE ON DELETE SET NULL;`);
+    await sequelize.query(`ALTER TABLE "ChatGroups" ADD CONSTRAINT "ChatGroups_bdsId_fkey" FOREIGN KEY ("bdsId") REFERENCES "BDSs"(id) ON UPDATE CASCADE ON DELETE SET NULL;`);
+    await sequelize.query(`ALTER TABLE "UserBDS" ADD CONSTRAINT "UserBDS_bdsId_fkey" FOREIGN KEY ("bdsId") REFERENCES "BDSs"(id) ON UPDATE CASCADE ON DELETE CASCADE;`);
+
     // ─── 14. Ampliar enum EmailTemplates.associatedEvent ───────
     await sequelize.query(`ALTER TYPE "enum_EmailTemplates_associatedEvent" ADD VALUE IF NOT EXISTS 'subscriber_goodbye';`);
     await sequelize.query(`ALTER TYPE "enum_EmailTemplates_associatedEvent" ADD VALUE IF NOT EXISTS 'password_reset';`);
