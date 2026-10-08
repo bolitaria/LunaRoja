@@ -135,6 +135,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
       - name: Unlock admin account & run integration tests
         if: matrix.service == 'backend'
         run: |
@@ -435,6 +437,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
 
       - name: Build frontend
         working-directory: frontend
