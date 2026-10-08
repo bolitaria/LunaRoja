@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useRouter }from 'next/router';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -14,13 +14,11 @@ export default function AdminProfile() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Estado para el cambio de contraseña
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Cargar datos del perfil
   useEffect(() => {
     if (!authUser) return;
     const fetchProfile = async () => {
@@ -42,11 +40,9 @@ export default function AdminProfile() {
     fetchProfile();
   }, [authUser, logout, router]);
 
-  // Manejador del cambio de contraseña
   const handlePasswordChange = async (e) => {
     e.preventDefault();
 
-    // Validaciones
     if (newPassword.length < 6) {
       toast.warning('La nueva contraseña debe tener al menos 6 caracteres');
       return;
@@ -81,7 +77,7 @@ export default function AdminProfile() {
   if (loading) {
     return (
       <AdminLayout title="Mi Perfil">
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center justify-center h-64">
           <p className="text-gray-500">Cargando perfil...</p>
         </div>
       </AdminLayout>
@@ -91,7 +87,7 @@ export default function AdminProfile() {
   if (!userData) {
     return (
       <AdminLayout title="Mi Perfil">
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center justify-center h-64">
           <p className="text-red-600">No se pudo cargar el perfil.</p>
         </div>
       </AdminLayout>
@@ -100,8 +96,9 @@ export default function AdminProfile() {
 
   const roleNames = {
     superadmin: 'Superadministrador',
-    campaign_admin: 'Administrador de campaña',
+    campaign_admin: 'Administrador de campañas',
     action_admin: 'Administrador de acciones',
+    bds_admin: 'Administrador de BDS',
     blog_admin: 'Administrador de blog',
   };
 
@@ -109,12 +106,12 @@ export default function AdminProfile() {
     <AdminLayout title="Mi Perfil">
       <ToastContainer position="top-right" autoClose={3000} />
 
-      <div className="min-h-screen py-8 px-4 bg-amber-50/80">
+      <div className="py-8 px-4">
         <div className="max-w-xl mx-auto space-y-6">
           {/* Tarjeta de información del perfil */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-2xl font-bold flex-shrink-0">
+              <div className="w-16 h-16 rounded-full bg-fuchsia-100 flex items-center justify-center text-fuchsia-700 text-2xl font-bold flex-shrink-0">
                 {userData.username?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div>
@@ -162,7 +159,7 @@ export default function AdminProfile() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-400 focus:border-fuchsia-400 transition"
                   placeholder="Introduce tu contraseña actual"
                 />
               </div>
@@ -185,7 +182,7 @@ export default function AdminProfile() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-400 focus:border-fuchsia-400 transition"
                   placeholder="Vuelve a escribir la nueva contraseña"
                 />
               </div>
@@ -193,7 +190,7 @@ export default function AdminProfile() {
               <button
                 type="submit"
                 disabled={changingPassword}
-                className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-semibold rounded-lg transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {changingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
               </button>
@@ -204,7 +201,7 @@ export default function AdminProfile() {
           <div className="text-center">
             <Link
               href="/admin/dashboard"
-              className="text-sm text-gray-500 hover:text-amber-600 transition-colors"
+              className="text-sm text-gray-500 hover:text-fuchsia-600 transition-colors"
             >
               ← Volver al panel
             </Link>

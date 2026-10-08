@@ -14,7 +14,7 @@ export default function Unsubscribe() {
     if (!email) return;
     setLoading(true);
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/subscribers/unsubscribe`, { email });
+      await axios.post(`/api/subscribers/unsubscribe`, { email });
       setDone(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al procesar la baja.');

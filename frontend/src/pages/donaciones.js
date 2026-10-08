@@ -13,7 +13,7 @@ export default function Donaciones() {
     e.preventDefault();
     setError(null);
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/subscribers`, { email });
+      await axios.post(`/api/subscribers`, { email });
       setSubscribed(true);
       setEmail('');
     } catch (err) {

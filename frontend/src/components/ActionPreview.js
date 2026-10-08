@@ -1,8 +1,7 @@
 import React from 'react';
 import { categoryLabels } from '../utils/categoryConfig';
 
-export default function ActionPreview({ form = {}, featuredImage = null, images = [] }) {
-  // Valores por defecto para evitar errores
+export default function ActionPreview({ form = {}, featuredImage = null, images = [], documents = [], groups = [] }) {
   const {
     title = '',
     description = '',
@@ -13,9 +12,15 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
     address = '',
     urgent = false,
     enableAttendance = false,
-    groups = [],
+    isLive = false,
+    onlineLink = '',
+    registrationLink = '',
+    recordingUrl = '',
     documentLink = '',
-    documentFile = null,
+    campaignName = '',
+    bdsName = '',
+    latitude = '',
+    longitude = '',
   } = form;
 
   const catLabel = categoryLabels[category] || category || 'Sin categoría';
@@ -23,21 +28,19 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
   const hasAddress = address || placeName;
   const hasImages = Array.isArray(images) && images.length > 0;
   const isUrgent = Boolean(urgent);
-  const hasGroups = Array.isArray(groups) && groups.length > 0;
+  const publicGroups = (groups || []).filter(g => g.isPublic !== false);
+  const privateGroupsCount = (groups || []).filter(g => g.isPublic === false).length;
+  const hasGroups = publicGroups.length > 0 || privateGroupsCount > 0;
+  const hasDocs = (Array.isArray(documents) && documents.length > 0) || Boolean(documentLink);
+  const hasCoords = latitude && longitude;
 
   return (
     <div className="sticky top-8">
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Vista previa</h3>
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-        {/* Imagen destacada */}
         {featuredImage ? (
           <div className="relative w-full aspect-video bg-gray-100">
-            <img
-              src={featuredImage}
-              alt={`Vista previa de ${title || 'la acción'}`}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            <img src={featuredImage} alt={`Vista previa de ${title || 'la acción'}`} className="w-full h-full object-cover" loading="lazy" />
           </div>
         ) : (
           <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
@@ -46,41 +49,39 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
         )}
 
         <div className="p-4 space-y-3">
-          {/* Título y urgente */}
           <div className="flex items-start justify-between gap-2">
-            <h4 className="text-lg font-bold text-gray-800 line-clamp-2">
-              {title || 'Título de la acción'}
-            </h4>
-            {isUrgent && (
-              <span className="flex-shrink-0 inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">
-                🔥 Urgente
-              </span>
-            )}
+            <h4 className="text-lg font-bold text-gray-800 line-clamp-2">{title || 'Título de la acción'}</h4>
+            <div className="flex flex-col gap-1 items-end">
+              {isUrgent && (
+                <span className="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">🔥 Urgente</span>
+              )}
+              {isLive && (
+                <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">🔴 En vivo</span>
+              )}
+            </div>
           </div>
 
-          {/* Fecha y categoría */}
+          {/* Contexto: Campaña / BDS */}
+          {(campaignName || bdsName) && (
+            <div className="text-xs text-gray-500">
+              {campaignName && <span>Campaña: <strong>{campaignName}</strong></span>}
+              {campaignName && bdsName && <span className="mx-1">·</span>}
+              {bdsName && <span>BDS: <strong>{bdsName}</strong></span>}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {datetime && (
               <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md">
-                {new Date(datetime).toLocaleDateString()} –{' '}
-                {new Date(datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(datetime).toLocaleDateString()} – {new Date(datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
-            <span className="px-2 py-0.5 bg-fuchsia-50 text-fuchsia-700 rounded-full text-xs font-medium border border-fuchsia-200">
-              {catLabel}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                isOnline
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-green-50 text-green-700 border-green-200'
-              }`}
-            >
+            <span className="px-2 py-0.5 bg-fuchsia-50 text-fuchsia-700 rounded-full text-xs font-medium border border-fuchsia-200">{catLabel}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${isOnline ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
               {isOnline ? '💻 Online' : '📍 Presencial'}
             </span>
           </div>
 
-          {/* Ubicación */}
           {!isOnline && hasAddress && (
             <div className="text-sm text-gray-600">
               {placeName && <span className="font-medium">{placeName}</span>}
@@ -89,49 +90,64 @@ export default function ActionPreview({ form = {}, featuredImage = null, images 
             </div>
           )}
 
-          {/* Mini galería */}
+          {hasCoords && (
+            <a
+              href={`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=15/${latitude}/${longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-green-700 hover:text-green-900 inline-flex items-center gap-1"
+            >
+              🗺️ Ver en mapa ({Number(latitude).toFixed(4)}, {Number(longitude).toFixed(4)})
+            </a>
+          )}
+
+          {/* Enlaces útiles */}
+          {(onlineLink || registrationLink || recordingUrl) && (
+            <div className="flex flex-col gap-1 text-xs pt-2 border-t border-gray-100">
+              {registrationLink && (
+                <a href={registrationLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 truncate">
+                  📝 Registro
+                </a>
+              )}
+              {onlineLink && (
+                <a href={onlineLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 truncate">
+                  🔗 Enlace online
+                </a>
+              )}
+              {recordingUrl && (
+                <a href={recordingUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 truncate">
+                  ▶️ Grabación
+                </a>
+              )}
+            </div>
+          )}
+
           {hasImages && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Galería ({images.length})</p>
               <div className="flex gap-1 overflow-x-auto pb-1">
                 {images.slice(0, 4).map((src, idx) => (
-                  <img
-                    key={idx}
-                    src={src}
-                    alt={`Imagen ${idx + 1}`}
-                    className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0"
-                    loading="lazy"
-                  />
+                  <img key={idx} src={src} alt={`Imagen ${idx + 1}`} className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0" loading="lazy" />
                 ))}
                 {images.length > 4 && (
-                  <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-xs text-gray-500 flex-shrink-0">
-                    +{images.length - 4}
-                  </div>
+                  <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-xs text-gray-500 flex-shrink-0">+{images.length - 4}</div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Badges adicionales */}
           <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-100">
             {enableAttendance && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-                <span>📝</span> Asistencia
-              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">📝 Asistencia</span>
             )}
-            {(documentLink || documentFile) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">
-                <span>📁</span> Documentos
-              </span>
+            {hasDocs && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">📁 Documentos</span>
             )}
             {hasGroups && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-full border border-purple-200">
-                <span>💬</span> Grupos
-              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-full border border-purple-200">💬 {publicGroups.length} públicos{privateGroupsCount > 0 && ` · 🔒 ${privateGroupsCount} privados`}</span>
             )}
           </div>
 
-          {/* Descripción (resumida) */}
           {description && (
             <p className="text-sm text-gray-600 line-clamp-3 mt-1">{description}</p>
           )}

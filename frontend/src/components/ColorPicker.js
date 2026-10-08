@@ -72,8 +72,12 @@ const ColorPicker = ({ value, onChange, className = '' }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (popupRef.current && !popupRef.current.contains(event.target) && 
-          buttonRef.current && !buttonRef.current.contains(event.target)) {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -83,6 +87,7 @@ const ColorPicker = ({ value, onChange, className = '' }) => {
 
   return (
     <div className={`relative inline-block ${className}`}>
+      {/* Botón con color seleccionado */}
       <button
         ref={buttonRef}
         type="button"
@@ -90,15 +95,14 @@ const ColorPicker = ({ value, onChange, className = '' }) => {
         className="w-10 h-10 rounded-full border-2 border-gray-300 shadow-sm hover:shadow-md transition-shadow flex items-center justify-center"
         style={{ backgroundColor: value }}
         title="Seleccionar color"
-      >
-        <span className="sr-only">Color: {value}</span>
-      </button>
+        aria-label="Color seleccionado"
+      />
 
       {isOpen && (
         <div
           ref={popupRef}
-          className="absolute z-50 top-0 left-full ml-2 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 w-96 max-h-96 overflow-y-auto"
-          style={{ minWidth: '320px' }}
+          className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 w-80 max-h-96 overflow-y-auto"
+          style={{ minWidth: '280px' }}
         >
           <div className="grid grid-cols-8 gap-1 justify-center">
             {PRESET_COLORS.map((color) => (
@@ -108,10 +112,12 @@ const ColorPicker = ({ value, onChange, className = '' }) => {
                 onClick={() => handleSelect(color)}
                 className="w-8 h-8 rounded-full border-2 border-transparent hover:border-gray-500 transition-all transform hover:scale-110"
                 style={{ backgroundColor: color }}
-                title={color}
+                title={color} // El title no es visible, pero ayuda a accesibilidad
               />
             ))}
           </div>
+
+          {/* Selector personalizado sin mostrar el código */}
           <div className="mt-3 flex items-center gap-2 border-t border-gray-200 pt-3">
             <label className="text-xs text-gray-500 flex-1">Personalizado:</label>
             <input
@@ -120,7 +126,6 @@ const ColorPicker = ({ value, onChange, className = '' }) => {
               onChange={handleCustomChange}
               className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
             />
-            <span className="text-xs text-gray-400">{customColor}</span>
           </div>
           <button
             type="button"

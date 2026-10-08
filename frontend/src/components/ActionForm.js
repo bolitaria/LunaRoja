@@ -1,3 +1,4 @@
+// frontend/src/components/ActionForm.js
 import { useState } from 'react';
 
 export default function ActionForm({
@@ -6,7 +7,18 @@ export default function ActionForm({
   onCancel,
   hideCampaignSelect = false,
   campaigns = [],
+  fixedCampaignId = null,
+  fixedBdsId = null,
+  initialLinkType = 'none',
 }) {
+  // Determinar el linkType inicial según props
+  const getInitialLinkType = () => {
+    if (fixedCampaignId) return 'campaign';
+    if (fixedBdsId) return 'bds';
+    return initialLinkType || (initialData.campaignId ? 'campaign' : initialData.bdsId ? 'bds' : 'none');
+  };
+
+  const [linkType, setLinkType] = useState(getInitialLinkType());
   const [form, setForm] = useState({
     title: initialData.title || '',
     description: initialData.description || '',
@@ -21,7 +33,8 @@ export default function ActionForm({
     isLive: initialData.isLive !== undefined ? initialData.isLive : true,
     groups: initialData.groups ? (Array.isArray(initialData.groups) ? initialData.groups.join(', ') : initialData.groups) : '',
     documentLink: initialData.documentLink || '',
-    campaignId: initialData.campaignId || '',
+    campaignId: fixedCampaignId || initialData.campaignId || '',
+    bdsId: fixedBdsId || initialData.bdsId || '',
   });
 
   const handleChange = (e) => {
@@ -34,7 +47,6 @@ export default function ActionForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Validar campos obligatorios
     if (!form.title.trim()) {
       alert('El título es obligatorio');
       return;
@@ -43,13 +55,25 @@ export default function ActionForm({
       alert('La fecha y hora son obligatorias');
       return;
     }
-    // Procesar grupos: convertir string en array limpio
     const groupsArray = form.groups
       ? form.groups.split(',').map((g) => g.trim()).filter(Boolean)
       : [];
     const data = { ...form, groups: groupsArray };
+
+    // Ajustar IDs según linkType
+    if (linkType === 'campaign') {
+      data.bdsId = '';
+    } else if (linkType === 'bds') {
+      data.campaignId = '';
+    } else {
+      data.campaignId = '';
+      data.bdsId = '';
+    }
     onSubmit(data);
   };
+
+  // Si hay fixedCampaignId o fixedBdsId, bloqueamos el selector de linkType
+  const linkTypeLocked = fixedCampaignId || fixedBdsId;
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
@@ -94,14 +118,14 @@ export default function ActionForm({
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
           >
-            <option value="protest">Protesta</option>
-            <option value="webinar">Webinar</option>
-            <option value="talk">Charla</option>
-            <option value="bds">Acción BDS</option>
-            <option value="strike">Huelga</option>
-            <option value="march">Marcha</option>
+            {linkType !== 'bds' && <option value="bds">Acción BDS</option>}
             <option value="solidarity_action">Acción Solidaria</option>
+            <option value="talk">Charla</option>
+            <option value="strike">Huelga</option>
+            <option value="protest">Manifestación</option>
+            <option value="march">Marcha</option>
             <option value="workshop">Taller</option>
+            <option value="webinar">Webinar</option>
           </select>
         </div>
         <div>
@@ -120,23 +144,76 @@ export default function ActionForm({
         </div>
       </div>
 
-      {!hideCampaignSelect && campaigns.length > 0 && (
+      {/* Selector de vinculación */}
+      {!hideCampaignSelect && !linkTypeLocked && (
         <div>
-          <label htmlFor="campaignId" className="block text-sm font-medium text-gray-700 mb-1">
-            Campaña relacionada
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Vincular a</label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="linkType"
+                value="none"
+                checked={linkType === 'none'}
+                onChange={() => setLinkType('none')}
+              />
+              <span>Ninguna</span>
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="linkType"
+                value="campaign"
+                checked={linkType === 'campaign'}
+                onChange={() => setLinkType('campaign')}
+              />
+              <span>Campaña</span>
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="radio"
+                name="linkType"
+                value="bds"
+                checked={linkType === 'bds'}
+                onChange={() => setLinkType('bds')}
+              />
+              <span>BDS</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Selección de campaña/BDS */}
+      {linkType === 'campaign' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Campaña</label>
           <select
-            id="campaignId"
             name="campaignId"
             value={form.campaignId}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500"
+            disabled={!!fixedCampaignId}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 disabled:bg-gray-100"
           >
-            <option value="">-- Ninguna --</option>
-            {campaigns.map((camp) => (
-              <option key={camp.id} value={camp.id}>
-                {camp.name}
-              </option>
+            <option value="">-- Seleccionar campaña --</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {linkType === 'bds' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Campaña BDS</label>
+          <select
+            name="bdsId"
+            value={form.bdsId}
+            onChange={handleChange}
+            disabled={!!fixedBdsId}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 disabled:bg-gray-100"
+          >
+            <option value="">-- Seleccionar BDS --</option>
+            {campaigns.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
         </div>

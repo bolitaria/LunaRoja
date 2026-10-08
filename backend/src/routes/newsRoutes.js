@@ -1,14 +1,18 @@
+// backend/src/routes/newsRoutes.js
 const express = require('express');
-const router = express.Router();
 const newsController = require('../controllers/newsController');
 const { authenticate: authMiddleware } = require('../middlewares/auth');
+const optionalAuth = require('../middlewares/optionalAuth');
 const { isSuperAdmin } = require('../middlewares/authorize');
+const cache = require('../middlewares/cache');
 
-// Rutas públicas (sin autenticación)
-router.get('/', newsController.getAllNews);
-router.get('/:id', newsController.getNewsById);
+const router = express.Router();
 
-// Rutas protegidas (solo superadmin para crear/editar/eliminar)
+// Lectura pública con caché etiquetada
+router.get('/', optionalAuth, cache(60, 'news'), newsController.getAllNews);
+router.get('/:id', optionalAuth, cache(60, 'news'), newsController.getNewsById);
+
+// Escritura (solo superadmin)
 router.post('/', authMiddleware, isSuperAdmin, newsController.createNews);
 router.put('/:id', authMiddleware, isSuperAdmin, newsController.updateNews);
 router.delete('/:id', authMiddleware, isSuperAdmin, newsController.deleteNews);

@@ -1,3 +1,4 @@
+require('express-async-errors');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -8,15 +9,18 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
+const pinoHttp = require('pino-http');
 const db = require('./models');
 
+const logger = require('./config/logger');
 const { initEmailService } = require('./services/emailService');
 const { initQueueService } = require('./services/queueService');
 const { initSessionCache } = require('./services/sessionCacheService');
 const { runMigrations } = require('./services/migrationService');
 const { assignId, requestLogger } = require('./middlewares/requestLogger');
+const { syncStaticTemplates } = require('./controllers/emailTemplateController');
 
-// --------------------- Routes ---------------------
+// Routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const newsRoutes = require('./routes/newsRoutes');
@@ -41,43 +45,41 @@ dotenv.config();
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
-// ---------- Directorios de subida ----------
+// Directorios de subida
 const UPLOADS_BASE = '/app/uploads';
-const SUB_DIRS = ['featured', 'images', 'documents', 'petitions', 'colectivos'];
+const SUB_DIRS = ['featured', 'images', 'documents', 'petitions', 'colectivos', 'campaigns', 'actions', 'bds'];
 
-if (!fs.existsSync(UPLOADS_BASE)) {
-  fs.mkdirSync(UPLOADS_BASE, { recursive: true });
-}
+if (!fs.existsSync(UPLOADS_BASE)) fs.mkdirSync(UPLOADS_BASE, { recursive: true });
 SUB_DIRS.forEach(dir => {
   const fullPath = path.join(UPLOADS_BASE, dir);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
-  }
+  if (!fs.existsSync(fullPath)) fs.mkdirSync(fullPath, { recursive: true });
 });
-console.log('📁 Directorios de uploads asegurados en:', UPLOADS_BASE);
+logger.info({ base: UPLOADS_BASE }, '📁 Directorios de uploads asegurados');
 
-// ---------- Middleware de seguridad ----------
+// Seguridad
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
-app.use(helmet());
-app.use(hpp());
-app.use(assignId);
-app.use(requestLogger);
-app.use('/health', healthRoutes);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://*.openstreetmap.org"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https://*.openstreetmap.org'],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: isProduction ? [] : null,
     },
   },
   crossOriginEmbedderPolicy: false,
 }));
+app.use(hpp());
+app.use(assignId);
+app.use(requestLogger);
+app.use(pinoHttp({ logger }));
+app.use('/health', healthRoutes);
 
-// ---------- CORS ----------
+// CORS
 const defaultOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -85,51 +87,54 @@ const defaultOrigins = [
   'http://lunaroja_frontend:3000',
 ];
 const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-  : defaultOrigins;
-
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : isProduction ? [] : defaultOrigins;
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || !isProduction) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    if (allowedOrigins.includes(origin) || !isProduction) callback(null, true);
+    else callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
 }));
 
-// ---------- Rate limiting ----------
-const apiLimiter = rateLimit({
+// Rate limiting
+const publicLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 50000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_PUBLIC, 10) || 2000,
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests from this IP, please try again later.',
+  message: 'Demasiadas peticiones, inténtalo más tarde.',
   skip: (req) => process.env.NODE_ENV === 'test',
 });
-app.use('/api', apiLimiter);
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_ADMIN, 10) || 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Demasiadas peticiones, inténtalo más tarde.',
+  skip: (req) => process.env.NODE_ENV === 'test',
+});
+app.use('/api/admin', adminLimiter);
+app.use('/api', publicLimiter);
 
-// ---------- Parsers ----------
+// Parsers
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));
 app.use(cookieParser());
 
-// ---------- Archivos estáticos (uploads) ----------
+// Static uploads
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  next();
-}, express.static(UPLOADS_BASE, {
-  dotfiles: 'deny',
-  index: false,
-  maxAge: '1d',
-  redirect: false,
-}));
+  const ext = path.extname(req.path).toLowerCase();
+  const allowedExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'];
+  if (allowedExt.includes(ext)) next();
+  else res.status(403).json({ message: 'File type not allowed' });
+}, express.static(UPLOADS_BASE, { dotfiles: 'deny', index: false, maxAge: '1d', redirect: false }));
 
-// ============ RUTAS ============
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/news', newsRoutes);
@@ -148,140 +153,93 @@ app.use('/api/email-templates', emailTemplateRoutes);
 app.use('/api/links', linksRoutes);
 app.use('/api/colectivosAfines', colectivosAfinesRoutes);
 
-app.get('/api', (req, res) => {
-  res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' });
+app.get('/api', (req, res) => res.json({ message: 'Welcome to Voces Palestinas por la Justicia API' }));
+
+// ============================================================
+// MÉTRICAS PROMETHEUS
+// ============================================================
+const client = require('prom-client');
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics({ timeout: 5000 });
+
+const cacheHits = new client.Counter({
+  name: 'cache_hits_total',
+  help: 'Número total de aciertos de caché',
+});
+const cacheMisses = new client.Counter({
+  name: 'cache_misses_total',
+  help: 'Número total de fallos de caché',
+});
+const queueSize = new client.Gauge({
+  name: 'bullmq_queue_size',
+  help: 'Tamaño actual de las colas BullMQ',
+  labelNames: ['queue', 'state'],
 });
 
-// ---------- Error handler ----------
+// Exponer globalmente para el middleware de caché
+global.__cacheMetrics = { cacheHits, cacheMisses };
+
+// Actualizar gauges de cola cada 10s (solo en proceso API, no en worker)
+if (process.env.WORKER_ONLY !== 'true') {
+  setInterval(async () => {
+    try {
+      const { getQueueMetrics } = require('./services/queueService');
+      const metrics = await getQueueMetrics();
+      for (const q of metrics) {
+        if (q.error) continue;
+        queueSize.set({ queue: q.name, state: 'waiting' }, q.waiting || 0);
+        queueSize.set({ queue: q.name, state: 'active' }, q.active || 0);
+        queueSize.set({ queue: q.name, state: 'completed' }, q.completed || 0);
+        queueSize.set({ queue: q.name, state: 'failed' }, q.failed || 0);
+        queueSize.set({ queue: q.name, state: 'delayed' }, q.delayed || 0);
+      }
+    } catch (err) {
+      // silencioso
+    }
+  }, 10000);
+}
+
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
+});
+
+// Error handler
 app.use((err, req, res, next) => {
   const status = err.status || 500;
-  console.error('Error:', err.message);
+  logger.error({ err, method: req.method, url: req.originalUrl, status }, 'Request error');
+  if (res.headersSent) return next(err);
   res.status(status).json({
     message: err.message || 'Error interno del servidor',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 });
 
-// ==================== ARRANQUE ====================
 const PORT = process.env.PORT || 5000;
-
-const ensureColumnsExist = async () => {
-  try {
-    await db.sequelize.query(`
-      ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "refreshToken" VARCHAR(255);
-      ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lastLogin" TIMESTAMP WITH TIME ZONE;
-      ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "failedLoginAttempts" INTEGER DEFAULT 0;
-      ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP WITH TIME ZONE;
-    `);
-    console.log('✅ Aseguradas columnas en Users');
-  } catch (err) {
-    if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
-      console.warn('⚠️  La tabla Users no existe aún, omitiendo ajuste de columnas.');
-    } else {
-      console.error('❌ Error al asegurar columnas:', err);
-    }
-  }
-};
 
 const ensureAdmin = async () => {
   try {
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
     let admin = await db.User.findOne({ where: { username: 'admin' } });
-
     if (!admin) {
-      await db.User.create({
-        username: 'admin',
-        password: adminPassword,
-        email: 'admin@example.com',
-        role: 'superadmin',
-      });
-      console.log('✅ Superadmin "admin" creado');
+      await db.User.create({ username: 'admin', password: adminPassword, email: 'admin@example.com', role: 'superadmin' });
+      logger.info('✅ Superadmin "admin" creado');
     } else {
       const match = await bcrypt.compare(adminPassword, admin.password);
       if (!match) {
         admin.password = adminPassword;
         await admin.save();
-        console.log('🔑 Contraseña de admin actualizada');
+        logger.info('🔑 Contraseña de admin actualizada');
       } else {
-        console.log('✅ Superadmin ya existe y contraseña correcta.');
+        logger.info('✅ Superadmin ya existe y contraseña correcta.');
       }
     }
   } catch (err) {
-    if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
-      console.warn('⚠️  La tabla Users no existe, omitiendo verificación de admin.');
-    } else {
-      console.error('❌ Error al asegurar superadmin:', err);
-    }
-  }
-};
-
-const ensureDefaultPetitionTemplate = async () => {
-  try {
-    const existing = await db.EmailTemplate.findOne({ where: { name: 'Petición oficial' } });
-    if (!existing) {
-      const templateBody = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{subject}}</title>
-</head>
-<body style="margin:0; padding:0; background-color: {{backgroundColor}}; font-family: Arial, sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: {{backgroundColor}};">
-    <tr>
-      <td align="center" style="padding: 20px 0;">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background-color: {{headerColor}}; padding: 30px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">{{subject}}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px 20px; color: #333333; line-height: 1.6;">
-              {{{body}}}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 0 20px 30px; text-align: center;">
-              <a href="{{actionLink}}" style="display: inline-block; background-color: {{buttonColor}}; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 5px; font-weight: bold;">Firmar petición</a>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: {{footerColor}}; padding: 20px; text-align: center; color: #ffffff; font-size: 12px;">
-              <p style="margin: 0;">Voces Palestinas por la Justicia</p>
-              <p style="margin: 5px 0 0;">
-                <a href="{{unsubscribeLink}}" style="color: #ffffff; text-decoration: underline;">Cancelar suscripción</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-      await db.EmailTemplate.create({
-        name: 'Petición oficial',
-        subject: 'Petición de justicia para Palestina',
-        body: templateBody,
-        type: 'system',
-        associatedEvent: 'custom',
-        isActive: true,
-        headerColor: '#b91c1c',
-        buttonColor: '#16a34a',
-        footerColor: '#1f2937',
-        backgroundColor: '#f3f4f6',
-      });
-      console.log('✅ Plantilla por defecto para peticiones creada');
-    } else {
-      console.log('✅ Plantilla por defecto ya existe');
-    }
-  } catch (err) {
-    if (err.name === 'SequelizeDatabaseError' && 
-        (err.parent?.code === '42P01' || err.parent?.code === '42703')) {
-      console.warn('⚠️  La tabla/columna EmailTemplates no está lista, omitiendo verificación de plantilla.');
-    } else {
-      console.error('❌ Error al asegurar plantilla de peticiones:', err);
-    }
+    logger.error({ err }, '❌ Error al asegurar superadmin');
   }
 };
 
@@ -290,59 +248,87 @@ const runInitialMigrations = async () => {
     await db.sequelize.query(`CREATE TABLE IF NOT EXISTS "SequelizeMeta" (name VARCHAR(255) PRIMARY KEY);`);
     await runMigrations();
   } catch (err) {
-    console.error('❌ Failed to run initial migrations:', err);
+    logger.error({ err }, '❌ Failed to run initial migrations');
     throw err;
   }
 };
 
-// 👇 NUEVA FUNCIÓN para sincronizar la tabla de Colectivos Afines
 const ensureColectivosAfinesTable = async () => {
   try {
     const ColectivoAfines = require('./models/ColectivosAfines');
     await ColectivoAfines.sync({ alter: true });
-    console.log('✅ Tabla colectivos_afines sincronizada');
+    logger.info('✅ Tabla colectivos_afines sincronizada');
   } catch (err) {
-    console.error('❌ Error al sincronizar tabla colectivos_afines:', err);
+    logger.error({ err }, '❌ Error al sincronizar tabla colectivos_afines');
+  }
+};
+
+const ensureAdminAuditTable = async () => {
+  try {
+    await db.sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "AdminAuditLogs" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER REFERENCES "Users"(id) ON DELETE SET NULL,
+        "username" VARCHAR(255),
+        "role" VARCHAR(50),
+        action VARCHAR(100) NOT NULL,
+        "entityType" VARCHAR(50) NOT NULL,
+        "entityId" VARCHAR(100),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        "ipAddress" VARCHAR(45),
+        "userAgent" TEXT,
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_user ON "AdminAuditLogs" ("userId");
+      CREATE INDEX IF NOT EXISTS idx_audit_entity ON "AdminAuditLogs" ("entityType", "entityId");
+      CREATE INDEX IF NOT EXISTS idx_audit_created ON "AdminAuditLogs" ("createdAt" DESC);
+      CREATE INDEX IF NOT EXISTS idx_audit_action ON "AdminAuditLogs" (action);
+    `);
+    logger.info('✅ Tabla AdminAuditLogs verificada');
+  } catch (err) {
+    logger.error({ err }, '❌ Error al verificar tabla AdminAuditLogs');
   }
 };
 
 const startServer = async () => {
   try {
     await initEmailService();
-    await initQueueService().catch(err => console.warn('Queue service unavailable:', err.message));
-    await initSessionCache().catch(err => console.warn('Session cache unavailable:', err.message));
+    await syncStaticTemplates();
+    initQueueService();
+    await initSessionCache().catch(err => logger.warn({ err }, 'Session cache unavailable'));
     await runInitialMigrations();
 
-    if (process.env.SKIP_DB_SYNC !== 'true') {
-      const syncOptions = { alter: true };
-      await db.sequelize.sync(syncOptions);
-      console.log('✅ Database synchronized');
+    if (process.env.NODE_ENV !== 'production') {
+      await db.sequelize.sync();
+      logger.info('✅ Database synchronized (dev mode)');
     } else {
-      console.log('⏩ Sincronización de BD omitida (SKIP_DB_SYNC=true)');
+      logger.info('⏩ Sincronización de BD omitida (producción)');
     }
 
-    await ensureColumnsExist();
     await ensureAdmin();
     await ensureColectivosAfinesTable();
-    await ensureDefaultPetitionTemplate();
+    await ensureAdminAuditTable();
 
-    // Solo iniciar el job de recordatorios (no afecta)
     require('./jobs/reminderJob');
-
-    // 👇 Iniciar el job de emailQueue solo si NO se están saltando los correos
     if (process.env.SKIP_EMAILS !== 'true' && process.env.NODE_ENV !== 'test') {
       require('./jobs/emailQueueJob');
     } else {
-      console.log('📧 Job de cola de correos omitido (SKIP_EMAILS=true o NODE_ENV=test)');
+      logger.info('📧 Job de cola de correos omitido (SKIP_EMAILS=true o NODE_ENV=test)');
     }
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+      logger.info({ port: PORT }, '🚀 Server running');
     });
   } catch (err) {
-    console.error('❌ Failed to start server:', err);
+    logger.error({ err }, '❌ Failed to start server');
     process.exit(1);
   }
 };
 
-startServer();
+if (process.env.WORKER_ONLY === 'true') {
+  logger.info('👷 Modo worker: omitiendo arranque de API');
+} else {
+  startServer();
+}
+
+module.exports = app;

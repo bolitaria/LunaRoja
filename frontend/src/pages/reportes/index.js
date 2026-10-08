@@ -13,7 +13,10 @@ export default function Reports() {
     const fetchReports = async () => {
       try {
         const res = await api.get('/reports');
-        setReports(res.data);
+        const payload = res.data;
+        // El backend devuelve { data, total, page, limit, metrics }
+        // (o un array directo en versiones antiguas)
+        setReports(Array.isArray(payload) ? payload : (payload.data || []));
       } catch (error) { console.error('Error fetching reports:', error); }
       finally { setLoading(false); }
     };
@@ -41,7 +44,7 @@ export default function Reports() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
           <div className="flex gap-3">
             <button onClick={() => handleFilter('blog')} className={filterBtnClass('blog')}>📝Entradas del Blog</button>
-            <button onClick={() => handleFilter('report')} className={filterBtnClass('report')}>📄 Reportes Oficiales</button>
+            <button onClick={() => handleFilter('report')} className={filterBtnClass('report')}>📄 Reportes Peticiones Externases</button>
           </div>
           <div className="relative w-full sm:w-64">
             <input

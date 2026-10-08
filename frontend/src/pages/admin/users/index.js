@@ -9,6 +9,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
+import { unwrapList } from '../../../utils/apiHelpers';
 
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
@@ -30,15 +31,15 @@ export default function AdminUsers() {
   const itemsPerPage = 10;
 
   const fetchUsers = async () => {
-    try { const res = await api.get('/users'); setUsers(res.data); }
+    try { const res = await api.get('/users'); setUsers(unwrapList(res.data)); }
     catch (error) { toast.error('Error al cargar usuarios'); }
   };
   const fetchCampaigns = async () => {
-    try { const res = await api.get('/campaigns'); setCampaigns(res.data); }
+    try { const res = await api.get('/campaigns', { params: { limit: 1000 } }); setCampaigns(unwrapList(res.data)); }
     catch (error) { toast.error('Error al cargar campañas'); }
   };
   const fetchActions = async () => {
-    try { const res = await api.get('/actions'); setActions(res.data); }
+    try { const res = await api.get('/actions'); setActions(unwrapList(res.data)); }
     catch (error) { toast.error('Error al cargar acciones'); }
   };
   useEffect(() => { Promise.all([fetchUsers(), fetchCampaigns(), fetchActions()]).then(() => setLoading(false)); }, []);
@@ -72,7 +73,7 @@ export default function AdminUsers() {
   };
 
   const handleEdit = (user) => {
-    setForm({ username: user.username, password: '', role: user.role, campaignIds: user.campaigns ? user.campaigns.map(c => c.id) : [], actionIds: user.actions ? user.actions.map(a => a.id) : [] });
+    setForm({ username: user.username, password: '', role: user.role, campaignIds: user.campaigns ? user.campaigns.map(c => c.id) : [], actionIds: user.assignedActions ? user.assignedActions.map(a => a.id) : [] });
     setEditingId(user.id); setShowForm(true);
   };
 
@@ -219,7 +220,7 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{user.username}</td>
                     <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{roleLabels[user.role] || user.role}</td>
-                    <td className="px-6 py-4 hidden md:table-cell text-gray-500">{user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}{user.role === 'action_admin' && user.actions?.map(a => a.title).join(', ')}{user.role === 'superadmin' && '-'}</td>
+                    <td className="px-6 py-4 hidden md:table-cell text-gray-500">{user.role === 'campaign_admin' && user.campaigns?.map(c => c.name).join(', ')}{user.role === 'action_admin' && user.assignedActions?.map(a => a.title).join(', ')}{user.role === 'superadmin' && '-'}</td>
                     <td className="px-6 py-4 text-right">
                       <input type="checkbox" checked={selected.includes(user.id)} onChange={() => toggleOne(user.id)} />
                     </td>

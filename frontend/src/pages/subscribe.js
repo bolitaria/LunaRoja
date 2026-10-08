@@ -12,7 +12,7 @@ export default function Subscribe() {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/subscribers`, { email });
+      await axios.post(`/api/subscribers`, { email });
       toast.success('¡Suscripción exitosa! Revisa tu correo para confirmar (si aplica).');
       setEmail('');
     } catch (error) {

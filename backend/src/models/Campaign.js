@@ -1,6 +1,15 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
+/**
+ * Campaña.
+ *
+ * Documentos se gestionan vía tabla `Documents` (FK campaignId).
+ * `status` controla el ciclo de procesado async de imágenes:
+ *   - processing: imágenes pendientes de worker
+ *   - published:  visible en web pública
+ *   - error:      falló el procesado (ver processingError)
+ */
 const Campaign = sequelize.define('Campaign', {
   id: {
     type: DataTypes.INTEGER,
@@ -22,17 +31,27 @@ const Campaign = sequelize.define('Campaign', {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  // Nuevos campos
   groups: {
     type: DataTypes.JSON,
     allowNull: true,
   },
-  documentLink: {
-    type: DataTypes.STRING,
+  privateLink: {
+    type: DataTypes.STRING(500),
     allowNull: true,
   },
-  document: {
-    type: DataTypes.STRING,
+  visible: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.STRING(15),
+    allowNull: false,
+    defaultValue: 'processing',
+    validate: { isIn: [['processing', 'published', 'error']] },
+  },
+  processingError: {
+    type: DataTypes.TEXT,
     allowNull: true,
   },
 }, {

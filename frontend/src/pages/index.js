@@ -6,6 +6,7 @@ import NewsCard from '../components/NewsCard';
 import ReportCard from '../components/ReportCard';
 import ActionCard from '../components/ActionCard';
 import GalleryCard from '../components/GalleryCard';
+import { unwrapList as listOrArray } from '../utils/apiHelpers';
 
 export default function Home() {
   const [news, setNews] = useState([]);
@@ -27,7 +28,8 @@ export default function Home() {
 
         // Noticias
         if (newsRes.status === 'fulfilled') {
-          const filteredNews = newsRes.value.data.filter((noticia) => {
+          const newsList = Array.isArray(newsRes.value.data) ? newsRes.value.data : (newsRes.value.data?.data || []);
+          const filteredNews = newsList.filter((noticia) => {
             const isNews = noticia.isNews === true;
             const isGeneral =
               (noticia.campaignId == null || noticia.campaignId === '') &&
@@ -41,21 +43,22 @@ export default function Home() {
 
         // Blog/Reportes
         if (reportsRes.status === 'fulfilled') {
-          setReports(reportsRes.value.data.slice(0, 3));
+          setReports(listOrArray(reportsRes.value.data).slice(0, 3));
         } else {
           setErrors(prev => ({ ...prev, reports: 'No se pudieron cargar los reportes' }));
         }
 
         // Acciones
         if (actionsRes.status === 'fulfilled') {
-          setActions(actionsRes.value.data.slice(0, 3));
+          setActions(listOrArray(actionsRes.value.data).slice(0, 3));
         } else {
           setErrors(prev => ({ ...prev, actions: 'Error al cargar acciones' }));
         }
 
         // Imágenes (galería)
         if (galleryRes.status === 'fulfilled') {
-          const images = galleryRes.value.data.map(img => ({
+          const galleryList = Array.isArray(galleryRes.value.data) ? galleryRes.value.data : (galleryRes.value.data?.data || []);
+          const images = galleryList.map(img => ({
             id: img.id,
             imageUrl: img.url,
             title: img.relatedTitle || 'Imagen'
@@ -94,10 +97,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Últimas Acciones – SIN patrón */}
+      {/* Últimas Acciones */}
       <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Últimas Acciones</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Últimas Acciones</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando acciones...</p>
           ) : actions.length === 0 ? (
@@ -117,21 +120,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Galería – CON patrón original (solo SVG, sin color extra) */}
-      <section className="py-16 bg-white border-t border-gray-200 relative">
-        {/* Fondo con patrón SVG original, muy sutil */}
+      {/* Galería */}
+      <section className="py-32 bg-white border-t border-gray-200 relative">
         <div
           className="absolute inset-0 z-0"
           style={{
-            backgroundImage: 'url("/palestinePattern.svg")',
+            backgroundImage: 'url("/palestinePattern.jpg")',
             backgroundRepeat: 'repeat',
             backgroundSize: 'auto',
             backgroundPosition: 'center',
-            opacity: 0.025, 
+            opacity: 0.16,
           }}
         />
         <div className="container mx-auto px-4 relative z-10">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Galería</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Galería</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando galería...</p>
           ) : gallery.length === 0 ? (
@@ -151,10 +153,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Últimas Noticias – SIN patrón, vuelta a la normalidad */}
+      {/* Últimas Noticias */}
       <section className="py-16 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-600">Últimas Noticias</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Últimas Noticias</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando noticias...</p>
           ) : news.length === 0 ? (
@@ -175,8 +177,20 @@ export default function Home() {
       </section>
 
       {/* Últimos Blog/Reportes */}
-      <section className="py-16 bg-white border-t border-gray-200">
-        <div className="container mx-auto px-4">
+      <section className="py-32 bg-white border-t border-gray-200 relative">
+        {/* Patrón de fondo con opacidad, igual que en Galería */}
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage: 'url("/palestinePattern.jpg")',
+            backgroundRepeat: 'repeat',
+            backgroundSize: 'auto',
+            backgroundPosition: '0% 100%',   // parte más baja del JPEG
+            opacity: 0.16,
+          }}
+        />
+        {/* Contenido por encima */}
+        <div className="container mx-auto px-4 relative z-10">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Blog/Reportes recientes</h2>
           {loading ? (
             <p className="text-center text-gray-600">Cargando entradas de Blog y reportes...</p>

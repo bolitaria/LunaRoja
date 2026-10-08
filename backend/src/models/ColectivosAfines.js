@@ -1,14 +1,15 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database'); // ajusta la ruta a tu configuración de Sequelize
+const sequelize = require('../config/database');
 
 const ColectivoAfines = sequelize.define('ColectivoAfines', {
   nombre: {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  imagen: {
+  logoUrl: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
+    field: 'logoUrl',          // columna exacta en BD
   },
   link: {
     type: DataTypes.STRING,

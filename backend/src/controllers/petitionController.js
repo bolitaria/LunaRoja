@@ -1,8 +1,15 @@
-// backend/src/controllers/petitionController.js (versión completa y corregida)
-const { Petition, SignatureHash } = require('../models');
+// backend/src/controllers/petitionController.js
+const { Petition, SignatureHash, EmailTemplate, User } = require('../models');
 const { buildSignatureSchema } = require('../utils/dynamicValidation');
 const { sendPetitionAlert, sendEmailWithTemplate } = require('../services/emailService');
+const { getQueue } = require('../services/queueService');
+const quotaService = require('../services/quotaService');
+const { msUntilNextMadridMidnight } = require('../utils/time');
+const { getGlobalPetitionMetrics } = require('../services/petitionMetricsService');
+const { logAdminAction } = require('../services/auditService');
+const cacheMiddleware = require('../middlewares/cache');
 const sequelize = require('../config/database');
+const { Op } = require('sequelize');
 const createError = require('http-errors');
 const crypto = require('crypto');
 const path = require('path');
@@ -48,23 +55,27 @@ async function saveBase64Image(base64String) {
   return `/uploads/petitions/${filename}`;
 }
 
+async function getDefaultPetitionTemplate() {
+  return await EmailTemplate.findOne({
+    where: { associatedEvent: 'petition', type: 'system', isActive: true },
+  });
+}
+
 exports.createPetition = async (req, res, next) => {
   try {
     const title = req.body.title;
+    const description = req.body.description;
     const content = req.body.content;
     const type = req.body.type;
     const externalUrl = getField(req.body, 'externalUrl', 'external_url');
     const urgency = req.body.urgency;
     const deadline = req.body.deadline;
     const hidden = req.body.hidden;
-    const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
+    let emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
+    const emailSubject = getField(req.body, 'emailSubject', 'email_subject');
+    const emailContentMode = getField(req.body, 'emailContentMode', 'email_content_mode') || 'rich';
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
-    // ✅ COLORES PERSONALIZADOS
-    const headerColor = req.body.headerColor || null;
-    const buttonColor = req.body.buttonColor || null;
-    const footerColor = req.body.footerColor || null;
-    const backgroundColor = req.body.backgroundColor || null;
 
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : null;
     if (!featuredImage && req.body.imageBase64) {
@@ -75,13 +86,19 @@ exports.createPetition = async (req, res, next) => {
 
     if (!title) throw createError(400, 'El título es obligatorio');
 
-    // Peticiones externas
+    let petition;
+
     if (type === 'official' || type === 'external') {
       if (!externalUrl || externalUrl.trim() === '') {
         throw createError(400, 'La URL externa es obligatoria para peticiones externas');
       }
-      const petition = await Petition.create({
+      if (!emailTemplateId) {
+        const defaultTemplate = await getDefaultPetitionTemplate();
+        if (defaultTemplate) emailTemplateId = defaultTemplate.id;
+      }
+      petition = await Petition.create({
         title,
+        description: description || null,
         content: `Serás redirigido al sitio oficial: ${externalUrl}`,
         target_emails: [],
         signature_fields: [],
@@ -92,32 +109,45 @@ exports.createPetition = async (req, res, next) => {
         hidden: hidden || false,
         emailTemplateId: emailTemplateId || null,
         featured_image: featuredImage,
+        email_subject: emailSubject || null,
         created_by: req.user.id,
-        // colores
-        headerColor, buttonColor, footerColor, backgroundColor,
       });
-      return res.status(201).json({ id: petition.id });
+    } else {
+      if (!content) throw createError(400, 'El contenido es obligatorio');
+      const emails = parseEmails(targetEmailsRaw);
+      if (emails.length === 0) throw createError(400, 'Debe incluir al menos un email destinatario');
+
+      if (!emailTemplateId) {
+        const defaultTemplate = await getDefaultPetitionTemplate();
+        if (defaultTemplate) emailTemplateId = defaultTemplate.id;
+      }
+
+      petition = await Petition.create({
+        title,
+        description: description || null,
+        content,
+        email_content_mode: emailContentMode === 'text' ? 'text' : 'rich',
+        target_emails: emails,
+        signature_fields: signatureFields,
+        type: 'custom',
+        urgency: urgency || false,
+        deadline: (deadline && deadline !== '' && deadline !== 'Invalid date') ? deadline : null,
+        hidden: hidden || false,
+        emailTemplateId: emailTemplateId || null,
+        featured_image: featuredImage,
+        email_subject: emailSubject || null,
+        created_by: req.user.id,
+      });
     }
 
-    // Peticiones internas
-    if (!content) throw createError(400, 'El contenido es obligatorio');
-    const emails = parseEmails(targetEmailsRaw);
-    if (emails.length === 0) throw createError(400, 'Debe incluir al menos un email destinatario');
-
-    const petition = await Petition.create({
-      title,
-      content,
-      target_emails: emails,
-      signature_fields: signatureFields,
-      type: 'custom',
-      urgency: urgency || false,
-      deadline: (deadline && deadline !== '' && deadline !== 'Invalid date') ? deadline : null,
-      hidden: hidden || false,
-      emailTemplateId: emailTemplateId || null,
-      featured_image: featuredImage,
-      created_by: req.user.id,
-      headerColor, buttonColor, footerColor, backgroundColor,
+    await cacheMiddleware.invalidateResource('petitions', petition.id);
+    await logAdminAction(req, {
+      action: 'create',
+      entityType: 'petition',
+      entityId: petition.id,
+      metadata: { title: petition.title, type: petition.type },
     });
+
     res.status(201).json({ id: petition.id });
   } catch (err) { next(err); }
 };
@@ -125,7 +155,7 @@ exports.createPetition = async (req, res, next) => {
 exports.getPetition = async (req, res, next) => {
   try {
     const petition = await Petition.findByPk(req.params.id, {
-      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at', 'headerColor', 'buttonColor', 'footerColor', 'backgroundColor'],
+      attributes: ['id', 'title', 'content', 'total_signatures', 'signature_fields', 'type', 'external_url', 'urgency', 'deadline', 'hidden', 'featured_image', 'created_at', 'description', 'email_subject', 'target_emails', 'emailTemplateId', 'email_content_mode'],
     });
     if (!petition) throw createError(404, 'Petición no encontrada');
     res.json(petition);
@@ -154,29 +184,69 @@ exports.signPetition = async (req, res, next) => {
     await petition.save({ transaction });
     await transaction.commit();
 
+    // Datos del firmante (solo en memoria / Redis temporal, NUNCA en Postgres)
     const emailData = {};
     petition.signature_fields.forEach(f => { emailData[f.label || f.name] = value[f.name] || ''; });
 
-    // Usar plantilla y colores personalizados
-    if (petition.emailTemplateId) {
+    // ¿Hay cuota ahora mismo?
+    const canSendNow = await quotaService.hasCapacity();
+
+    if (canSendNow) {
+      // Envío síncrono: los datos del firmante viven SOLO en memoria
       try {
-        const EmailTemplate = require('../models/EmailTemplate');
-        const template = await EmailTemplate.findByPk(petition.emailTemplateId);
-        if (template) {
-          const colors = {
-            headerColor: petition.headerColor || template.headerColor,
-            buttonColor: petition.buttonColor || template.buttonColor,
-            footerColor: petition.footerColor || template.footerColor,
-            backgroundColor: petition.backgroundColor || template.backgroundColor,
-          };
-          await sendEmailWithTemplate(petition.target_emails, template, { ...emailData, petition });
-          return res.status(201).json({ message: 'Firma registrada con éxito', total: petition.total_signatures });
+        let sent = false;
+
+        if (petition.emailTemplateId) {
+          const template = await EmailTemplate.findByPk(petition.emailTemplateId);
+          if (template) {
+            sent = await sendEmailWithTemplate(
+              petition.target_emails,
+              template,
+              { ...emailData, petition }
+            );
+          }
         }
-      } catch (err) { console.error('Error enviando email con plantilla:', err); }
+
+        if (!sent) {
+          const result = await sendPetitionAlert(petition, emailData);
+          sent = result && result.success === true;
+        }
+
+        if (sent) {
+          await quotaService.increment();
+        } else {
+          console.warn(`[signPetition] Envío fallido para petition ${petition.id}`);
+        }
+      } catch (err) {
+        console.error('[signPetition] Error enviando email síncrono:', err.message);
+        // Por privacidad: no reintentamos ni persistimos datos del firmante
+      }
+    } else {
+      // Cuota agotada → encolar para próxima medianoche Madrid.
+      // Los datos del firmante viven temporalmente en Redis (purgados al enviar o en 24h).
+      try {
+        await getQueue('petition-signature-email').add(
+          'send-signature-email',
+          {
+            petitionId: petition.id,
+            targetEmails: petition.target_emails,
+            templateId: petition.emailTemplateId || null,
+            emailData,
+          },
+          {
+            delay: msUntilNextMadridMidnight(),
+            removeOnComplete: true,
+            removeOnFail: { age: 86400 },
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 10000 },
+          }
+        );
+        console.log(`[signPetition] Cuota agotada. Email encolado para próxima medianoche Madrid.`);
+      } catch (err) {
+        console.error('[signPetition] Error encolando email:', err.message);
+      }
     }
 
-    // Fallback: envío estático
-    sendPetitionAlert(petition, emailData).catch(err => console.error('Error enviando correo:', err));
     res.status(201).json({ message: 'Firma registrada con éxito', total: petition.total_signatures });
   } catch (err) {
     if (!transaction.finished) await transaction.rollback();
@@ -191,20 +261,18 @@ exports.updatePetition = async (req, res, next) => {
     if (petition.total_signatures > 0) return res.status(403).json({ message: 'No se puede editar una petición que ya tiene firmas' });
 
     const title = req.body.title;
+    const description = req.body.description;
     const content = req.body.content;
     const type = req.body.type;
+    const emailSubject = getField(req.body, 'emailSubject', 'email_subject');
     const externalUrl = getField(req.body, 'externalUrl', 'external_url');
     const urgency = req.body.urgency;
     const deadline = req.body.deadline;
     const hidden = req.body.hidden;
     const emailTemplateId = getField(req.body, 'emailTemplateId', 'email_template_id');
+    const emailContentMode = getField(req.body, 'emailContentMode', 'email_content_mode');
     const signatureFields = parseSignatureFields(getField(req.body, 'signatureFields', 'signature_fields'));
     const targetEmailsRaw = getField(req.body, 'targetEmails', 'target_emails') || getField(req.body, 'recipientEmails', 'recipient_emails');
-    const headerColor = req.body.headerColor !== undefined ? req.body.headerColor : petition.headerColor;
-    const buttonColor = req.body.buttonColor !== undefined ? req.body.buttonColor : petition.buttonColor;
-    const footerColor = req.body.footerColor !== undefined ? req.body.footerColor : petition.footerColor;
-    const backgroundColor = req.body.backgroundColor !== undefined ? req.body.backgroundColor : petition.backgroundColor;
-
     let featuredImage = req.file ? `/uploads/petitions/${req.file.filename}` : petition.featured_image;
     if (!req.file && req.body.imageBase64) {
       try {
@@ -216,7 +284,10 @@ exports.updatePetition = async (req, res, next) => {
 
     await petition.update({
       title: title || petition.title,
+      description: description !== undefined ? description : petition.description,
       content: content || petition.content,
+      email_subject: emailSubject !== undefined ? emailSubject : petition.email_subject,
+      email_content_mode: emailContentMode !== undefined ? (emailContentMode === 'text' ? 'text' : 'rich') : petition.email_content_mode,
       target_emails: isExternal ? [] : (targetEmailsRaw ? parseEmails(targetEmailsRaw) : petition.target_emails),
       signature_fields: isExternal ? [] : (signatureFields || petition.signature_fields),
       type: isExternal ? 'official' : 'custom',
@@ -226,8 +297,16 @@ exports.updatePetition = async (req, res, next) => {
       hidden: hidden !== undefined ? hidden : petition.hidden,
       emailTemplateId: emailTemplateId !== undefined ? emailTemplateId : petition.emailTemplateId,
       featured_image: featuredImage,
-      headerColor, buttonColor, footerColor, backgroundColor,
     });
+
+    await cacheMiddleware.invalidateResource('petitions', petition.id);
+    await logAdminAction(req, {
+      action: 'update',
+      entityType: 'petition',
+      entityId: petition.id,
+      metadata: { changed: Object.keys(req.body) },
+    });
+
     res.json({ id: petition.id });
   } catch (err) { next(err); }
 };
@@ -237,9 +316,21 @@ exports.deletePetition = async (req, res, next) => {
   try {
     const petition = await Petition.findByPk(req.params.id, { transaction });
     if (!petition) { await transaction.rollback(); return res.status(404).json({ message: 'Petición no encontrada' }); }
+
+    const snapshot = { title: petition.title, type: petition.type };
+
     await SignatureHash.destroy({ where: { petition_id: petition.id }, transaction });
     await petition.destroy({ transaction });
     await transaction.commit();
+
+    await cacheMiddleware.invalidateResource('petitions', petition.id);
+    await logAdminAction(req, {
+      action: 'delete',
+      entityType: 'petition',
+      entityId: petition.id,
+      metadata: snapshot,
+    });
+
     res.status(200).json({ message: 'Petición eliminada' });
   } catch (err) {
     if (!transaction.finished) await transaction.rollback();
@@ -249,21 +340,135 @@ exports.deletePetition = async (req, res, next) => {
 
 exports.listPetitions = async (req, res, next) => {
   try {
-    const petitions = await Petition.findAll({
-      attributes: ['id', 'title', 'type', 'urgency', 'total_signatures', 'hidden', 'created_at'],
-      order: [['created_at', 'DESC']],
+    const {
+      page = 1,
+      limit = 12,
+      search,
+      type,
+      urgency,
+      hidden,
+      minSignatures,
+      createdFrom,
+      createdTo,
+      deadlineFrom,
+      deadlineTo,
+    } = req.query;
+
+    const conditions = [];
+    const replacements = {};
+
+    if (search) {
+      conditions.push(`p.title ILIKE :search`);
+      replacements.search = `%${search}%`;
+    }
+    if (type && ['official', 'custom'].includes(type)) {
+      conditions.push(`p.type = :type`);
+      replacements.type = type;
+    }
+    if (urgency === 'true') {
+      conditions.push(`p.urgency = true`);
+    } else if (urgency === 'false') {
+      conditions.push(`p.urgency = false`);
+    }
+    if (hidden === 'true') {
+      conditions.push(`p.hidden = true`);
+    } else if (hidden === 'false') {
+      conditions.push(`p.hidden = false`);
+    }
+    if (minSignatures) {
+      conditions.push(`p.total_signatures >= :minSignatures`);
+      replacements.minSignatures = parseInt(minSignatures, 10);
+    }
+    if (createdFrom) {
+      conditions.push(`p.created_at >= :createdFrom`);
+      replacements.createdFrom = new Date(createdFrom);
+    }
+    if (createdTo) {
+      conditions.push(`p.created_at <= :createdTo`);
+      replacements.createdTo = new Date(createdTo + 'T23:59:59');
+    }
+    if (deadlineFrom) {
+      conditions.push(`p.deadline >= :deadlineFrom`);
+      replacements.deadlineFrom = new Date(deadlineFrom);
+    }
+    if (deadlineTo) {
+      conditions.push(`p.deadline <= :deadlineTo`);
+      replacements.deadlineTo = new Date(deadlineTo + 'T23:59:59');
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const parsedPage = parseInt(page) || 1;
+    const parsedLimit = Math.min(parseInt(limit) || 12, 1000);
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    const sql = `
+      SELECT
+        p.*,
+        (SELECT COUNT(*)::int FROM signature_hashes sh WHERE sh.petition_id = p.id) AS "signatureCount"
+      FROM petitions p
+      ${whereClause}
+      ORDER BY p.created_at DESC
+      LIMIT :limit OFFSET :offset
+    `;
+    const countSql = `
+      SELECT COUNT(*)::int AS total
+      FROM petitions p
+      ${whereClause}
+    `;
+
+    const [rows, countResult] = await Promise.all([
+      sequelize.query(sql, {
+        replacements: { ...replacements, limit: parsedLimit, offset },
+        type: sequelize.QueryTypes.SELECT,
+      }),
+      sequelize.query(countSql, {
+        replacements,
+        type: sequelize.QueryTypes.SELECT,
+      }),
+    ]);
+
+    const total = countResult[0]?.total || 0;
+    const data = rows.map(row => ({
+      ...row,
+      signatureCount: row.signatureCount || 0,
+    }));
+
+    const metrics = await getGlobalPetitionMetrics();
+
+    res.json({
+      data,
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      metrics,
     });
-    res.json(petitions);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.listPublicPetitions = async (req, res, next) => {
   try {
     const petitions = await Petition.findAll({
       where: { hidden: false },
-      attributes: ['id', 'title', 'type', 'urgency', 'deadline', 'total_signatures', 'featured_image', 'external_url', 'created_at'],
+      attributes: ['id', 'title', 'type', 'urgency', 'deadline', 'total_signatures', 'featured_image', 'external_url', 'created_at', 'email_content_mode'],
       order: [['created_at', 'DESC']],
     });
     res.json(petitions);
   } catch (err) { next(err); }
 };
+
+/**
+ * GET /api/petitions/quota/today
+ * Devuelve las estadísticas de la cuota diaria de emails.
+ * Solo accesible para admins con permiso de gestionar peticiones.
+ */
+exports.getQuotaStats = async (req, res, next) => {
+  try {
+    const stats = await quotaService.getStats();
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+};
+

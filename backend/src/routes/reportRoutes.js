@@ -1,33 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate: authMiddleware } = require('../middlewares/auth');
-const { isSuperAdmin } = require('../middlewares/authorize');
-const templateController = require('../controllers/emailTemplateController');
+const optionalAuth = require('../middlewares/optionalAuth');
+const { isSuperAdmin, canManageReports } = require('../middlewares/authorize');
+const cache = require('../middlewares/cache');
+const reportController = require('../controllers/reportController');
+const uploadEntity = require('../middlewares/uploadEntity');
 
-// Todas las rutas requieren autenticación
-router.use(authMiddleware);
+// Lectura pública con caché
+router.get('/', optionalAuth, cache(60, 'reports'), reportController.getAllReports);
+router.get('/:id', optionalAuth, cache(60, 'reports'), reportController.getReportById);
 
-// GET / y /:id accesibles para cualquier admin (el controlador no filtra por rol)
-router.get('/', templateController.getAllTemplates);
-router.get('/:id', templateController.getTemplateById);
-
-// POST y PUT: pueden hacerlo superadmin, campaign_admin, blog_admin
-const canEditTemplates = (req, res, next) => {
-  const allowedRoles = ['superadmin', 'campaign_admin', 'blog_admin'];
-  if (allowedRoles.includes(req.user.role)) return next();
-  res.status(403).json({ message: 'No tienes permiso para modificar plantillas' });
-};
-
-router.post('/', canEditTemplates, templateController.createTemplate);
-router.put('/:id', canEditTemplates, templateController.updateTemplate);
+// Escritura: superadmin, blog_admin, campaign_admin
+router.post('/', authMiddleware, canManageReports, uploadEntity, reportController.createReport);
+router.put('/:id', authMiddleware, canManageReports, uploadEntity, reportController.updateReport);
 
 // DELETE: solo superadmin
-router.delete('/:id', isSuperAdmin, templateController.deleteTemplate);
-
-// Envío de campaña masiva (solo superadmin)
-router.post('/send', isSuperAdmin, templateController.sendCampaign);
-
-// Enviar prueba (cualquier admin con acceso a plantillas)
-router.post('/:id/test', canEditTemplates, templateController.sendTest);
+router.delete('/:id', authMiddleware, isSuperAdmin, reportController.deleteReport);
 
 module.exports = router;

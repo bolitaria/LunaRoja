@@ -5,6 +5,7 @@ import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaPlus, FaSave } from 'react-icons/fa';
+import { unwrapList } from '../../../utils/apiHelpers';
 
 export default function NewChatGroup() {
   const router = useRouter();
@@ -30,13 +31,13 @@ export default function NewChatGroup() {
     const fetchData = async () => {
       try {
         const [campRes, bdsRes, actRes] = await Promise.all([
-          api.get('/campaigns'),
-          api.get('/bds'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/bds', { params: { limit: 1000 } }),
           api.get('/actions'),
         ]);
-        setCampaigns(campRes.data);
-        setBds(bdsRes.data);
-        setActions(actRes.data);
+        setCampaigns(unwrapList(campRes.data));
+        setBds(unwrapList(bdsRes.data));
+        setActions(unwrapList(actRes.data));
       } catch (error) {
         toast.error('Error al cargar datos auxiliares');
       }

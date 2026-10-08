@@ -3,20 +3,14 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Link from 'next/link';
-import { FaEdit, FaTrash, FaPlus, FaFlask, FaSearch } from 'react-icons/fa';
-import Pagination from '../../../components/Pagination';
-import ConfirmModal from '../../../components/ConfirmModal';
+import { FaFlask, FaSearch, FaEye, FaTimes } from 'react-icons/fa';
 
 export default function AdminEmailTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selected, setSelected] = useState([]);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const itemsPerPage = 10;
+  const [previewTemplate, setPreviewTemplate] = useState(null); // { id, name }
+  const [previewUrl, setPreviewUrl] = useState('');
 
   const fetchTemplates = async () => {
     try {
@@ -31,18 +25,6 @@ export default function AdminEmailTemplates() {
 
   useEffect(() => { fetchTemplates(); }, []);
 
-  const handleDeleteSelected = () => { if (selected.length === 0) return; setDeleteTarget(selected); setShowDeleteModal(true); };
-  const executeDelete = async () => {
-    const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
-    try {
-      await Promise.all(ids.map(id => api.delete(`/email-templates/${id}`)));
-      toast.success(`${ids.length} plantilla(s) eliminada(s)`);
-      setSelected([]);
-      fetchTemplates();
-    } catch (error) { toast.error('Error al eliminar'); }
-    finally { setShowDeleteModal(false); setDeleteTarget(null); }
-  };
-
   const handleSendTest = async (id) => {
     try {
       await api.post(`/email-templates/${id}/test`);
@@ -52,54 +34,53 @@ export default function AdminEmailTemplates() {
     }
   };
 
-  const filtered = templates.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.subject.toLowerCase().includes(searchTerm.toLowerCase()));
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const openPreview = (template) => {
+    const url = `/api/email-templates/${template.id}/preview?title=${encodeURIComponent(template.subject || '')}&content=${encodeURIComponent('Contenido de ejemplo')}`;
+    setPreviewTemplate(template);
+    setPreviewUrl(url);
+  };
 
-  const toggleSelectAll = (e) => { if (e.target.checked) setSelected(paginated.map(t => t.id)); else setSelected([]); };
-  const toggleOne = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const closePreview = () => {
+    setPreviewTemplate(null);
+    setPreviewUrl('');
+  };
+
+  const filtered = templates.filter(t =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.subject.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Etiquetas legibles de eventos
+  const eventLabels = {
+    subscriber_welcome: 'Bienvenida',
+    subscriber_goodbye: 'Despedida',
+    campaign_created: 'Campaña',
+    action_created: 'Acción',
+    reminder: 'Recordatorio',
+    password_reset: 'Restablecer contraseña',
+    donation_available: 'Donaciones',
+    petition: 'Petición',
+    report_created: 'Reporte',
+  };
 
   return (
     <AdminLayout title="Plantillas Email">
       <ToastContainer />
-      <ConfirmModal
-        isOpen={showDeleteModal}
-        title="Eliminar plantilla"
-        message={deleteTarget && (Array.isArray(deleteTarget) ? `¿Eliminar ${deleteTarget.length} plantillas?` : '¿Eliminar esta plantilla?')}
-        onConfirm={executeDelete}
-        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
-      />
 
-      {/* Métrica */}
-      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex items-center gap-6 text-sm">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Total</span>
-          <span className="font-bold text-gray-800">{templates.length}</span>
+      {/* Barra de búsqueda */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="relative">
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Buscar plantilla…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500 text-sm w-64"
+          />
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <Link href="/admin/email-templates/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-            <FaPlus className="w-3.5 h-3.5" /> Nueva Plantilla
-          </Link>
-          {selected.length > 0 && (
-            <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
-              <FaTrash /> Eliminar ({selected.length})
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar plantilla…"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-fuchsia-500 text-sm w-48"
-            />
-          </div>
+        <div className="text-sm text-gray-500">
+          Total: <span className="font-bold text-gray-800">{templates.length}</span>
         </div>
       </div>
 
@@ -108,52 +89,59 @@ export default function AdminEmailTemplates() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-lg mb-2">No se encontraron plantillas</p>
-          <p className="text-sm">Crea una nueva plantilla.</p>
+          <p className="text-sm">Ajusta la búsqueda o reinicia el backend para sincronizar.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-purple-100 text-sm">
-            <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
-              <tr>
-                <th className="px-6 py-3 text-left">Acciones</th>
-                <th className="px-6 py-3 text-left">Nombre</th>
-                <th className="px-6 py-3 text-left hidden sm:table-cell">Asunto</th>
-                <th className="px-6 py-3 text-left hidden md:table-cell">Asociado a</th>
-                <th className="px-6 py-3 text-left">Tipo</th>
-                <th className="px-6 py-3 text-right w-10">
-                  <input type="checkbox" onChange={toggleSelectAll} checked={paginated.length > 0 && selected.length === paginated.length} />
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-purple-100">
-              {paginated.map(tpl => (
-                <tr key={tpl.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <Link href={`/admin/email-templates/${tpl.id}/edit`} className="p-1.5 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors" title="Editar">
-                        <FaEdit className="w-5 h-5" />
-                      </Link>
-                      <button onClick={() => handleSendTest(tpl.id)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Enviar prueba">
-                        <FaFlask className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{tpl.name}</td>
-                  <td className="px-6 py-4 hidden sm:table-cell text-gray-500">{tpl.subject}</td>
-                  <td className="px-6 py-4 hidden md:table-cell text-gray-500">{tpl.associatedEvent || '-'}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-fuchsia-100 text-fuchsia-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                      {tpl.type === 'system' ? 'Sistema' : 'Personalizada'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <input type="checkbox" checked={selected.includes(tpl.id)} onChange={() => toggleOne(tpl.id)} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filtered.map(tpl => (
+            <div key={tpl.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex flex-col hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">{tpl.name}</h3>
+                <span className={`px-2 py-1 text-xs rounded-full font-medium ${tpl.type === 'system' ? 'bg-fuchsia-100 text-fuchsia-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                  {tpl.type === 'system' ? 'Sistema' : 'Peticiones Internas'}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 mb-2">
+                <span className="font-medium">Asunto:</span> {tpl.subject}
+              </p>
+              <p className="text-xs text-gray-400 mb-4">
+                Evento: {eventLabels[tpl.associatedEvent] || tpl.associatedEvent || 'Personalizado'}
+              </p>
+              <div className="mt-auto flex items-center gap-2">
+                <button
+                  onClick={() => openPreview(tpl)}
+                  className="inline-flex items-center gap-1 text-sm text-fuchsia-700 border border-fuchsia-300 rounded-lg px-3 py-1.5 hover:bg-fuchsia-50 transition-colors"
+                  title="Vista previa"
+                >
+                  <FaEye className="w-4 h-4" /> Ver
+                </button>
+                <button
+                  onClick={() => handleSendTest(tpl.id)}
+                  className="inline-flex items-center gap-1 text-sm text-emerald-700 border border-emerald-300 rounded-lg px-3 py-1.5 hover:bg-emerald-50 transition-colors"
+                  title="Enviar prueba"
+                >
+                  <FaFlask className="w-4 h-4" /> Prueba
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal de vista previa */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4" onClick={closePreview}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-800">{previewTemplate.name}</h3>
+              <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="p-4 h-[600px] overflow-y-auto">
+              <iframe src={previewUrl} className="w-full h-full border-0" title="Vista previa" sandbox="allow-same-origin" />
+            </div>
+          </div>
         </div>
       )}
     </AdminLayout>

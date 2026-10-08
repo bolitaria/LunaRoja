@@ -1,78 +1,36 @@
 import axios from 'axios';
 
-// Usamos ruta relativa para que Next.js reescriba las peticiones al backend
-// (requiere tener configurados los rewrites en next.config.js)
+const isServer = typeof window === 'undefined';
+
+// Cliente → ruta relativa (Next.js rewrite proxea al backend)
+// SSR     → URL interna Docker (llamada directa, sin pasar por el navegador)
+const baseURL = isServer
+  ? `${(process.env.INTERNAL_API_URL || 'http://backend:5000').replace(/\/$/, '')}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
-  withCredentials: true,      // si usas cookies para refresh tokens
-  headers: { 'Content-Type': 'application/json' },
+  baseURL,
+  withCredentials: true,
+  timeout: 30000,
 });
 
-// ── Interceptor de petición ──
-api.interceptors.request.use(
-  (config) => {
-    if (typeof window !== 'undefined') {
-      try {
-        // Ajusta 'auth_token' según cómo guardes el token al hacer login
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-
-        // CSRF para firmas de peticiones (se mantiene igual)
-        if (
-          (config.method === 'post' || config.method === 'put') &&
-          config.url?.includes('/petitions/') &&
-          config.url?.includes('/sign')
-        ) {
-          const csrf = sessionStorage.getItem('csrf_token');
-          if (csrf) {
-            config.headers['x-csrf-token'] = csrf;
-          }
-        }
-      } catch (err) {
-        console.warn('Error al leer tokens de almacenamiento:', err);
+// ── Interceptor de petición (solo cliente) ─────────────────────
+// Añade `Authorization: Bearer <token>` si hay token en localStorage.
+// El backend acepta también cookie `access_token`, pero por robustez
+// enviamos ambos.
+if (!isServer) {
+  api.interceptors.request.use((config) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token && token !== 'null' && token !== 'undefined') {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
       }
+    } catch (e) {
+      // localStorage puede fallar en algunos contextos (SSR, modo privado)
     }
     return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// ── Interceptor de respuesta ──
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (
-      error.response?.status === 401 &&
-      typeof window !== 'undefined' &&
-      window.location.pathname.startsWith('/admin') &&
-      window.location.pathname !== '/admin/login'
-    ) {
-      try {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('token');
-        window.location.href = '/admin/login';
-      } catch (err) {
-        // ignorar
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
-// ── Helper para CSRF (sin cambios) ──
-export async function fetchCsrfToken() {
-  try {
-    const res = await api.get('/petitions/csrf-token');
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('csrf_token', res.data.csrfToken);
-    }
-    return res.data.csrfToken;
-  } catch (err) {
-    console.error('No se pudo obtener el token CSRF:', err);
-    throw err;
-  }
+  });
 }
 
 export default api;

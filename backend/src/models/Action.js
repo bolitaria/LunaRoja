@@ -1,6 +1,18 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
+/**
+ * Acción (evento, protesta, charla…).
+ *
+ * Documentos y enlaces externos se gestionan mediante la tabla `Documents`
+ * (polimórfica, con FK a Actions.id). Ya NO existen campos inline como
+ * `document`, `documentLink`, `featuredImage`.
+ *
+ * Estado (`status`):
+ *  - processing: imágenes pendientes de optimizar (recién creada)
+ *  - published:  imágenes optimizadas, visible en web pública
+ *  - error:      falló el procesado → hay que revisar `processingError`
+ */
 const Action = sequelize.define('Action', {
   id: {
     type: DataTypes.INTEGER,
@@ -53,33 +65,30 @@ const Action = sequelize.define('Action', {
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'Campaigns',
-      key: 'id',
-    },
+    references: { model: 'Campaigns', key: 'id' },
   },
   bdsId: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'BDSs',
-      key: 'id',
-    },
+    references: { model: 'BDSs', key: 'id' },
   },
-  featuredImage: {
+  // Imagen principal de la acción
+  imageUrl: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  // Galería de imágenes (hasta 20). Array JSONB de URLs.
+  galleryImages: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: [],
   },
   groups: {
     type: DataTypes.JSON,
     allowNull: true,
   },
-  documentLink: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  document: {
-    type: DataTypes.STRING,
+  privateLink: {
+    type: DataTypes.STRING(500),
     allowNull: true,
   },
   urgent: {
@@ -89,7 +98,18 @@ const Action = sequelize.define('Action', {
   enableAttendance: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
-  }
+  },
+  // Estado de procesado de imágenes (nuevo flujo async)
+  status: {
+    type: DataTypes.STRING(15),
+    allowNull: false,
+    defaultValue: 'processing',
+    validate: { isIn: [['processing', 'published', 'error']] },
+  },
+  processingError: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

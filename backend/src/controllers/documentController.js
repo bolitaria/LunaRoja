@@ -1,125 +1,146 @@
+// backend/src/controllers/documentController.js
 const Document = require('../models/Document');
-const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
+const Campaign = require('../models/Campaign');
+const BDS = require('../models/BDS');
 const UserCampaign = require('../models/UserCampaign');
 const UserAction = require('../models/UserAction');
-const { toInt, isValidId, deleteFileSafe } = require('../utils/helpers');
-const path = require('path');
+const UserBDS = require('../models/UserBDS');
+const { isValidId } = require('../utils/helpers');
+const documentService = require('../services/documentService');
+const { logAdminAction } = require('../services/auditService');
+const cacheMiddleware = require('../middlewares/cache');
 
-const DOCUMENTS_BASE = path.join(__dirname, '../../uploads/documents');
+/**
+ * Comprueba si un usuario tiene permiso para gestionar (ver/borrar) un documento.
+ * Aplica scope por entidad:
+ *   - superadmin: todo
+ *   - campaign_admin: docs de sus campañas + docs de acciones de sus campañas
+ *   - bds_admin:      docs de sus BDS + docs de acciones de sus BDS
+ *   - action_admin:   docs de sus acciones
+ *   - otros:          no
+ */
+async function canManageDocument(user, doc) {
+  if (!user) return false;
+  if (user.role === 'superadmin') return true;
 
-// Obtener documentos según permisos
-exports.getDocuments = async (req, res) => {
-  try {
-    const { campaignId, actionId } = req.query;
-    let where = {};
-    const parsedCampaignId = toInt(campaignId);
-    const parsedActionId = toInt(actionId);
-
-    if (parsedCampaignId) where.campaignId = parsedCampaignId;
-    if (parsedActionId) where.actionId = parsedActionId;
-
-    if (req.user && req.user.role !== 'superadmin') {
-      if (req.user.role === 'campaign_admin') {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-        const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        if (campaignIds.length === 0) return res.json([]);
-        where.campaignId = campaignIds;
-      } else if (req.user.role === 'action_admin') {
-        const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-        const actionIds = userActions.map(ua => ua.actionId);
-        if (actionIds.length === 0) return res.json([]);
-        where.actionId = actionIds;
+  if (user.role === 'campaign_admin') {
+    if (doc.campaignId) {
+      const uc = await UserCampaign.findOne({ where: { userId: user.id, campaignId: doc.campaignId } });
+      if (uc) return true;
+    }
+    if (doc.actionId) {
+      const action = await Action.findByPk(doc.actionId, { attributes: ['campaignId'] });
+      if (action && action.campaignId) {
+        const uc = await UserCampaign.findOne({ where: { userId: user.id, campaignId: action.campaignId } });
+        if (uc) return true;
       }
     }
+    return false;
+  }
 
-    const documents = await Document.findAll({ where, order: [['createdAt', 'DESC']] });
-    res.json(documents);
+  if (user.role === 'bds_admin') {
+    if (doc.bdsId) {
+      const ub = await UserBDS.findOne({ where: { userId: user.id, bdsId: doc.bdsId } });
+      if (ub) return true;
+    }
+    if (doc.actionId) {
+      const action = await Action.findByPk(doc.actionId, { attributes: ['bdsId'] });
+      if (action && action.bdsId) {
+        const ub = await UserBDS.findOne({ where: { userId: user.id, bdsId: action.bdsId } });
+        if (ub) return true;
+      }
+    }
+    return false;
+  }
+
+  if (user.role === 'action_admin') {
+    if (doc.actionId) {
+      const ua = await UserAction.findOne({ where: { userId: user.id, actionId: doc.actionId } });
+      if (ua) return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * GET /api/documents
+ * Lista documentos con filtros. Solo para admins autenticados.
+ * Filtra por scope según rol.
+ */
+exports.getDocuments = async (req, res) => {
+  try {
+    const { actionId, campaignId, bdsId, reportId, source, visibility } = req.query;
+
+    const where = {};
+    if (actionId)   where.actionId = actionId;
+    if (campaignId) where.campaignId = campaignId;
+    if (bdsId)      where.bdsId = bdsId;
+    if (reportId)   where.reportId = reportId;
+    if (source)     where.source = source;
+    if (visibility) where.visibility = visibility;
+
+    const docs = await Document.findAll({ where, order: [['createdAt', 'DESC']] });
+
+    // Filtrar por scope (excepto superadmin)
+    if (req.user.role !== 'superadmin') {
+      const allowed = [];
+      for (const doc of docs) {
+        if (await canManageDocument(req.user, doc)) allowed.push(doc);
+      }
+      return res.json(allowed);
+    }
+
+    res.json(docs);
   } catch (error) {
     console.error('Error en getDocuments:', error);
     res.status(500).json({ message: 'Error al obtener documentos' });
   }
 };
 
-// Subir documento
-exports.uploadDocument = async (req, res) => {
-  try {
-    const { title, description, type, campaignId, actionId } = req.body;
-    const parsedCampaignId = toInt(campaignId);
-    const parsedActionId = toInt(actionId);
-
-    if (!title || !type || (!parsedCampaignId && !parsedActionId)) {
-      return res.status(400).json({ message: 'Faltan campos requeridos (título, tipo, y campaña o acción)' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ message: 'Archivo requerido' });
-    }
-
-    // Verificar permisos
-    if (req.user.role !== 'superadmin') {
-      if (parsedCampaignId) {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-        const allowedIds = userCampaigns.map(uc => uc.campaignId);
-        if (!allowedIds.includes(parsedCampaignId)) {
-          return res.status(403).json({ message: 'No tienes permiso para esta campaña' });
-        }
-      }
-      if (parsedActionId) {
-        const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-        const allowedIds = userActions.map(ua => ua.actionId);
-        if (!allowedIds.includes(parsedActionId)) {
-          return res.status(403).json({ message: 'No tienes permiso para esta acción' });
-        }
-      }
-    }
-
-    const fileUrl = `/uploads/documents/${req.file.filename}`;
-    const document = await Document.create({
-      title,
-      description: description || '',
-      fileUrl,
-      type,
-      campaignId: parsedCampaignId,
-      actionId: parsedActionId,
-    });
-    res.status(201).json(document);
-  } catch (error) {
-    console.error('Error en uploadDocument:', error);
-    res.status(500).json({ message: 'Error al subir documento' });
-  }
-};
-
-// Eliminar documento
+/**
+ * DELETE /api/documents/:id
+ * Elimina un documento (fila + fichero físico si aplica).
+ * Requiere scope sobre la entidad padre.
+ */
 exports.deleteDocument = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
-    const document = await Document.findByPk(id);
-    if (!document) return res.status(404).json({ message: 'Documento no encontrado' });
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
 
-    if (req.user.role !== 'superadmin') {
-      if (document.campaignId) {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-        const allowedIds = userCampaigns.map(uc => uc.campaignId);
-        if (!allowedIds.includes(document.campaignId)) {
-          return res.status(403).json({ message: 'No tienes permiso' });
-        }
-      } else if (document.actionId) {
-        const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-        const allowedIds = userActions.map(ua => ua.actionId);
-        if (!allowedIds.includes(document.actionId)) {
-          return res.status(403).json({ message: 'No tienes permiso' });
-        }
-      } else {
-        return res.status(403).json({ message: 'No tienes permiso' });
-      }
-    }
+    const doc = await Document.findByPk(id);
+    if (!doc) return res.status(404).json({ message: 'Documento no encontrado' });
 
-    // Eliminar archivo de forma segura
-    deleteFileSafe(document.fileUrl, DOCUMENTS_BASE);
-    await document.destroy();
+    const can = await canManageDocument(req.user, doc);
+    if (!can) return res.status(403).json({ message: 'No tienes permiso para eliminar este documento' });
+
+    const snapshot = {
+      title: doc.title,
+      source: doc.source,
+      visibility: doc.visibility,
+      actionId: doc.actionId,
+      campaignId: doc.campaignId,
+      bdsId: doc.bdsId,
+      reportId: doc.reportId,
+    };
+
+    await documentService.deleteById(id);
+
+    // Invalidar cachés del recurso padre
+    if (doc.actionId)   await cacheMiddleware.invalidateResource('actions', doc.actionId);
+    if (doc.campaignId) await cacheMiddleware.invalidateResource('campaigns', doc.campaignId);
+    if (doc.bdsId)      await cacheMiddleware.invalidateResource('bds', doc.bdsId);
+    if (doc.reportId)   await cacheMiddleware.invalidateResource('reports', doc.reportId);
+
+    await logAdminAction(req, {
+      action: 'delete',
+      entityType: 'document',
+      entityId: id,
+      metadata: snapshot,
+    });
+
     res.json({ message: 'Documento eliminado' });
   } catch (error) {
     console.error('Error en deleteDocument:', error);

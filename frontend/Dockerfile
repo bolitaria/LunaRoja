@@ -31,6 +31,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Parchear CVEs de Alpine base (libcrypto3, libssl3, musl...)
+RUN apk upgrade --no-cache
+
 # Crear usuario no root
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
@@ -45,7 +48,7 @@ COPY --from=builder /app/public ./public
 # Copiar iconos de Signal (si existen)
 COPY --from=builder /app/src/assets/icons ./public/assets/icons
 
-# 🔒 Eliminar todo vestigio de npm global
+# Eliminar todo vestigio de npm global
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-*
 
 # Ajustar permisos

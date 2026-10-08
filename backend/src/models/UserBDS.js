@@ -10,14 +10,22 @@ const UserBDS = sequelize.define('UserBDS', {
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id',
+    },
   },
   bdsId: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    references: {
+      model: 'BDSs',           
+      key: 'id',
+    },
   },
 }, {
   timestamps: true,
-  tableName: 'UserBDS',
+  tableName: 'UserBDS',          
 });
 
 module.exports = UserBDS;

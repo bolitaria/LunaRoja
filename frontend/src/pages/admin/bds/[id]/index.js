@@ -1,14 +1,26 @@
-import { useState, useEffect, useMemo } from 'react';
+// frontend/src/pages/admin/bds/[id]/index.js
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
-import AdminLayout from '../../../../components/AdminLayout';
-import api from '../../../../lib/axios';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import ActionForm from '../../../../components/ActionForm';
-import { FaPlus, FaArrowLeft, FaEdit, FaTrash, FaFilter, FaCalendarAlt } from 'react-icons/fa';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import 'react-calendar/dist/Calendar.css';
+import {
+  FaArrowLeft,
+  FaCalendarAlt,
+  FaEdit,
+  FaFire,
+  FaSearch,
+  FaTimes,
+  FaTimesCircle,
+  FaTrash,
+} from 'react-icons/fa';
+import AdminLayout from '../../../../components/AdminLayout';
+import ActionForm from '../../../../components/ActionForm';
+import api from '../../../../lib/axios';
+import { categoryLabels, categoryStyles } from '../../../../utils/categoryConfig';
+import { unwrapList } from '../../../../utils/apiHelpers';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -27,37 +39,51 @@ export default function BDSDetail() {
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingAction, setEditingAction] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+const [showForm, setShowForm] = useState(false);
 
-  // Filtros nuevos
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState(null);
   const [toDate, setToDate] = useState(null);
   const [filterCategory, setFilterCategory] = useState('todas');
+  const [filterUrgency, setFilterUrgency] = useState(false);
+  const [filterLocationType, setFilterLocationType] = useState('all');
   const [showFromCalendar, setShowFromCalendar] = useState(false);
   const [showToCalendar, setShowToCalendar] = useState(false);
 
-  const fetchData = async () => {
+  const allCategories = ['todas', ...Object.keys(categoryLabels)];
+
+  const fetchData = useCallback(async () => {
     try {
       const [bdsRes, actionsRes] = await Promise.all([
         api.get(`/bds/${id}`),
         api.get(`/actions?bdsId=${id}`)
       ]);
       setBds(bdsRes.data);
-      setActions(actionsRes.data);
+
+      const actionsData = actionsRes.data?.data || actionsRes.data || [];
+      const sortedActions = Array.isArray(actionsData) ? actionsData.sort(
+        (a, b) => new Date(b.datetime) - new Date(a.datetime)
+      ) : [];
+      setActions(sortedActions);
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) fetchData();
-  }, [id]);
+  }, [id, fetchData]);
 
   const handleCreate = async (formData) => {
     try {
-      await api.post('/actions', { ...formData, bdsId: id });
+      formData.bdsId = id;
+      formData.campaignId = '';
+      await api.post('/actions', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Acción creada');
       setShowForm(false);
       fetchData();
@@ -68,7 +94,10 @@ export default function BDSDetail() {
 
   const handleUpdate = async (formData) => {
     try {
-      await api.put(`/actions/${editingAction.id}`, { ...formData, bdsId: id });
+      formData.bdsId = id;
+      await api.put(`/actions/${editingAction.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Acción actualizada');
       setEditingAction(null);
       setShowForm(false);
@@ -79,7 +108,7 @@ export default function BDSDetail() {
   };
 
   const handleDelete = async (actionId) => {
-    if (!confirm('¿Eliminar esta acción?')) return;
+    if (!confirm('¿Eliminar esta acción? Se eliminarán también sus imágenes asociadas.')) return;
     try {
       await api.delete(`/actions/${actionId}`);
       toast.success('Acción eliminada');
@@ -89,203 +118,469 @@ export default function BDSDetail() {
     }
   };
 
-  // Filtrar acciones
   const filteredActions = useMemo(() => {
-    return actions.filter(action => {
-      const actionDate = new Date(action.datetime);
-      // Filtro de categoría
+    return actions.filter((action) => {
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        if (!action.title.toLowerCase().includes(term)) return false;
+      }
       if (filterCategory !== 'todas' && action.category !== filterCategory) return false;
-      // Filtro de fecha desde
-      if (fromDate && actionDate < fromDate) return false;
-      // Filtro de fecha hasta
+      if (filterUrgency && !action.urgent) return false;
+      if (filterLocationType !== 'all' && action.locationType !== filterLocationType) return false;
+      const actionDate = new Date(action.datetime);
+      const actionDateStr = getLocalDateStr(actionDate);
+      if (fromDate) {
+        const fromStr = getLocalDateStr(fromDate);
+        if (actionDateStr < fromStr) return false;
+      }
       if (toDate) {
-        const endOfDay = new Date(toDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (actionDate > endOfDay) return false;
+        const toStr = getLocalDateStr(toDate);
+        if (actionDateStr > toStr) return false;
       }
       return true;
     });
-  }, [actions, fromDate, toDate, filterCategory]);
-
-  // Categorías posibles
-  const categories = [
-    'todas', 'protest', 'march', 'bds', 'solidarity_action', 'workshop', 'webinar', 'talk', 'strike'
-  ];
-
-  const categoryLabels = {
-    todas: 'Todas',
-    protest: 'Protesta',
-    march: 'Marcha',
-    bds: 'BDS',
-    solidarity_action: 'Acción solidaria',
-    workshop: 'Taller',
-    webinar: 'Webinar',
-    talk: 'Charla',
-    strike: 'Huelga',
-  };
+  }, [actions, searchTerm, filterCategory, filterUrgency, filterLocationType, fromDate, toDate]);
 
   const clearDates = () => {
     setFromDate(null);
     setToDate(null);
   };
 
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setFilterCategory('todas');
+    setFilterUrgency(false);
+    setFilterLocationType('all');
+    setFromDate(null);
+    setToDate(null);
+  };
+
+  const hasActiveFilters = searchTerm || filterCategory !== 'todas' || filterUrgency || filterLocationType !== 'all' || fromDate || toDate;
+
   if (loading) return <AdminLayout title="Cargando..."><p className="text-center py-8">Cargando...</p></AdminLayout>;
   if (!bds) return <AdminLayout title="No encontrada"><p className="text-center py-8 text-red-600">Campaña BDS no encontrada</p></AdminLayout>;
 
   return (
-    <AdminLayout title={`BDS: ${bds.name}`}>
+    <AdminLayout title="Editar BDS">
       <ToastContainer />
-      <button onClick={() => router.push('/admin/bds')} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
-        <FaArrowLeft /> Volver a lista
-      </button>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-full" style={{ backgroundColor: bds.color }} />
-          <h1 className="text-2xl font-bold text-gray-800">{bds.name}</h1>
-        </div>
-        {bds.description && <p className="text-gray-600 mt-2">{bds.description}</p>}
-        <div className="mt-4 flex gap-4">
-          <Link href={`/admin/bds/${bds.id}/edit`} className="text-sm text-fuchsia-600 hover:text-fuchsia-800">Editar campaña</Link>
-        </div>
-      </div>
+      <div className="space-y-6">
+        <div>
+                    <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.history.length > 1) {
+                        router.back();
+                      } else {
+                        router.push('/admin/bds');
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+                  >
+                    <FaArrowLeft className="w-3 h-3" /> Volver a Campañas BDS
+                  </button>
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-700">Acciones de la campaña</h2>
-        <button
-          onClick={() => { setEditingAction(null); setShowForm(true); }}
-          className="inline-flex items-center gap-1.5 text-sm bg-fuchsia-600 text-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-700 transition-colors"
-        >
-          <FaPlus className="w-3.5 h-3.5" /> Nueva Acción
-        </button>
-      </div>
 
-      {showForm && (
-        <div className="mb-6">
-          <ActionForm
-            initialData={editingAction || {}}
-            onSubmit={editingAction ? handleUpdate : handleCreate}
-            onCancel={() => { setShowForm(false); setEditingAction(null); }}
-            hideCampaignSelect={true}
-          />
-        </div>
-      )}
 
-      {/* FILTROS AVANZADOS */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <FaFilter className="text-gray-400" />
-          <span className="text-sm font-medium text-gray-700">Filtros:</span>
-        </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-6 p-6 md:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Imagen */}
+              <div className="md:col-span-1 flex items-start justify-center">
+                {bds.imageUrl ? (
+                  <div className="w-full bg-gray-50 rounded-xl border border-gray-200 p-3 flex items-center justify-center" style={{ minHeight: '320px' }}>
+                    <img
+                      src={bds.imageUrl}
+                      alt={bds.name}
+                      className="w-full max-h-96 object-contain rounded-lg"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400" style={{ minHeight: '320px' }}>
+                    Sin imagen
+                  </div>
+                )}
+              </div>
 
-        {/* Selector de categoría */}
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
-          className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-fuchsia-500"
-        >
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{categoryLabels[cat] || cat}</option>
-          ))}
-        </select>
+              {/* Info */}
+              <div className="md:col-span-2 flex flex-col">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-700 truncate">{bds.name}</h1>
+                    <span
+                      className="inline-block w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm flex-shrink-0"
+                      style={{ backgroundColor: bds.color }}
+                      title={`Color: ${bds.color}`}
+                    />
+                    {bds.active !== false && (
+                      <span className="flex-shrink-0 px-3 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-medium">
+                        Activa
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    href={`/admin/bds/${bds.id}/edit`}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 text-sm font-medium border border-fuchsia-300 text-fuchsia-700 bg-white px-3 py-1.5 rounded-lg hover:bg-fuchsia-50 transition-colors"
+                  >
+                    <FaEdit className="w-3.5 h-3.5" /> Editar
+                  </Link>
+                </div>
 
-        {/* Filtro de fecha desde */}
-        <div className="relative">
-          <button
-            onClick={() => setShowFromCalendar(!showFromCalendar)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <FaCalendarAlt className="text-gray-400" />
-            {fromDate ? getLocalDateStr(fromDate) : 'Desde'}
-          </button>
-          {showFromCalendar && (
-            <div className="absolute z-10 mt-1 bg-white border rounded-lg shadow-lg">
-              <Calendar
-                onChange={(value) => { setFromDate(value); setShowFromCalendar(false); }}
-                value={fromDate}
-                className="border-0"
+                {(bds.subscriberCount > 0 || bds.actionCount > 0 || bds.urgentActionCount > 0) && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {bds.subscriberCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-fuchsia-50 text-fuchsia-700 rounded-full border border-fuchsia-200 text-xs font-medium">
+                        👥 {bds.subscriberCount} suscriptores
+                      </span>
+                    )}
+                    {bds.actionCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200 text-xs font-medium">
+                        📅 {bds.actionCount} acciones
+                      </span>
+                    )}
+                    {bds.urgentActionCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-full border border-red-200 text-xs font-medium">
+                        🔥 {bds.urgentActionCount} urgentes
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {bds.description && (
+                  <p className="text-gray-700 text-base whitespace-pre-line mb-4">{bds.description}</p>
+                )}
+
+                {(() => {
+                  const validGroups = (bds.groups || []).filter(g => g.isPublic && g.link);
+                  if (validGroups.length === 0) return null;
+                  const icons = {
+                    whatsapp: <span className="text-lg">💬</span>,
+                    telegram: <span className="text-lg">✈️</span>,
+                    signal: <span className="text-lg">🔒</span>,
+                  };
+                  return (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Grupos de mensajería
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {validGroups.map((g, i) => (
+                          <a
+                            key={i}
+                            href={g.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full text-sm font-medium text-gray-700 transition"
+                          >
+                            {icons[g.platform] || icons.whatsapp}
+                            <span className="capitalize">{g.platform}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="mt-auto pt-4 space-y-3">
+                  {bds.document && (() => {
+                    const docUrl = bds.document;
+                    const isPdf = /\.pdf($|\?)/i.test(bds.document);
+                    const isImage = /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(bds.document);
+                    return (
+                      <div className="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:shadow-sm transition">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
+                          <div>
+                            <p className="text-gray-800 font-medium">Documento público</p>
+                            <p className="text-xs text-gray-500">Archivo adjunto</p>
+                          </div>
+                        </div>
+                        <a
+                          href={docUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm font-medium"
+                        >
+                          Abrir
+                        </a>
+                      </div>
+                    );
+                  })()}
+
+                  {bds.document && (() => {
+                    const docUrl = bds.document;
+                    const isPdf = /\.pdf($|\?)/i.test(bds.document);
+                    const isImage = /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(bds.document);
+                    if (!isPdf && !isImage) return null;
+                    return isPdf ? (
+                      <iframe
+                        src={docUrl}
+                        className="w-full h-96 rounded-lg border border-gray-200"
+                        title="Vista previa del documento"
+                      />
+                    ) : (
+                      <img
+                        src={docUrl}
+                        alt="Documento"
+                        className="w-full max-h-96 object-contain rounded-lg border border-gray-200 bg-gray-50"
+                      />
+                    );
+                  })()}
+
+                  {bds.documentLink && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-yellow-800 font-medium mb-1">🔒 Documentación interna</p>
+                      <p className="text-xs text-gray-500 mb-2">Acceso restringido a administradores</p>
+                      <a
+                        href={bds.documentLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Acceder a la carpeta de documentos
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mb-2 gap-3 ml-8">
+            <h2 className="text-lg font-semibold text-gray-700">
+              Acciones de {bds.name}
+              {actions.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({filteredActions.length} de {actions.length})
+                </span>
+              )}
+            </h2>
+            <button
+              type="button"
+              onClick={() => { setEditingAction(null); setShowForm(true); }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium border border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors whitespace-nowrap"
+            >
+              Nueva Acción
+            </button>
+          </div>
+
+          {showForm && (
+            <div className="mb-6 ml-8">
+              <ActionForm
+                initialData={editingAction || {}}
+                onSubmit={editingAction ? handleUpdate : handleCreate}
+                onCancel={() => { setShowForm(false); setEditingAction(null); }}
+                hideCampaignSelect={true}
+                fixedBdsId={id}
+                campaigns={[]}
               />
             </div>
           )}
-        </div>
 
-        {/* Filtro de fecha hasta */}
-        <div className="relative">
-          <button
-            onClick={() => setShowToCalendar(!showToCalendar)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <FaCalendarAlt className="text-gray-400" />
-            {toDate ? getLocalDateStr(toDate) : 'Hasta'}
-          </button>
-          {showToCalendar && (
-            <div className="absolute z-10 mt-1 bg-white border rounded-lg shadow-lg">
-              <Calendar
-                onChange={(value) => { setToDate(value); setShowToCalendar(false); }}
-                value={toDate}
-                className="border-0"
-              />
-            </div>
-          )}
-        </div>
+          {/* Filtros: solo si hay al menos una acción */}
+          {actions.length > 0 && (
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4 ml-8">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Búsqueda */}
+                <div className="relative w-56">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por título..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-fuchsia-400 text-sm w-full"
+                  />
+                </div>
 
-        {(fromDate || toDate) && (
-          <button onClick={clearDates} className="text-xs text-red-600 hover:underline">
-            Limpiar fechas
-          </button>
-        )}
-      </div>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-fuchsia-400"
+                >
+                  {allCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat === 'todas' ? 'Todas las categorías' : categoryLabels[cat] || cat}
+                    </option>
+                  ))}
+                </select>
 
-      {/* Tabla de acciones personalizada */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {filteredActions.length === 0 ? (
-          <p className="text-center py-8 text-gray-500">No hay acciones que coincidan con los filtros.</p>
-        ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ubicación</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredActions.map(action => (
-                <tr key={action.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{action.title}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                      {categoryLabels[action.category] || action.category}
+                <button
+                  type="button"
+                  onClick={() => setFilterUrgency(prev => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none ${filterUrgency ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <FaFire className={`w-3.5 h-3.5 ${filterUrgency ? 'text-red-600' : 'text-gray-400'}`} />
+                  Urgente
+                </button>
+
+                <select
+                  value={filterLocationType}
+                  onChange={(e) => setFilterLocationType(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-fuchsia-400"
+                >
+                  <option value="all">Modalidad</option>
+                  <option value="presencial">Presencial</option>
+                  <option value="online">Online</option>
+                </select>
+
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowFromCalendar(!showFromCalendar)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <FaCalendarAlt className="text-gray-400" />
+                    {fromDate ? getLocalDateStr(fromDate) : 'Desde'}
+                  </button>
+                  {showFromCalendar && (
+                    <div className="absolute z-10 mt-1 bg-white border rounded-lg shadow-lg">
+                      <Calendar
+                        onChange={(value) => { setFromDate(value); setShowFromCalendar(false); }}
+                        value={fromDate}
+                        className="border-0"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowToCalendar(!showToCalendar)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <FaCalendarAlt className="text-gray-400" />
+                    {toDate ? getLocalDateStr(toDate) : 'Hasta'}
+                  </button>
+                  {showToCalendar && (
+                    <div className="absolute z-10 mt-1 bg-white border rounded-lg shadow-lg">
+                      <Calendar
+                        onChange={(value) => { setToDate(value); setShowToCalendar(false); }}
+                        value={toDate}
+                        className="border-0"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800 underline ml-auto"
+                  >
+                    <FaTimesCircle className="w-3 h-3" /> Limpiar filtros
+                  </button>
+                )}
+              </div>
+
+              {hasActiveFilters && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {searchTerm && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                      Búsqueda: {searchTerm}
+                      <button onClick={() => setSearchTerm('')} className="text-gray-400 hover:text-red-600"><FaTimesCircle className="w-3 h-3" /></button>
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(action.datetime).toLocaleDateString('es-ES')}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {action.locationType === 'online' ? '💻 Online' : '📍 Presencial'}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm">
-                    <button
-                      onClick={() => { setEditingAction(action); setShowForm(true); }}
-                      className="text-blue-600 hover:text-blue-800 mr-3"
-                    >
-                      <FaEdit className="inline" /> Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(action.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <FaTrash className="inline" /> Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                  )}
+                  {filterCategory !== 'todas' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                      {categoryLabels[filterCategory] || filterCategory}
+                      <button onClick={() => setFilterCategory('todas')} className="text-gray-400 hover:text-red-600"><FaTimesCircle className="w-3 h-3" /></button>
+                    </span>
+                  )}
+                  {filterUrgency && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs">
+                      Urgente
+                      <button onClick={() => setFilterUrgency(false)} className="text-red-400 hover:text-red-600"><FaTimesCircle className="w-3 h-3" /></button>
+                    </span>
+                  )}
+                  {filterLocationType !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                      {filterLocationType === 'online' ? 'Online' : 'Presencial'}
+                      <button onClick={() => setFilterLocationType('all')} className="text-gray-400 hover:text-red-600"><FaTimesCircle className="w-3 h-3" /></button>
+                    </span>
+                  )}
+                  {(fromDate || toDate) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                      Fecha: {fromDate ? getLocalDateStr(fromDate) : '...'} → {toDate ? getLocalDateStr(toDate) : '...'}
+                      <button onClick={clearDates} className="text-gray-400 hover:text-red-600"><FaTimesCircle className="w-3 h-3" /></button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ml-8">
+            {filteredActions.length === 0 ? (
+              <p className="text-center py-8 text-gray-500">
+                {actions.length === 0 ? 'Aún no hay acciones en esta campaña.' : 'No hay acciones que coincidan con los filtros.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gradient-to-r from-fuchsia-50 to-fuchsia-100/60 border-b-2 border-fuchsia-200">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-[11px] font-bold text-fuchsia-900/80 uppercase tracking-wider">Título</th>
+                      <th scope="col" className="px-4 py-3 text-left text-[11px] font-bold text-fuchsia-900/80 uppercase tracking-wider">Categoría</th>
+                      <th scope="col" className="px-4 py-3 text-left text-[11px] font-bold text-fuchsia-900/80 uppercase tracking-wider">Fecha</th>
+                      <th scope="col" className="px-4 py-3 text-left text-[11px] font-bold text-fuchsia-900/80 uppercase tracking-wider">Ubicación</th>
+                      <th scope="col" className="px-4 py-3 text-left text-[11px] font-bold text-fuchsia-900/80 uppercase tracking-wider">Urgencia</th>
+                      <th scope="col" className="px-4 py-3 text-right text-[11px] font-bold text-fuchsia-900/80 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredActions.map((action) => (
+                      <tr key={action.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800">{action.title}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <span
+                            className="px-2 py-1 rounded-full text-xs"
+                            style={{
+                              backgroundColor: categoryStyles[action.category]?.backgroundColor || '#E5E7EB',
+                              color: categoryStyles[action.category]?.color || '#1a1a1a',
+                              border: `1px solid ${categoryStyles[action.category]?.borderColor || '#9CA3AF'}`,
+                            }}
+                          >
+                            {categoryLabels[action.category] || action.category}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(action.datetime).toLocaleDateString('es-ES')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {action.locationType === 'online' ? '💻 Online' : '📍 Presencial'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {action.urgent ? <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium"><FaFire className="w-3 h-3" /> Urgente</span> : 'No'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => { setEditingAction(action); setShowForm(true); }}
+                            className="text-blue-600 hover:text-blue-800 mr-3"
+                          >
+                            <FaEdit className="inline" /> Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(action.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <FaTrash className="inline" /> Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </AdminLayout>
+
+      {/* MODAL: Vista previa completa */}
+</AdminLayout>
   );
 }

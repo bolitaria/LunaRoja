@@ -13,7 +13,7 @@ const sampleData = {
   unsubscribeLink: '#',
   preferencesLink: '#',
   currentYear: new Date().getFullYear(),
-  frontendUrl: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
+  frontendUrl: '',
 };
 
 export default function EditEmailTemplate() {
@@ -23,11 +23,13 @@ export default function EditEmailTemplate() {
     name: '',
     subject: '',
     body: '',
-    associatedEvent: 'custom',
+    associatedEvent: 'petition',
     headerColor: '#b91c1c',
     buttonColor: '#16a34a',
     footerColor: '#1f2937',
     backgroundColor: '#f3f4f6',
+    titleColor: '#ffffff',
+    footerTitleColor: '#ffffff',
   });
   const [previewHtml, setPreviewHtml] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,9 @@ export default function EditEmailTemplate() {
         .replace(/--header-color/g, colors.headerColor)
         .replace(/--button-color/g, colors.buttonColor)
         .replace(/--footer-color/g, colors.footerColor)
-        .replace(/--bg-color/g, colors.backgroundColor);
+        .replace(/--bg-color/g, colors.backgroundColor)
+        .replace(/--title-color/g, colors.titleColor)
+        .replace(/--footer-title-color/g, colors.footerTitleColor);
       setPreviewHtml(html);
     } catch (error) {
       setPreviewHtml(`<div style="color:red">Error: ${error.message}</div>`);
@@ -49,35 +53,44 @@ export default function EditEmailTemplate() {
   };
 
   useEffect(() => {
-    if (id) {
-      api.get(`/email-templates/${id}`)
-        .then(res => {
-          const t = res.data;
-          const updated = {
-            name: t.name,
-            subject: t.subject,
-            body: t.body,
-            associatedEvent: t.associatedEvent || 'custom',
-            headerColor: t.headerColor || '#b91c1c',
-            buttonColor: t.buttonColor || '#16a34a',
-            footerColor: t.footerColor || '#1f2937',
-            backgroundColor: t.backgroundColor || '#f3f4f6',
-          };
-          setForm(updated);
-          compilePreview(t.body, {
-            headerColor: updated.headerColor,
-            buttonColor: updated.buttonColor,
-            footerColor: updated.footerColor,
-            backgroundColor: updated.backgroundColor,
-          });
-        })
-        .catch(err => {
-          toast.error('Error al cargar plantilla');
+    if (!id) return;
+    api.get(`/email-templates/${id}`)
+      .then(res => {
+        const t = res.data;
+        if (t.associatedEvent !== 'petition' || t.type === 'system') {
+          toast.error('Solo se pueden editar plantillas de petición');
           router.push('/admin/email-templates');
-        })
-        .finally(() => setFetching(false));
-    }
-  }, [id]);
+          return;
+        }
+
+        const updated = {
+          name: t.name,
+          subject: t.subject,
+          body: t.body,
+          associatedEvent: 'petition',
+          headerColor: t.headerColor || '#b91c1c',
+          buttonColor: t.buttonColor || '#16a34a',
+          footerColor: t.footerColor || '#1f2937',
+          backgroundColor: t.backgroundColor || '#f3f4f6',
+          titleColor: t.titleColor || '#ffffff',
+          footerTitleColor: t.footerTitleColor || '#ffffff',
+        };
+        setForm(updated);
+        compilePreview(t.body, {
+          headerColor: updated.headerColor,
+          buttonColor: updated.buttonColor,
+          footerColor: updated.footerColor,
+          backgroundColor: updated.backgroundColor,
+          titleColor: updated.titleColor,
+          footerTitleColor: updated.footerTitleColor,
+        });
+      })
+      .catch(err => {
+        toast.error('Error al cargar plantilla');
+        router.push('/admin/email-templates');
+      })
+      .finally(() => setFetching(false));
+  }, [id, router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -88,6 +101,8 @@ export default function EditEmailTemplate() {
       buttonColor: updated.buttonColor,
       footerColor: updated.footerColor,
       backgroundColor: updated.backgroundColor,
+      titleColor: updated.titleColor,
+      footerTitleColor: updated.footerTitleColor,
     });
   };
 
@@ -109,39 +124,49 @@ export default function EditEmailTemplate() {
     }
   };
 
-  if (fetching) return <AdminLayout title="Editar Plantilla"><div className="text-center py-8">Cargando...</div></AdminLayout>;
+  if (fetching) {
+    return (
+      <AdminLayout title="Editar Plantilla">
+        <div className="text-center py-8">Cargando...</div>
+      </AdminLayout>
+    );
+  }
 
   return (
-    <AdminLayout title="Editar Plantilla">
+    <AdminLayout title="Editar Plantilla de Petición">
       <ToastContainer />
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
           <h2 className="text-xl font-bold text-gray-800">Editar plantilla</h2>
+          <p className="text-sm text-gray-500">Solo se pueden editar plantillas asociadas a peticiones.</p>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">Nombre *</label>
             <input type="text" name="name" value={form.name} onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">Asunto *</label>
             <input type="text" name="subject" value={form.subject} onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500" />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">Evento asociado</label>
-            <select name="associatedEvent" value={form.associatedEvent} onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:ring-0 focus:border-fuchsia-500">
-              <option value="custom">Personalizado</option>
-              <option value="campaign_created">Al crear campaña</option>
-              <option value="action_created">Al crear acción</option>
-              <option value="subscriber_welcome">Bienvenida al suscriptor</option>
-              <option value="reminder">Recordatorio (día antes)</option>
-            </select>
+            <input type="text" value="Petición (petition)" disabled
+              className="mt-1 block w-full border border-gray-200 bg-gray-50 rounded-lg p-2 text-gray-500 cursor-not-allowed" />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Color cabecera</label>
               <input type="color" name="headerColor" value={form.headerColor} onChange={handleChange}
+                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Color texto título</label>
+              <input type="color" name="titleColor" value={form.titleColor} onChange={handleChange}
                 className="w-full h-10 border border-gray-300 rounded-lg p-1" />
             </div>
             <div>
@@ -155,21 +180,29 @@ export default function EditEmailTemplate() {
                 className="w-full h-10 border border-gray-300 rounded-lg p-1" />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700">Color texto footer</label>
+              <input type="color" name="footerTitleColor" value={form.footerTitleColor} onChange={handleChange}
+                className="w-full h-10 border border-gray-300 rounded-lg p-1" />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700">Fondo general</label>
               <input type="color" name="backgroundColor" value={form.backgroundColor} onChange={handleChange}
                 className="w-full h-10 border border-gray-300 rounded-lg p-1" />
             </div>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">Cuerpo HTML *</label>
             <textarea value={form.body} onChange={handleChange} rows={16}
               className="mt-1 block w-full border border-gray-300 rounded-lg p-2 font-mono text-sm focus:ring-0 focus:border-fuchsia-500" />
           </div>
+
           <button onClick={handleSubmit} disabled={loading}
             className="w-full bg-fuchsia-600 text-white py-2 rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
             {loading ? 'Guardando...' : 'Actualizar plantilla'}
           </button>
         </div>
+
         <div>
           <h2 className="text-xl font-bold text-gray-800 mb-4">Vista previa</h2>
           <div className="border border-gray-300 rounded-xl overflow-hidden bg-white h-full max-h-[700px] overflow-y-auto p-2">

@@ -65,4 +65,14 @@ const canAccessAction = async (req, res, next) => {
   }
 };
 
-module.exports = { isSuperAdmin, isBlogAdmin, canAccessCampaign, canAccessAction };
+
+// Verifica que el usuario pueda gestionar reportes (crear/editar)
+const canManageReports = (req, res, next) => {
+  const allowedRoles = ['superadmin', 'blog_admin', 'campaign_admin'];
+  if (req.user && allowedRoles.includes(req.user.role)) {
+    return next();
+  }
+  res.status(403).json({ message: 'No tienes permiso para gestionar reportes' });
+};
+
+module.exports = { isSuperAdmin, isBlogAdmin, canManageReports, canAccessCampaign, canAccessAction };

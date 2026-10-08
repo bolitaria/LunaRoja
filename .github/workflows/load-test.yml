@@ -1,0 +1,31 @@
+name: Load Tests
+
+on:
+  schedule:
+    - cron: '0 3 * * 6'  # Sábados 3 AM UTC
+  workflow_dispatch:
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run public load test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: backend/tests/load/public-load.js
+        env:
+          BASE_URL: ${{ secrets.STAGING_URL }}
+
+      - name: Run admin load test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: backend/tests/load/admin-load.js
+        env:
+          BASE_URL: ${{ secrets.STAGING_URL }}
+          ADMIN_EMAIL: ${{ secrets.STAGING_ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}

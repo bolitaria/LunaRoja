@@ -1,42 +1,79 @@
-# Dependencies
+# ─── Dependencias ───────────────────────────────
 node_modules/
 .pnp
 .pnp.js
 
-# Environment files (protect secrets)
+# ─── Entornos ───────────────────────────────────
 .env
 .env.local
 .env.*.local
 .env.*
+.env.prod
 !.env.example
+!.env.prod.example
 
-# Build outputs
+# ─── Builds ─────────────────────────────────────
 dist/
 build/
 .next/
 out/
+*.tsbuildinfo
 
-# Uploads
+# ─── Cobertura de tests ─────────────────────────
+coverage/
+*/coverage/
+
+# ─── Cypress / Playwright ───────────────────────
+cypress/downloads/
+cypress/screenshots/
+cypress/videos/
+playwright-report/
+playwright/.cache/
+test-results/
+*/test-results/
+
+# ─── Uploads locales ────────────────────────────
 backend/uploads/
+uploads/
 
-# Logs
-logs
+# ─── Logs ───────────────────────────────────────
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+server.log
+integration_test.log
+test-output.log
+diagnostic-output.txt
 
-# Runtime data
+# ─── Runtime ────────────────────────────────────
 pids
 *.pid
 *.seed
 *.pid.lock
+temp/
+*/temp/
 
-# Database
+# ─── Base de datos local ────────────────────────
 database/postgres-data/
 
-# IDE / Editor
+# ─── Python venv ────────────────────────────────
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ─── Backups ────────────────────────────────────
+backups/
+*.bak
+*.bak-*
+*.backup
+
+# ─── IDE / Editor ───────────────────────────────
 .vscode/
 .idea/
 *.swp
@@ -44,5 +81,19 @@ database/postgres-data/
 .DS_Store
 *~
 
-# Fly.io (local configuration, secrets managed via fly secrets)
+# ─── WSL / Windows ──────────────────────────────
+*.Zone.Identifier
+
+# ─── Fly.io ─────────────────────────────────────
 fly.toml
+
+# ─── Screenshots de debug (raíz) ────────────────
+/admin-panel.png
+/campaign-list.png
+/campaign-submit-result.png
+/debug-action-after.png
+
+# ─── Reportes de seguridad ──────────────────────
+security-reports/
+*.sarif
+zap-report.*

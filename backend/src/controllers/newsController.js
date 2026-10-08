@@ -1,75 +1,116 @@
+// backend/src/controllers/newsController.js
+const { Op } = require('sequelize');
 const News = require('../models/News');
 const Campaign = require('../models/Campaign');
 const Action = require('../models/Action');
-const UserCampaign = require('../models/UserCampaign');
-const UserAction = require('../models/UserAction');
 const { toInt, isValidId } = require('../utils/helpers');
+const { logAdminAction } = require('../services/auditService');
+const cacheMiddleware = require('../middlewares/cache');
 
-// ========== GET ALL NEWS ==========
 exports.getAllNews = async (req, res) => {
   try {
-    const { campaignId, actionId } = req.query;
-    let where = {};
-    const parsedCampaignId = toInt(campaignId);
-    const parsedActionId = toInt(actionId);
+    const {
+      page = 1,
+      limit = 12,
+      search,
+      campaignId,
+      actionId,
+      isNews,
+      hasYoutube,
+      hasThumbnail,
+      hasAction,
+      hasCampaign,
+      dateFrom,
+      dateTo,
+      sortBy = 'publishedAt',
+      sortOrder = 'DESC',
+    } = req.query;
 
-    if (req.user) {
-      if (req.user.role === 'campaign_admin') {
-        const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-        const campaignIds = userCampaigns.map(uc => uc.campaignId);
-        if (campaignIds.length === 0) return res.json([]);
-        where.campaignId = campaignIds;
-      } else if (req.user.role === 'action_admin') {
-        const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-        const actionIds = userActions.map(ua => ua.actionId);
-        if (actionIds.length === 0) return res.json([]);
-        where.actionId = actionIds;
-      }
+    const where = {};
+
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+      ];
     }
 
+    const parsedCampaignId = toInt(campaignId);
+    const parsedActionId = toInt(actionId);
     if (parsedCampaignId) where.campaignId = parsedCampaignId;
     if (parsedActionId) where.actionId = parsedActionId;
 
-    const news = await News.findAll({
-      where,
-      include: [
-        { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'] },
-        { model: Action, as: 'action', attributes: ['id', 'title'] }
-      ],
-      order: [['publishedAt', 'DESC']]
+    if (isNews === 'true') where.isNews = true;
+    else if (isNews === 'false') where.isNews = false;
+
+    if (hasYoutube === 'true') where.youtubeUrl = { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] };
+    else if (hasYoutube === 'false') where.youtubeUrl = { [Op.or]: [{ [Op.is]: null }, { [Op.eq]: '' }] };
+
+    if (hasThumbnail === 'true') where.thumbnail = { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] };
+    else if (hasThumbnail === 'false') where.thumbnail = { [Op.or]: [{ [Op.is]: null }, { [Op.eq]: '' }] };
+
+    if (hasAction === 'true') where.actionId = { [Op.ne]: null };
+    else if (hasAction === 'false') where.actionId = { [Op.is]: null };
+
+    if (hasCampaign === 'true') where.campaignId = { [Op.ne]: null };
+    else if (hasCampaign === 'false') where.campaignId = { [Op.is]: null };
+
+    if (dateFrom || dateTo) {
+      const dateFilter = {};
+      if (dateFrom) dateFilter[Op.gte] = new Date(dateFrom);
+      if (dateTo) dateFilter[Op.lte] = new Date(dateTo + 'T23:59:59');
+      where.publishedAt = dateFilter;
+    }
+
+    const parsedPage = Math.max(1, parseInt(page) || 1);
+    let parsedLimit = parseInt(limit) || 12;
+    if (parsedLimit < 1) parsedLimit = 1;
+    if (parsedLimit > 100) parsedLimit = 100;
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    const orderField = ['publishedAt', 'createdAt', 'title'].includes(sortBy) ? sortBy : 'publishedAt';
+    const orderDir = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    const [total, rows, withYoutube, withThumbnail, linked] = await Promise.all([
+      News.count({ where }),
+      News.findAll({
+        where,
+        limit: parsedLimit,
+        offset,
+        order: [[orderField, orderDir]],
+        include: [
+          { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'], required: false },
+          { model: Action, as: 'action', attributes: ['id', 'title', 'datetime'], required: false },
+        ],
+      }),
+      News.count({ where: { ...where, youtubeUrl: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] } } }),
+      News.count({ where: { ...where, thumbnail: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] } } }),
+      News.count({ where: { ...where, [Op.or]: [{ campaignId: { [Op.ne]: null } }, { actionId: { [Op.ne]: null } }] } }),
+    ]);
+
+    res.json({
+      data: rows,
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      metrics: { total, withYoutube, withThumbnail, linked },
     });
-
-    const formattedNews = news.map(n => ({
-      id: n.id,
-      title: n.title,
-      description: n.description,
-      youtubeUrl: n.youtubeUrl,
-      thumbnail: n.thumbnail,
-      publishedAt: n.publishedAt,
-      isNews: n.isNews,
-      campaignId: n.campaignId,
-      actionId: n.actionId,
-      campaign: n.campaign ? { id: n.campaign.id, name: n.campaign.name, color: n.campaign.color } : null,
-      action: n.action ? { id: n.action.id, title: n.action.title } : null,
-      createdAt: n.createdAt,
-      updatedAt: n.updatedAt
-    }));
-
-    res.json(formattedNews);
   } catch (error) {
     console.error('Error en getAllNews:', error);
     res.status(500).json({ message: 'Error al obtener noticias' });
   }
 };
 
-// ========== GET NEWS BY ID ==========
 exports.getNewsById = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
-    const news = await News.findByPk(id);
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
+    const news = await News.findByPk(id, {
+      include: [
+        { model: Campaign, as: 'campaign', attributes: ['id', 'name', 'color'], required: false },
+        { model: Action, as: 'action', attributes: ['id', 'title', 'datetime'], required: false },
+      ],
+    });
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
     res.json(news);
   } catch (error) {
@@ -78,104 +119,107 @@ exports.getNewsById = async (req, res) => {
   }
 };
 
-// ========== CREATE NEWS ==========
 exports.createNews = async (req, res) => {
   try {
-    const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
+    const { title, description, youtubeUrl, thumbnail, publishedAt, isNews, campaignId, actionId } = req.body;
+
+    if (!title) return res.status(400).json({ message: 'Título requerido' });
+    if (!youtubeUrl) return res.status(400).json({ message: 'URL de YouTube requerida' });
+
     const parsedCampaignId = toInt(campaignId);
     const parsedActionId = toInt(actionId);
-
-    if (!title || !youtubeUrl) {
-      return res.status(400).json({ message: 'Título y URL de YouTube son requeridos' });
-    }
-
-    if (req.user.role === 'campaign_admin') {
-      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (!parsedCampaignId || !allowedCampaignIds.includes(parsedCampaignId)) {
-        return res.status(403).json({ message: 'Debes seleccionar una campaña de las que administras' });
-      }
-    } else if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'No tienes permiso para crear noticias' });
-    }
 
     const news = await News.create({
       title,
       description: description || '',
       youtubeUrl,
-      thumbnail: thumbnail || '',
-      isNews: isNews || false,
-      campaignId: parsedCampaignId,
-      actionId: parsedActionId
+      thumbnail: thumbnail || null,
+      publishedAt: publishedAt || new Date(),
+      isNews: isNews !== undefined ? isNews : false,
+      campaignId: parsedCampaignId || null,
+      actionId: parsedActionId || null,
     });
+
+    await cacheMiddleware.invalidateResource('news', news.id);
+
+    await logAdminAction(req, {
+      action: 'create',
+      entityType: 'news',
+      entityId: news.id,
+      metadata: { title: news.title },
+    });
+
     res.status(201).json(news);
   } catch (error) {
     console.error('Error en createNews:', error);
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ message: error.errors[0].message });
+    }
     res.status(500).json({ message: 'Error al crear noticia' });
   }
 };
 
-// ========== UPDATE NEWS ==========
 exports.updateNews = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
     const news = await News.findByPk(id);
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
-    const { title, description, youtubeUrl, thumbnail, isNews, campaignId, actionId } = req.body;
-    const parsedCampaignId = toInt(campaignId);
-    const parsedActionId = toInt(actionId);
+    const { title, description, youtubeUrl, thumbnail, publishedAt, isNews, campaignId, actionId } = req.body;
 
-    if (req.user.role === 'campaign_admin') {
-      const userCampaigns = await UserCampaign.findAll({ where: { userId: req.user.id } });
-      const allowedCampaignIds = userCampaigns.map(uc => uc.campaignId);
-      if (news.campaignId && !allowedCampaignIds.includes(news.campaignId)) {
-        return res.status(403).json({ message: 'No tienes permiso para editar esta noticia' });
-      }
-    } else if (req.user.role === 'action_admin') {
-      const userActions = await UserAction.findAll({ where: { userId: req.user.id } });
-      const allowedActionIds = userActions.map(ua => ua.actionId);
-      if (news.actionId && !allowedActionIds.includes(news.actionId)) {
-        return res.status(403).json({ message: 'No tienes permiso para editar esta noticia' });
-      }
-    } else if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Acceso denegado' });
-    }
+    const parsedCampaignId = campaignId !== undefined ? toInt(campaignId) : news.campaignId;
+    const parsedActionId = actionId !== undefined ? toInt(actionId) : news.actionId;
 
     await news.update({
-      title: title || news.title,
+      title: title !== undefined ? title : news.title,
       description: description !== undefined ? description : news.description,
-      youtubeUrl: youtubeUrl || news.youtubeUrl,
+      youtubeUrl: youtubeUrl !== undefined ? youtubeUrl : news.youtubeUrl,
       thumbnail: thumbnail !== undefined ? thumbnail : news.thumbnail,
+      publishedAt: publishedAt !== undefined ? publishedAt : news.publishedAt,
       isNews: isNews !== undefined ? isNews : news.isNews,
       campaignId: parsedCampaignId,
-      actionId: parsedActionId
+      actionId: parsedActionId,
     });
+
+    await cacheMiddleware.invalidateResource('news', id);
+
+    await logAdminAction(req, {
+      action: 'update',
+      entityType: 'news',
+      entityId: id,
+      metadata: { changed: Object.keys(req.body) },
+    });
+
     res.json(news);
   } catch (error) {
     console.error('Error en updateNews:', error);
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ message: error.errors[0].message });
+    }
     res.status(500).json({ message: 'Error al actualizar noticia' });
   }
 };
 
-// ========== DELETE NEWS ==========
 exports.deleteNews = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!isValidId(id)) {
-      return res.status(400).json({ message: 'ID inválido' });
-    }
+    if (!isValidId(id)) return res.status(400).json({ message: 'ID inválido' });
     const news = await News.findByPk(id);
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
-    if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'No tienes permiso para eliminar noticias' });
-    }
-
+    const snapshot = { title: news.title, youtubeUrl: news.youtubeUrl };
     await news.destroy();
+
+    await cacheMiddleware.invalidateResource('news', id);
+
+    await logAdminAction(req, {
+      action: 'delete',
+      entityType: 'news',
+      entityId: id,
+      metadata: snapshot,
+    });
+
     res.json({ message: 'Noticia eliminada' });
   } catch (error) {
     console.error('Error en deleteNews:', error);

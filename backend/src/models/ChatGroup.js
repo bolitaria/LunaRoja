@@ -22,9 +22,7 @@ const ChatGroup = sequelize.define('ChatGroup', {
   link: {
     type: DataTypes.STRING,
     allowNull: false,
-    validate: {
-      isUrl: true,
-    },
+    validate: { isUrl: true },
   },
   region: {
     type: DataTypes.STRING,
@@ -33,18 +31,17 @@ const ChatGroup = sequelize.define('ChatGroup', {
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'Campaigns',
-      key: 'id',
-    },
+    references: { model: 'Campaigns', key: 'id' },
+  },
+  bdsId: {                           // ← NUEVO CAMPO
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'BDSs', key: 'id' },
   },
   actionId: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'Actions',
-      key: 'id',
-    },
+    references: { model: 'Actions', key: 'id' },
   },
   isActive: {
     type: DataTypes.BOOLEAN,

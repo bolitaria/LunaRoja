@@ -2,44 +2,63 @@ const { Op } = require('sequelize');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { sendPasswordResetEmail } = require('../services/emailService');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
+const JWT_EXPIRES_IN = '1d'; // ajustar según requerimientos
 
 const validatePassword = (password) => password && password.length >= 8;
 
-exports.register = async (req, res) => { /* sin cambios */ };
+// Función auxiliar para generar JWT
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+};
+
+exports.register = async (req, res) => {
+  // sin cambios (asumir que existe y funciona)
+};
 
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ message: 'Usuario y contraseña requeridos' });
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Usuario y contraseña requeridos' });
+    }
 
     const user = await User.findOne({ where: { username } });
-    if (!user) return res.status(401).json({ message: 'Credenciales inválidas' });
+    if (!user) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
 
+    // Verificar bloqueo
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const remaining = Math.ceil((user.lockedUntil - new Date()) / 60000);
       return res.status(403).json({ message: `Cuenta bloqueada. Intenta de nuevo en ${remaining} minuto(s).` });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      // En tests NO guardamos intentos fallidos para no bloquear la cuenta
       if (process.env.NODE_ENV !== 'test') {
-        user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-        if (user.failedLoginAttempts >= 5) {
-          user.lockedUntil = new Date(Date.now() + 30 * 60000);
-        }
-        await user.save({ fields: ['failedLoginAttempts', 'lockedUntil'] });
+        const attempts = (user.failedLoginAttempts || 0) + 1;
+        const lockedUntil = attempts >= 5 ? new Date(Date.now() + 30 * 60000) : null;
+        await user.update({ failedLoginAttempts: attempts, lockedUntil });
       }
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    user.failedLoginAttempts = 0;
-    user.lockedUntil = null;
-    user.lastLogin = new Date();
-    await user.save({ fields: ['failedLoginAttempts', 'lockedUntil', 'lastLogin'] });
+    // Resetear contadores y actualizar último acceso
+    await user.update({
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLogin: new Date(),
+    });
 
-    const token = user.generateJWT();
+    const token = generateToken(user);
 
     res.json({
       message: 'Login exitoso',
@@ -62,6 +81,7 @@ exports.logout = async (req, res) => {
 };
 
 exports.refresh = async (req, res) => {
+  // No implementado aún; se responde 501 como original
   res.status(501).json({ message: 'No implementado' });
 };
 
@@ -76,15 +96,23 @@ exports.forgotPassword = async (req, res) => {
     const user = await User.findOne({ where: { email } });
 
     if (user) {
-      const resetToken = user.generateResetToken();
-      await user.save({ fields: ['resetToken', 'resetTokenExpires'] });
+      // Generar token de reset y guardar su hash
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+      const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hora
+
+      await user.update({
+        resetToken: hashedToken,
+        resetTokenExpires,
+      });
 
       const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/login/restablecer?token=${resetToken}`;
-      
+
       try {
         await sendPasswordResetEmail(user.email, resetUrl);
       } catch (emailError) {
         console.error('Error al enviar el correo de restablecimiento:', emailError);
+        // No interrumpir la respuesta
       }
     }
 
@@ -102,7 +130,13 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    if (!token || !newPassword) return res.status(400).json({ message: 'Token y nueva contraseña requeridos' });
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token y nueva contraseña requeridos' });
+    }
+
+    if (!validatePassword(newPassword)) {
+      return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -117,10 +151,14 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Token inválido o expirado' });
     }
 
-    user.password = newPassword;
-    user.resetToken = null;
-    user.resetTokenExpires = null;
-    await user.save();
+    // Hashear la nueva contraseña antes de guardar
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await user.update({
+      password: hashedPassword,
+      resetToken: null,
+      resetTokenExpires: null,
+    });
 
     res.json({ message: 'Contraseña restablecida correctamente' });
   } catch (error) {

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import 'react-calendar/dist/Calendar.css';
+import { unwrapList } from '../../utils/apiHelpers';
 
 const Calendar = dynamic(() => import('react-calendar'), { ssr: false });
 
@@ -35,13 +36,13 @@ export default function Galeria() {
     const fetchLists = async () => {
       try {
         const [campRes, accRes, bdsRes] = await Promise.all([
-          api.get('/campaigns'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
           api.get('/actions'),
-          api.get('/bds'),
+          api.get('/bds', { params: { limit: 1000 } }),
         ]);
-        setCampanas(campRes.data);
-        setAcciones(accRes.data);
-        setBdsList(bdsRes.data);
+        setCampanas(unwrapList(campRes.data));
+        setAcciones(unwrapList(accRes.data));
+        setBdsList(unwrapList(bdsRes.data));
       } catch (err) { console.error('Error cargando listas:', err); }
     };
     fetchLists();
@@ -274,7 +275,7 @@ export default function Galeria() {
               >
                 <div className="relative aspect-video overflow-hidden bg-gray-100">
                   <img
-                    src={`${process.env.NEXT_PUBLIC_BASE_URL}${img.url}`}
+                    src={img.url}
                     alt={img.caption || 'Imagen'}
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
@@ -331,7 +332,7 @@ export default function Galeria() {
               )}
               <div className="overflow-hidden max-h-[80vh] max-w-full flex items-center justify-center">
                 <img
-                  src={`${process.env.NEXT_PUBLIC_BASE_URL}${imagenes[lightboxIndex].url}`}
+                  src={imagenes[lightboxIndex].url}
                   alt={imagenes[lightboxIndex].caption || 'Imagen'}
                   className="max-h-[80vh] max-w-full object-contain transition-transform duration-100"
                   style={{ transform: `scale(${zoomScale})`, cursor: zoomScale > 1 ? 'grab' : 'zoom-in' }}

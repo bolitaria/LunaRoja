@@ -4,9 +4,17 @@ import { useRouter } from 'next/router';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ActionPreview from '../../../components/ActionPreview';
+import DocumentManager from '../../../components/DocumentManager';
+import { unwrapList } from '../../../utils/apiHelpers';
+import { FaArrowLeft, FaLock } from 'react-icons/fa';
+
+const DEFAULT_LAT = 36.7213;
+const DEFAULT_LNG = -4.4214;
 
 function NewAction() {
   const router = useRouter();
+  const { campaignId, bdsId } = router.query; // preselección opcional
+
   const [campaigns, setCampaigns] = useState([]);
   const [bdsList, setBdsList] = useState([]);
   const [form, setForm] = useState({
@@ -28,7 +36,8 @@ function NewAction() {
     bdsId: '',
     privateLink: '',
   });
-  const [groups, setGroups] = useState([]);
+  const [publicGroups, setPublicGroups] = useState([]);
+  const [privateGroups, setPrivateGroups] = useState([]);
   const [featuredImageFile, setFeaturedImageFile] = useState(null);
   const [featuredImagePreview, setFeaturedImagePreview] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
@@ -44,9 +53,8 @@ function NewAction() {
   const scriptLoadingRef = useRef(false);
 
   const [linkType, setLinkType] = useState('none');
-
-  const DEFAULT_LAT = 36.7213;
-  const DEFAULT_LNG = -4.4214;
+  // Bloquear si viene de una campaña/BDS
+  const linkTypeLocked = Boolean(campaignId || bdsId);
 
   // ---------- LEAFLET ----------
   const loadLeaflet = () => {
@@ -77,15 +85,26 @@ function NewAction() {
     document.head.appendChild(script);
   };
 
+  // Preseleccionar y bloquear campaña/BDS desde query params
+  useEffect(() => {
+    if (campaignId) {
+      setLinkType('campaign');
+      setForm(prev => ({ ...prev, campaignId, bdsId: '' }));
+    } else if (bdsId) {
+      setLinkType('bds');
+      setForm(prev => ({ ...prev, bdsId, campaignId: '' }));
+    }
+  }, [campaignId, bdsId]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [campRes, bdsRes] = await Promise.all([
-          api.get('/campaigns'),
-          api.get('/bds'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/bds', { params: { limit: 1000 } }),
         ]);
-        setCampaigns(campRes.data);
-        setBdsList(bdsRes.data);
+        setCampaigns(unwrapList(campRes.data));
+        setBdsList(unwrapList(bdsRes.data));
       } catch (error) {
         console.warn('No se pudieron cargar campañas/BDS', error);
         setCampaigns([]);
@@ -208,12 +227,14 @@ function NewAction() {
 
   // ---------- SINCRONIZACIÓN DE CATEGORÍA ----------
   useEffect(() => {
+    // Sincronización de categoría con el tipo de vínculo.
+    // - Entrar en BDS  → fuerza category = 'bds'
+    // - Salir de BDS   → vacía la categoría (el admin debe elegir de nuevo)
+    // Usamos functional updates para no depender de `form.category` como dep.
     if (linkType === 'bds') {
-      setForm(prev => ({ ...prev, category: 'bds' }));
+      setForm(prev => prev.category === 'bds' ? prev : { ...prev, category: 'bds' });
     } else {
-      if (form.category === 'bds') {
-        setForm(prev => ({ ...prev, category: 'protest' }));
-      }
+      setForm(prev => prev.category === 'bds' ? { ...prev, category: '' } : prev);
     }
   }, [linkType]);
 
@@ -251,27 +272,31 @@ function NewAction() {
     });
   };
 
-  // ---------- GRUPOS ----------
-  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
-  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
-  const updateGroup = (index, field, value) => {
-    const updated = [...groups];
+  // ---------- GRUPOS PÚBLICOS ----------
+  const addPublicGroup = () => setPublicGroups([...publicGroups, { platform: 'whatsapp', link: '' }]);
+  const removePublicGroup = (index) => setPublicGroups(publicGroups.filter((_, i) => i !== index));
+  const updatePublicGroup = (index, field, value) => {
+    const updated = [...publicGroups];
     updated[index][field] = value;
-    setGroups(updated);
+    setPublicGroups(updated);
   };
 
-  // ---------- DOCUMENTOS ----------
-  const addPublicDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]);
+  // ---------- GRUPOS PRIVADOS ----------
+  const addPrivateGroup = () => setPrivateGroups([...privateGroups, { platform: 'whatsapp', link: '' }]);
+  const removePrivateGroup = (index) => setPrivateGroups(privateGroups.filter((_, i) => i !== index));
+  const updatePrivateGroup = (index, field, value) => {
+    const updated = [...privateGroups];
+    updated[index][field] = value;
+    setPrivateGroups(updated);
   };
-  const addPrivateDocument = (name, file) => {
-    setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]);
-  };
-  const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
 
   // ---------- ENVÍO ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.category || !form.category.trim()) {
+      toast.warning('Selecciona una categoría');
+      return;
+    }
     if (form.locationType === 'online' && !form.registrationLink.trim()) {
       toast.warning('Recomendamos incluir un enlace de registro, pero puedes continuar.');
     }
@@ -293,7 +318,11 @@ function NewAction() {
       formData.append('urgent', form.urgent);
       formData.append('enableAttendance', form.enableAttendance);
       formData.append('privateLink', form.privateLink || '');
-      formData.append('groups', JSON.stringify(groups));
+      const allGroups = [
+        ...publicGroups.map((g) => ({ ...g, isPublic: true })),
+        ...privateGroups.map((g) => ({ ...g, isPublic: false })),
+      ];
+      formData.append('groups', JSON.stringify(allGroups));
 
       if (linkType === 'campaign') {
         formData.append('campaignId', form.campaignId || '');
@@ -311,8 +340,13 @@ function NewAction() {
 
       documents.forEach((doc, idx) => {
         formData.append(`documents[${idx}][name]`, doc.name);
-        formData.append(`documents[${idx}][file]`, doc.file);
-        formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
+        formData.append(`documents[${idx}][source]`, doc.source);
+        formData.append(`documents[${idx}][visibility]`, doc.visibility);
+        if (doc.source === 'upload' && doc.file) {
+          formData.append(`documents[${idx}][file]`, doc.file);
+        } else if (doc.source === 'link') {
+          formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
+        }
       });
 
       await api.post('/actions', formData, {
@@ -337,11 +371,24 @@ function NewAction() {
 
   // ---------- CLASES COMUNES (sutiles y grandes) ----------
   const inputClass =
-    "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
+    "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
   const selectClass = inputClass;
 
   return (
     <AdminLayout title="Nueva Acción">
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push('/admin/actions');
+          }
+        }}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <FaArrowLeft /> Volver a Acciones
+      </button>
       <div className="flex flex-col lg:flex-row gap-8">
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
           {/* ZONA PÚBLICA */}
@@ -365,22 +412,52 @@ function NewAction() {
                 <p className="text-base font-medium text-gray-700 mb-2">Vincular a</p>
                 <div className="flex flex-wrap gap-6 mb-3">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="linkType" value="none" checked={linkType === 'none'} onChange={() => setLinkType('none')} className="text-fuchsia-600 focus:ring-fuchsia-500" />
+                    <input
+                      type="radio"
+                      name="linkType"
+                      value="none"
+                      checked={linkType === 'none'}
+                      onChange={() => !linkTypeLocked && setLinkType('none')}
+                      disabled={linkTypeLocked}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500 disabled:opacity-50"
+                    />
                     <span className="text-base">Ninguna</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="linkType" value="campaign" checked={linkType === 'campaign'} onChange={() => setLinkType('campaign')} className="text-fuchsia-600 focus:ring-fuchsia-500" />
+                    <input
+                      type="radio"
+                      name="linkType"
+                      value="campaign"
+                      checked={linkType === 'campaign'}
+                      onChange={() => !linkTypeLocked && setLinkType('campaign')}
+                      disabled={linkTypeLocked}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500 disabled:opacity-50"
+                    />
                     <span className="text-base">Campaña</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="linkType" value="bds" checked={linkType === 'bds'} onChange={() => setLinkType('bds')} className="text-fuchsia-600 focus:ring-fuchsia-500" />
+                    <input
+                      type="radio"
+                      name="linkType"
+                      value="bds"
+                      checked={linkType === 'bds'}
+                      onChange={() => !linkTypeLocked && setLinkType('bds')}
+                      disabled={linkTypeLocked}
+                      className="text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500 disabled:opacity-50"
+                    />
                     <span className="text-base">BDS</span>
                   </label>
                 </div>
 
                 {linkType === 'campaign' && (
                   <div>
-                    <select name="campaignId" value={form.campaignId} onChange={handleChange} className={selectClass}>
+                    <select
+                      name="campaignId"
+                      value={form.campaignId}
+                      onChange={handleChange}
+                      disabled={linkTypeLocked}
+                      className={`${selectClass} ${linkTypeLocked ? 'disabled:bg-gray-100' : ''}`}
+                    >
                       <option value="">-- Seleccionar campaña --</option>
                       {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
@@ -388,7 +465,13 @@ function NewAction() {
                 )}
                 {linkType === 'bds' && (
                   <div>
-                    <select name="bdsId" value={form.bdsId} onChange={handleChange} className={selectClass}>
+                    <select
+                      name="bdsId"
+                      value={form.bdsId}
+                      onChange={handleChange}
+                      disabled={linkTypeLocked}
+                      className={`${selectClass} ${linkTypeLocked ? 'disabled:bg-gray-100' : ''}`}
+                    >
                       <option value="">-- Seleccionar BDS --</option>
                       {bdsList.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
@@ -405,6 +488,7 @@ function NewAction() {
                   </div>
                 ) : (
                   <select name="category" value={form.category} onChange={handleChange} className={selectClass}>
+                    <option value="">-- Selecciona categoría --</option>
                     {linkType !== 'campaign' && <option value="bds">Acción BDS</option>}
                     <option value="solidarity_action">Acción Solidaria</option>
                     <option value="talk">Charla</option>
@@ -424,7 +508,10 @@ function NewAction() {
 
               {/* UBICACIÓN */}
               <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-medium text-gray-700 mb-2">📍 Ubicación</h3>
+                <h3 className="text-lg font-medium text-gray-700 flex items-center gap-2 mb-2">
+  <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+  📍 Ubicación
+</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-base font-medium text-gray-700 mb-1">Tipo de ubicación</label>
@@ -477,18 +564,10 @@ function NewAction() {
                         </div>
                         <p className="text-sm text-gray-400 mt-1">Escribe una dirección y presiona &quot;Buscar&quot; o usa el mapa.</p>
                       </div>
-                      <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">Latitud</label>
-                        <input type="number" step="any" name="latitude" value={form.latitude} onChange={handleChange} className={inputClass} />
-                      </div>
-                      <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">Longitud</label>
-                        <input type="number" step="any" name="longitude" value={form.longitude} onChange={handleChange} className={inputClass} />
-                      </div>
                       {form.latitude && form.longitude && (
                         <div className="md:col-span-2 mt-2">
                           <label className="block text-base font-medium text-gray-700 mb-1">Vista previa del mapa</label>
-                          <div ref={previewMapRef} style={{ height: '200px', width: '100%' }} className="rounded-lg border border-gray-300" />
+                          <div ref={previewMapRef} style={{ height: '200px', width: '100%' }} className="relative z-0 rounded-lg border border-gray-300 overflow-hidden" />
                           <div className="flex gap-2 mt-2">
                             <a
                               href={getDirectionsUrl()}
@@ -515,91 +594,29 @@ function NewAction() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">URL de grabación</label>
-                <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className={inputClass} />
-              </div>
+              {form.locationType === 'online' && (
+                <div>
+                  <label className="block text-base font-medium text-gray-700 mb-1">URL de grabación</label>
+                  <input type="url" name="recordingUrl" value={form.recordingUrl} onChange={handleChange} className={inputClass} />
+                </div>
+              )}
               <div className="flex items-center space-x-6">
                 <label className="flex items-center">
-                  <input type="checkbox" name="urgent" checked={form.urgent} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600 focus:ring-fuchsia-500" />
-                  <span className="text-base text-gray-700">🔥 Urgente</span>
+                  <input type="checkbox" name="urgent" checked={form.urgent} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600" />
+                  <span className={`text-base text-gray-700 ${form.urgent ? "font-bold" : ""}`}>🔥 Urgente</span>
                 </label>
                 <label className="flex items-center">
-                  <input type="checkbox" name="enableAttendance" checked={form.enableAttendance} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600 focus:ring-fuchsia-500" />
-                  <span className="text-base text-gray-700">📝 Registrar asistencia</span>
+                  <input type="checkbox" name="enableAttendance" checked={form.enableAttendance} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600" />
+                  <span className={`text-base text-gray-700 ${form.enableAttendance ? "font-bold" : ""}`}>📝 Registrar asistencia</span>
                 </label>
               </div>
             </div>
-          </div>
 
-          {/* GRUPOS PÚBLICOS */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-              <span>💬</span> Grupos de chat públicos
-            </h3>
-            <p className="text-sm text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
-            <div className="space-y-2">
-              {groups.map((group, idx) => (
-                <div key={idx} className="flex gap-2 mb-2 items-center">
-                  <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="telegram">Telegram</option>
-                    <option value="signal">Signal</option>
-                  </select>
-                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
-                  <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={addGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1">
-                <span>+</span> Añadir grupo público
-              </button>
-            </div>
-          </div>
-
-          {/* ARCHIVOS PÚBLICOS */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-              <span>📂</span> Archivos públicos
-            </h3>
-            <p className="text-sm text-gray-400 mb-2">Estos documentos serán visibles para todos los usuarios.</p>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <input type="text" placeholder="Nombre del archivo" id="docNamePublicAction" className={`flex-1 ${inputClass}`} />
-                  <input type="file" id="docFilePublicAction" className="flex-1 text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => {
-                    const name = document.getElementById('docNamePublicAction').value.trim();
-                    const file = document.getElementById('docFilePublicAction').files[0];
-                    if (name && file) {
-                      addPublicDocument(name, file);
-                      document.getElementById('docNamePublicAction').value = '';
-                      document.getElementById('docFilePublicAction').value = '';
-                    } else toast.warning('Completa nombre y archivo');
-                  }} className="bg-fuchsia-600 text-white px-5 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors text-base">
-                    Añadir
-                  </button>
-                </div>
-              </div>
-              <ul className="space-y-1 mt-2">
-                {documents.filter(d => d.isPublic).map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-3 rounded text-base">
-                    <span>{doc.name} 🔓</span>
-                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-sm">Eliminar</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* GALERÍA */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-              <span>📸 </span> Galería de imágenes
+          {/* IMÁGENES */}
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <span>📸</span> Imágenes
             </h3>
             <p className="text-sm text-gray-400 mb-2">Imágenes que se mostrarán en la galería pública.</p>
             <div className="space-y-4">
@@ -645,6 +662,43 @@ function NewAction() {
             </div>
           </div>
 
+          {/* ARCHIVOS PÚBLICOS */}
+          <DocumentManager
+            entityType="action"
+            documents={documents}
+            onChange={setDocuments}
+            section="public"
+            className="mt-6"
+            publicHint="Estos documentos serán visibles de forma pública."
+          />
+
+          {/* GRUPOS PÚBLICOS */}
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <span>💬</span> Grupos de chat públicos
+            </h3>
+            <p className="text-sm text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
+            <div className="space-y-2">
+              {publicGroups.map((group, idx) => (
+                <div key={idx} className="flex gap-2 mb-2 items-center">
+                  <select value={group.platform} onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="signal">Signal</option>
+                  </select>
+                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
+                  <button type="button" onClick={() => removePublicGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addPublicGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1">
+                <span>+</span> Añadir grupo público
+              </button>
+            </div>
+          </div>
+
+          </div>{/* /ZONA PÚBLICA */}
+
           {/* ZONA PRIVADA */}
           <div className="border-l-2 border-rose-400 pl-4 mt-8 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-rose-400"></span>
@@ -652,44 +706,46 @@ function NewAction() {
               <span>🔒</span> Área privada de administración
             </h2>
             <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-                  <span>🔐</span> Archivos privados
-                </h3>
-                <p className="text-sm text-gray-400 mb-2">Solo visibles para administradores.</p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Nombre del archivo" id="docNamePrivateAction" className={`flex-1 ${inputClass}`} />
-                    <input type="file" id="docFilePrivateAction" className="flex-1 text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => {
-                      const name = document.getElementById('docNamePrivateAction').value.trim();
-                      const file = document.getElementById('docFilePrivateAction').files[0];
-                      if (name && file) {
-                        addPrivateDocument(name, file);
-                        document.getElementById('docNamePrivateAction').value = '';
-                        document.getElementById('docFilePrivateAction').value = '';
-                      } else toast.warning('Completa nombre y archivo');
-                    }} className="bg-fuchsia-600 text-white px-5 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors text-base">
-                      Añadir
-                    </button>
-                  </div>
-                </div>
-                <ul className="space-y-1 mt-2">
-                  {documents.filter(d => !d.isPublic).map((doc) => (
-                    <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-3 rounded text-base">
-                      <span>{doc.name} 🔒</span>
-                      <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-sm">Eliminar</button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <DocumentManager
+                entityType="action"
+                documents={documents}
+                onChange={setDocuments}
+                section="private"
+                adminHint="Estos documentos no son visibles públicamente, solo para administradores."
+              />
 
               <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 mb-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                  <FaLock className="w-3.5 h-3.5 text-rose-500" />
+                  Enlace externo a documentos privados
+                </label>
                 <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className={inputClass} />
-                <p className="text-sm text-gray-400 mt-1">Este enlace solo será visible para administradores.</p>
+              </div>
+
+              {/* GRUPOS PRIVADOS */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                  <span>☁️</span> Grupos de chat privados
+                </h3>
+                <p className="text-sm text-gray-400 mb-2">Estos grupos solo serán visibles para administradores.</p>
+                <div className="space-y-2">
+                  {privateGroups.map((group, idx) => (
+                    <div key={idx} className="flex gap-2 mb-2 items-center">
+                      <select value={group.platform} onChange={(e) => updatePrivateGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="signal">Signal</option>
+                      </select>
+                      <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePrivateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
+                      <button type="button" onClick={() => removePrivateGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addPrivateGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1">
+                    <span>+</span> Añadir grupo privado
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -700,7 +756,7 @@ function NewAction() {
         </form>
 
         <div className="lg:w-1/3">
-          <ActionPreview form={form} featuredImage={featuredImagePreview} images={imagePreviews} documents={documents} groups={groups} />
+          <ActionPreview form={form} featuredImage={featuredImagePreview} images={imagePreviews} documents={documents} groups={[...publicGroups.map((g) => ({ ...g, isPublic: true })), ...privateGroups.map((g) => ({ ...g, isPublic: false }))]} />
         </div>
       </div>
 

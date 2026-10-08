@@ -29,17 +29,20 @@ const EmailTemplate = sequelize.define('EmailTemplate', {
     defaultValue: 'custom',
   },
   associatedEvent: {
-    type: DataTypes.ENUM('campaign_created', 'action_created', 'subscriber_welcome', 'reminder', 'custom'),
+    type: DataTypes.ENUM('campaign_created', 'action_created', 'subscriber_welcome', 'reminder', 'petition', 'custom'),
     defaultValue: 'custom',
   },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
-  // NUEVOS CAMPOS
   headerColor: {
     type: DataTypes.STRING(7),
     defaultValue: '#b91c1c',
+  },
+  titleColor: {
+    type: DataTypes.STRING(7),
+    defaultValue: '#ffffff',
   },
   buttonColor: {
     type: DataTypes.STRING(7),
@@ -48,6 +51,10 @@ const EmailTemplate = sequelize.define('EmailTemplate', {
   footerColor: {
     type: DataTypes.STRING(7),
     defaultValue: '#1f2937',
+  },
+  footerTitleColor: {
+    type: DataTypes.STRING(7),
+    defaultValue: '#ffffff',
   },
   backgroundColor: {
     type: DataTypes.STRING(7),

@@ -1,0 +1,447 @@
+# docker-compose.prod.yml — Producción (Fase 1: VPS 4 GB)
+# Uso: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+#      docker compose --env-file .env.prod -f docker-compose.prod.yml --profile monitoring up -d
+#      docker compose --env-file .env.prod -f docker-compose.prod.yml --profile tools up -d
+
+services:
+  postgres:
+    image: postgres:14.24-alpine
+    container_name: lunaroja_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./database/materialized-views.sql:/docker-entrypoint-initdb.d/99-materialized-views.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [data]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.25.2-p0
+    container_name: lunaroja_pgbouncer
+    restart: always
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 25
+      MIN_POOL_SIZE: 5
+      AUTH_TYPE: scram-sha-256
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits
+      LISTEN_PORT: 6432
+      LISTEN_ADDR: 0.0.0.0
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 6432 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [data]
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  redis:
+    image: redis:7.4.11-alpine
+    container_name: lunaroja_redis
+    restart: always
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--maxmemory"
+      - "192mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--save"
+      - "900 1 300 10"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [data]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  backend:
+    image: lunaroja-backend:latest
+    container_name: lunaroja_backend
+    restart: always
+    pull_policy: missing
+    expose: ["5000"]
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: pgbouncer
+      DB_PORT: 6432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      PG_POOL_MAX: ${PG_POOL_MAX:-10}
+      PG_POOL_MIN: ${PG_POOL_MIN:-2}
+      PG_POOL_ACQUIRE: ${PG_POOL_ACQUIRE:-30000}
+      PG_POOL_IDLE: ${PG_POOL_IDLE:-10000}
+      PG_POOL_EVICT: ${PG_POOL_EVICT:-1000}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-10}
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RATE_LIMIT_MAX_PUBLIC: ${RATE_LIMIT_MAX_PUBLIC:-2000}
+      RATE_LIMIT_MAX_ADMIN: ${RATE_LIMIT_MAX_ADMIN:-200}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOGO_URL: ${LOGO_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SKIP_EMAILS: "false"
+      SKIP_DB_SYNC: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      INTERNAL_API_URL: http://backend:5000
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      pgbouncer: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health/ready', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks: [public, data, monitoring]
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  worker:
+    image: lunaroja-backend:latest
+    container_name: lunaroja_worker
+    restart: always
+    pull_policy: missing
+    command: ["node", "src/worker.js"]
+    environment:
+      NODE_ENV: production
+      WORKER_ONLY: "true"
+      SKIP_EMAILS: "false"
+      SKIP_DB_SYNC: "true"
+      DB_HOST: pgbouncer
+      DB_PORT: 6432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      PG_POOL_MAX: 5
+      PG_POOL_MIN: 1
+      QUEUE_CONCURRENCY: 10
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      pgbouncer: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [data]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  mv-refresher:
+    image: postgres:14.24-alpine
+    container_name: lunaroja_mv_refresher
+    restart: always
+    command: >
+      sh -c "while true; do
+               sleep 300;
+               psql $$DATABASE_URL -c 'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_petition_metrics;' || true;
+             done"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+    depends_on:
+      pgbouncer: { condition: service_healthy }
+    networks: [data]
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+          cpus: '0.10'
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  frontend:
+    image: lunaroja-frontend:latest
+    container_name: lunaroja_frontend
+    restart: always
+    pull_policy: missing
+    expose: ["3000"]
+    environment:
+      NODE_ENV: production
+      INTERNAL_API_URL: http://backend:5000
+    depends_on:
+      backend: { condition: service_healthy }
+    networks: [public]
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  nginx:
+    image: nginx:1.30.4-alpine
+    container_name: lunaroja_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_etc:/etc/letsencrypt
+      - certbot_var:/var/lib/letsencrypt
+      - uploads_data:/app/uploads:ro
+    depends_on: [frontend, backend]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks: [public]
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  certbot:
+    image: certbot/certbot:v5.8.0
+    container_name: lunaroja_certbot
+    restart: always
+    volumes:
+      - certbot_etc:/etc/letsencrypt
+      - certbot_var:/var/lib/letsencrypt
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+    networks: [public]
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.10'
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # ─── MONITORING (--profile monitoring) ───
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: lunaroja_node_exporter
+    restart: always
+    profiles: ['monitoring']
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.10'
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: lunaroja_prometheus
+    restart: always
+    profiles: ['monitoring']
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.retention.size=2GB'
+      - '--web.enable-lifecycle'
+    ports: ["9090:9090"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: lunaroja_grafana
+    restart: always
+    profiles: ['monitoring']
+    user: "472"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_PATHS_DATA=/var/lib/grafana
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_INSTALL_PLUGINS=
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_NEWS_NEWS_FEED_ENABLED=false
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=smtp.tutamail.com:587
+      - GF_SMTP_USER=vocesdepalestina@tutamail.com
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=vocesdepalestina@tutamail.com
+      - GF_SMTP_FROM_NAME=LunaRoja Alerts
+      - GF_SMTP_STARTTLS_POLICY=OpportunisticStartTLS
+      - GF_SMTP_SKIP_VERIFY=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-provisioning-prod:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana-dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3002:3000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.49.1
+    container_name: lunaroja_cadvisor
+    restart: always
+    profiles: ['monitoring']
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports: ["8080:8080"]
+    privileged: true
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.10'
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # ─── TOOLS (--profile tools) ───
+  pgadmin:
+    image: dpage/pgadmin4:8.14.0
+    container_name: lunaroja_pgadmin
+    restart: always
+    profiles: ['tools']
+    ports: ["5050:80"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks: [data]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  postgres_data: { name: lunaroja_postgres_data }
+  redis_data: { name: lunaroja_redis_data }
+  uploads_data: { name: lunaroja_uploads_data }
+  pgadmin_data: { name: lunaroja_pgadmin_data }
+  certbot_etc:
+  certbot_var:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  public: { driver: bridge }
+  data: { driver: bridge, internal: true }
+  monitoring: { driver: bridge }

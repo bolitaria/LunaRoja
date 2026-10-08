@@ -73,3 +73,71 @@ start: ## Inicia el servidor backend en modo producción
 clean: ## Elimina procesos residuales del backend en el puerto 5000
 	-pkill -f "node src/app.js" 2>/dev/null
 	-sudo fuser -k 5000/tcp 2>/dev/null
+# ──────────────── BACKUPS ────────────────
+backup: ## Backup de la BD (guarda en /backups)
+	./scripts/backup-db.sh
+
+backup-all: ## Backup completo: BD + uploads (bundle en /backups)
+	./scripts/backup-all.sh
+
+restore: ## Restaurar BD desde backup (Uso: make restore FILE=/backups/xxx.sql)
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make restore FILE=/backups/backup_YYYYMMDD_HHMMSS.sql"; \
+		echo ""; \
+		echo "Backups disponibles:"; \
+		ls -lh /backups/backup_*.sql 2>/dev/null | tail -5 || echo "  (ninguno)"; \
+		exit 1; \
+	fi
+	./scripts/restore-db.sh $(FILE)
+
+# ──────────────── PRODUCCIÓN (Fase 1 - Compose) ────────────────
+deploy: ## Deploy a producción con docker-compose.prod.yml
+	./scripts/deploy.sh
+
+up-monitoring: ## Levanta con monitoring (Grafana + Prometheus + cAdvisor)
+	docker compose --profile monitoring up -d
+
+up-tools: ## Levanta con pgAdmin
+	docker compose --profile tools up -d
+
+logs-backend: ## Logs del backend
+	docker compose logs -f --tail=100 backend
+
+logs-frontend: ## Logs del frontend
+	docker compose logs -f --tail=100 frontend
+
+logs-db: ## Logs de postgres
+	docker compose logs -f --tail=100 postgres
+
+shell-backend: ## Shell en backend
+	docker compose exec backend sh
+
+shell-db: ## psql en postgres
+	docker compose exec postgres psql -U $${POSTGRES_USER:-lunaroja} -d $${POSTGRES_DB:-lunaroja}
+
+shell-redis: ## redis-cli
+	docker compose exec redis redis-cli
+
+ps: ## Estado de contenedores
+	docker compose ps
+
+# ──────────────── SEGURIDAD ────────────────
+scan: scan-images scan-code ## Escaneo completo (Trivy + Semgrep)
+
+scan-images: ## Escaneo de CVEs en imágenes Docker (Trivy)
+	SEVERITY=HIGH,CRITICAL FORMAT=table ./tests/security/trivy-scan.sh
+
+scan-images-sarif: ## Igual, pero con salida SARIF (para GitHub Security)
+	SEVERITY=HIGH,CRITICAL FORMAT=sarif ./tests/security/trivy-scan.sh
+
+scan-code: ## Análisis estático (Semgrep)
+	./tests/security/semgrep-scan.sh
+
+scan-dast: ## Análisis dinámico (OWASP ZAP) — requiere frontend corriendo
+	./tests/security/zap-scan.sh
+
+scan-all: scan scan-dast ## Todos los escaneos (incluye DAST)
+
+security-reports-clean: ## Borra los reportes de seguridad
+	rm -rf security-reports/
+	@echo "✅ security-reports/ eliminado"

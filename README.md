@@ -117,3 +117,57 @@ The project is structured to support maintainability, operational clarity, and p
 - .github/workflows — CI and deployment automation
 
 For operational details, see RUNBOOK.md.
+## 🧪 Playwright E2E Tests (cubre todos los módulos administrativos)
+
+Esta suite valida de extremo a extremo los flujos de creación de contenido en LunaRoja.  
+**13 tests** que pasan en verde y pueden ejecutarse localmente o en CI/CD.
+
+### 🎯 Cobertura
+
+| Módulo            | Estrategia de prueba                         |
+|-------------------|----------------------------------------------|
+| Login             | Autenticación vía API + acceso al dashboard  |
+| Campañas          | Flujo UI completo (búsqueda incluida)        |
+| Acciones          | Creación UI + verificación en edición        |
+| Noticias          | Creación vía API + verificación en lista     |
+| Reportes          | Creación vía API (ruta corregida)            |
+| Chat Groups       | Creación vía API + verificación en lista     |
+| Links             | Creación vía API + verificación en lista     |
+| Email Templates   | Creación vía API + verificación en lista     |
+| Peticiones        | Creación vía API + verificación en lista     |
+| BDS               | Creación vía API + verificación en edición   |
+| Suscriptores      | Carga correcta de la página de listado       |
+| Página pública    | Validación de enlaces principales            |
+
+### 🏗️ Arquitectura
+
+- Proxy reparado (`setupApiProxy`) para evitar el error 500 de Next.js en desarrollo.
+- Utilidades compartidas (`utils.ts`): `login`, `createEntityViaApi`, credenciales externalizadas.
+- Credenciales administradas con variables de entorno (`.env.test`, no versionado).
+- Selectores semánticos (`getByPlaceholder`, `getByRole`) y esperas dinámicas.
+- Los formularios complejos se crean vía API, acelerando la ejecución y evitando fragilidad en la UI.
+
+### ▶️ Cómo ejecutar
+
+```bash
+# 1. Levantar los servicios
+docker compose up -d
+
+# 2. Instalar dependencias
+cd frontend
+npm ci
+
+# 3. Copiar variables de entorno de prueba y editarlas
+cp .env.test.example .env.test
+
+# 4. Ejecutar la suite
+npx playwright test
+## 3. Crear el archivo de ejemplo para las credenciales (`.env.test.example`)
+
+Para que otros sepan qué variables configurar, crea un archivo de plantilla:
+
+```bash
+cat > frontend/.env.test.example << 'EOF'
+# Copia este archivo como .env.test y rellena las credenciales reales
+TEST_ADMIN_USER=admin
+TEST_ADMIN_PASS=admin123

@@ -13,7 +13,7 @@ Link.init({
   url: { type: DataTypes.STRING(500), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
   category: {
-    type: DataTypes.ENUM('local', 'nacional', 'europeo', 'internacional', 'literatura'),
+    type: DataTypes.ENUM('local', 'nacional', 'europeo', 'internacional', 'literatura', 'bibliografia'),
     allowNull: false,
     defaultValue: 'local',
   },

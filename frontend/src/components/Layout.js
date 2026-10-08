@@ -13,6 +13,7 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
   const [showFlagPopup, setShowFlagPopup] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [logos, setLogos] = useState([]);
+  const [loadingLogos, setLoadingLogos] = useState(true);
 
   // Pop‑up se cierra automáticamente a los 10 segundos
   useEffect(() => {
@@ -33,8 +34,9 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
   useEffect(() => {
     fetch('/api/colectivosAfines/public')
       .then(res => res.json())
-      .then(({ data }) => setLogos(data || []))
-      .catch(console.error);
+      .then(({ data }) => setLogos(Array.isArray(data) ? data : []))
+      .catch((err) => { console.error('Error cargando logos:', err); setLogos([]); })
+      .finally(() => setLoadingLogos(false));
   }, []);
 
   // Botón "volver arriba"
@@ -73,7 +75,6 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
       </Head>
 
       <div className="flex flex-col min-h-screen bg-stone-100">
-        {/* HEADER (sin cambios) */}
         <header
           className="bg-white shadow-sm border-b-[6px] border-[#008000] w-full overflow-x-auto hide-scrollbar"
           style={{ fontFamily: 'Inter, sans-serif' }}
@@ -184,7 +185,9 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
                   aria-label="Logos de colectivos afines"
                 >
                   <div className="w-full px-1 py-4">
-                    {logos.length > 0 ? (
+                    {loadingLogos ? (
+                      <p className="text-gray-400 text-sm">Cargando logos…</p>
+                    ) : logos.length > 0 ? (
                       <div
                         className="grid gap-3"
                         style={{
@@ -214,7 +217,9 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-400 text-sm">Cargando logos…</p>
+                      <p className="text-gray-500 text-xs italic">
+                        Sin logos configurados todavía
+                      </p>
                     )}
                   </div>
                 </div>

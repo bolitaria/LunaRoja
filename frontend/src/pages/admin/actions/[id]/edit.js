@@ -4,6 +4,12 @@ import { useRouter } from 'next/router';
 import AdminLayout from '../../../../components/AdminLayout';
 import { toast } from 'react-toastify';
 import ActionPreview from '../../../../components/ActionPreview';
+import DocumentManager from '../../../../components/DocumentManager';
+import { unwrapList } from '../../../../utils/apiHelpers';
+import { FaArrowLeft, FaLock } from 'react-icons/fa';
+
+const DEFAULT_LAT = 36.7213;
+const DEFAULT_LNG = -4.4214;
 
 function EditAction() {
   const router = useRouter();
@@ -29,7 +35,8 @@ function EditAction() {
     bdsId: '',
     privateLink: '',
   });
-  const [groups, setGroups] = useState([]);
+  const [publicGroups, setPublicGroups] = useState([]);
+  const [privateGroups, setPrivateGroups] = useState([]);
   const [featuredImageFile, setFeaturedImageFile] = useState(null);
   const [featuredImagePreview, setFeaturedImagePreview] = useState(null);
   const [currentFeaturedImage, setCurrentFeaturedImage] = useState(null);
@@ -48,10 +55,7 @@ function EditAction() {
 
   const [linkType, setLinkType] = useState('none');
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
-  const DEFAULT_LAT = 36.7213;
-  const DEFAULT_LNG = -4.4214;
-
+  const baseUrl = '';
   // ---------- LEAFLET ----------
   const loadLeaflet = () => {
     if (typeof window === 'undefined') return;
@@ -76,8 +80,8 @@ function EditAction() {
       try {
         const [actionRes, campaignsRes, bdsRes] = await Promise.all([
           api.get(`/actions/${id}`),
-          api.get('/campaigns'),
-          api.get('/bds'),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/bds', { params: { limit: 1000 } }),
         ]);
         const action = actionRes.data;
         setForm({
@@ -106,13 +110,23 @@ function EditAction() {
 
         if (action.groups) {
           const parsed = Array.isArray(action.groups) ? action.groups : JSON.parse(action.groups || '[]');
-          setGroups(parsed);
+          setPublicGroups(parsed.filter(g => g.isPublic !== false));
+          setPrivateGroups(parsed.filter(g => g.isPublic === false));
         }
         setCurrentFeaturedImage(action.featuredImage || null);
-        if (action.featuredImage) setFeaturedImagePreview(`${baseUrl}${action.featuredImage}`);
+        if (action.featuredImage) setFeaturedImagePreview(`${action.featuredImage}`);
         setExistingImages(action.images || []);
         if (action.documents) {
-          setDocuments(action.documents.map(doc => ({ ...doc, file: null })));
+          setDocuments(action.documents.map(doc => ({
+            id: doc.id,
+            name: doc.title,
+            source: doc.source,
+            file: null,
+            externalUrl: doc.externalUrl || null,
+            visibility: doc.visibility,
+            filePath: doc.filePath || null,
+            isNew: false,
+          })));
         }
         setCampaigns(campaignsRes.data || []);
         setBdsList(bdsRes.data || []);
@@ -126,17 +140,20 @@ function EditAction() {
     loadLeaflet();
   }, [id]);
 
-  // Sincronizar categoría
+  // Sincronizar categoría con el tipo de vínculo.
+  // - Entrar en BDS  → fuerza category = 'bds'
+  // - Salir de BDS   → vacía la categoría (el admin debe elegir de nuevo)
+  // Functional updates para no depender de `form.category` como dep.
   useEffect(() => {
     if (linkType === 'bds') {
-      setForm(prev => ({ ...prev, category: 'bds' }));
+      setForm(prev => prev.category === 'bds' ? prev : { ...prev, category: 'bds' });
     } else {
-      if (form.category === 'bds') setForm(prev => ({ ...prev, category: 'protest' }));
+      setForm(prev => prev.category === 'bds' ? { ...prev, category: '' } : prev);
     }
   }, [linkType]);
 
   const inputClass =
-    "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
+    "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
   const selectClass = inputClass;
 
   // ---------- MAPA ----------
@@ -218,23 +235,23 @@ function EditAction() {
   };
 
   // Grupos
-  const addGroup = () => setGroups([...groups, { platform: 'whatsapp', link: '' }]);
-  const removeGroup = (index) => setGroups(groups.filter((_, i) => i !== index));
-  const updateGroup = (index, field, value) => { const updated = [...groups]; updated[index][field] = value; setGroups(updated); };
+  const addPublicGroup = () => setPublicGroups([...publicGroups, { platform: 'whatsapp', link: '' }]);
+  const removePublicGroup = (index) => setPublicGroups(publicGroups.filter((_, i) => i !== index));
+  const updatePublicGroup = (index, field, value) => { const updated = [...publicGroups]; updated[index][field] = value; setPublicGroups(updated); };
+
+  const addPrivateGroup = () => setPrivateGroups([...privateGroups, { platform: 'whatsapp', link: '' }]);
+  const removePrivateGroup = (index) => setPrivateGroups(privateGroups.filter((_, i) => i !== index));
+  const updatePrivateGroup = (index, field, value) => { const updated = [...privateGroups]; updated[index][field] = value; setPrivateGroups(updated); };
 
   // Documentos
-  const addPublicDocument = (name, file) => { setDocuments([...documents, { id: Date.now(), name, file, isPublic: true }]); };
-  const addPrivateDocument = (name, file) => { setDocuments([...documents, { id: Date.now(), name, file, isPublic: false }]); };
-  const removeDocument = (id) => setDocuments(documents.filter(doc => doc.id !== id));
-  const handleDeleteDocument = async (docId) => {
-    if (!confirm('¿Eliminar este documento?')) return;
-    try { await api.delete(`/actions/documents/${docId}`); toast.success('Documento eliminado'); setDocuments(prev => prev.filter(doc => doc.id !== docId)); }
-    catch (error) { toast.error('Error al eliminar documento'); }
-  };
 
   // Envío
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.category || !form.category.trim()) {
+      toast.warning('Selecciona una categoría');
+      return;
+    }
     if (form.locationType === 'online' && !form.registrationLink.trim()) {
       toast.warning('Recomendamos incluir un enlace de registro, pero puedes continuar.');
     }
@@ -256,7 +273,11 @@ function EditAction() {
       formData.append('urgent', form.urgent);
       formData.append('enableAttendance', form.enableAttendance);
       formData.append('privateLink', form.privateLink || '');
-      formData.append('groups', JSON.stringify(groups));
+      const allGroups = [
+        ...publicGroups.map((g) => ({ ...g, isPublic: true })),
+        ...privateGroups.map((g) => ({ ...g, isPublic: false })),
+      ];
+      formData.append('groups', JSON.stringify(allGroups));
 
       if (linkType === 'campaign') { formData.append('campaignId', form.campaignId || ''); formData.append('bdsId', ''); }
       else if (linkType === 'bds') { formData.append('campaignId', ''); formData.append('bdsId', form.bdsId || ''); }
@@ -264,17 +285,23 @@ function EditAction() {
 
       if (featuredImageFile) formData.append('featuredImage', featuredImageFile);
       newImageFiles.forEach(file => formData.append('images[]', file));
-      documents.forEach((doc, idx) => {
-        if (doc.file) {
-          formData.append(`documents[${idx}][name]`, doc.name);
+      // Solo enviamos los documentos NUEVOS (los existentes ya están en BD;
+      // los eliminados se han borrado vía DELETE /api/documents/:id).
+      const newDocs = documents.filter(d => d.isNew);
+      newDocs.forEach((doc, idx) => {
+        formData.append(`documents[${idx}][name]`, doc.name);
+        formData.append(`documents[${idx}][source]`, doc.source);
+        formData.append(`documents[${idx}][visibility]`, doc.visibility);
+        if (doc.source === 'upload' && doc.file) {
           formData.append(`documents[${idx}][file]`, doc.file);
-          formData.append(`documents[${idx}][isPublic]`, doc.isPublic);
+        } else if (doc.source === 'link') {
+          formData.append(`documents[${idx}][externalUrl]`, doc.externalUrl);
         }
       });
 
       await api.put(`/actions/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('Acción actualizada');
-      router.push('/admin/actions');
+      router.push(`/admin/actions/${id}`);
     } catch (error) {
       console.error(error);
       toast.error('Error al actualizar');
@@ -289,7 +316,20 @@ function EditAction() {
   return (
     <AdminLayout title="Editar Acción">
       <div className="flex flex-col lg:flex-row gap-8">
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
+        <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push(`/admin/actions/${id}`);
+          }
+        }}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <FaArrowLeft /> Volver a Acciones
+      </button>
           {/* ZONA PÚBLICA */}
           <div className="border-l-2 border-green-500 pl-4 relative">
             <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
@@ -311,15 +351,15 @@ function EditAction() {
                 <p className="text-base font-medium text-gray-700 mb-2">Vincular a</p>
                 <div className="flex flex-wrap gap-6 mb-3">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="linkType" value="none" checked={linkType === 'none'} onChange={() => setLinkType('none')} className="text-fuchsia-600 focus:ring-fuchsia-500" />
+                    <input type="radio" name="linkType" value="none" checked={linkType === 'none'} onChange={() => setLinkType('none')} className="text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500" />
                     <span className="text-base">Ninguna</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="linkType" value="campaign" checked={linkType === 'campaign'} onChange={() => setLinkType('campaign')} className="text-fuchsia-600 focus:ring-fuchsia-500" />
+                    <input type="radio" name="linkType" value="campaign" checked={linkType === 'campaign'} onChange={() => setLinkType('campaign')} className="text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500" />
                     <span className="text-base">Campaña</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="linkType" value="bds" checked={linkType === 'bds'} onChange={() => setLinkType('bds')} className="text-fuchsia-600 focus:ring-fuchsia-500" />
+                    <input type="radio" name="linkType" value="bds" checked={linkType === 'bds'} onChange={() => setLinkType('bds')} className="text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500" />
                     <span className="text-base">BDS</span>
                   </label>
                 </div>
@@ -351,6 +391,7 @@ function EditAction() {
                   </div>
                 ) : (
                   <select name="category" value={form.category} onChange={handleChange} className={selectClass}>
+                    <option value="">-- Selecciona categoría --</option>
                     {linkType !== 'campaign' && <option value="bds">Acción BDS</option>}
                     <option value="solidarity_action">Acción Solidaria</option>
                     <option value="talk">Charla</option>
@@ -370,7 +411,10 @@ function EditAction() {
 
               {/* UBICACIÓN */}
               <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-medium text-gray-700 mb-2">📍 Ubicación</h3>
+                <h3 className="text-lg font-medium text-gray-700 flex items-center gap-2 mb-2">
+  <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+  📍 Ubicación
+</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-base font-medium text-gray-700 mb-1">Tipo de ubicación</label>
@@ -446,11 +490,11 @@ function EditAction() {
               </div>
               <div className="flex items-center space-x-6">
                 <label className="flex items-center">
-                  <input type="checkbox" name="urgent" checked={form.urgent} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600 focus:ring-fuchsia-500" />
+                  <input type="checkbox" name="urgent" checked={form.urgent} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500" />
                   <span className="text-base text-gray-700">🔥 Urgente</span>
                 </label>
                 <label className="flex items-center">
-                  <input type="checkbox" name="enableAttendance" checked={form.enableAttendance} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600 focus:ring-fuchsia-500" />
+                  <input type="checkbox" name="enableAttendance" checked={form.enableAttendance} onChange={handleChange} className="mr-2 h-5 w-5 text-fuchsia-600 focus:outline-none focus:ring-fuchsia-500" />
                   <span className="text-base text-gray-700">📝 Registrar asistencia</span>
                 </label>
               </div>
@@ -463,51 +507,28 @@ function EditAction() {
             <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><span>💬</span> Grupos de chat públicos</h3>
             <p className="text-sm text-gray-400 mb-2">Estos grupos se mostrarán en la acción pública para que los usuarios se unan.</p>
             <div className="space-y-2">
-              {groups.map((group, idx) => (
+              {publicGroups.map((group, idx) => (
                 <div key={idx} className="flex gap-2 mb-2 items-center">
-                  <select value={group.platform} onChange={(e) => updateGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
+                  <select value={group.platform} onChange={(e) => updatePublicGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
                     <option value="whatsapp">WhatsApp</option>
                     <option value="telegram">Telegram</option>
                     <option value="signal">Signal</option>
                   </select>
-                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
-                  <button type="button" onClick={() => removeGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
+                  <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePublicGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
+                  <button type="button" onClick={() => removePublicGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
                 </div>
               ))}
-              <button type="button" onClick={addGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1"><span>+</span> Añadir grupo público</button>
+              <button type="button" onClick={addPublicGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1"><span>+</span> Añadir grupo público</button>
             </div>
           </div>
 
-          {/* ARCHIVOS PÚBLICOS */}
-          <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
-            <span className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><span>📂</span> Archivos públicos</h3>
-            <p className="text-sm text-gray-400 mb-2">Estos documentos serán visibles para todos los usuarios.</p>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <input type="text" placeholder="Nombre del archivo" id="docNamePublicEditAction" className={`flex-1 ${inputClass}`} />
-                  <input type="file" id="docFilePublicEditAction" className="flex-1 text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => {
-                    const name = document.getElementById('docNamePublicEditAction').value.trim();
-                    const file = document.getElementById('docFilePublicEditAction').files[0];
-                    if (name && file) { addPublicDocument(name, file); document.getElementById('docNamePublicEditAction').value = ''; document.getElementById('docFilePublicEditAction').value = ''; }
-                    else toast.warning('Completa nombre y archivo');
-                  }} className="bg-fuchsia-600 text-white px-5 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors text-base">Añadir</button>
-                </div>
-              </div>
-              <ul className="space-y-1 mt-2">
-                {documents.filter(d => d.isPublic).map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-3 rounded text-base">
-                    <span>{doc.name} 🔓</span>
-                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-red-600 text-sm">Eliminar</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {/* DOCUMENTOS */}
+          <DocumentManager
+            entityType="action"
+            documents={documents}
+            onChange={setDocuments}
+            section="public"
+          />
 
           {/* GALERÍA */}
           <div className="border-l-2 border-green-500 pl-4 mt-4 relative">
@@ -519,7 +540,7 @@ function EditAction() {
                 <label className="block text-base font-medium text-gray-700 mb-1">Imagen destacada</label>
                 {currentFeaturedImage && !featuredImageFile && (
                   <div className="mb-2">
-                    <img src={`${baseUrl}${currentFeaturedImage}`} alt="Actual" className="max-h-40 rounded-lg shadow-sm" />
+                    <img src={currentFeaturedImage} alt="Actual" className="max-h-40 rounded-lg shadow-sm" />
                     <p className="text-sm text-gray-400">Imagen actual. Sube una nueva para reemplazar.</p>
                   </div>
                 )}
@@ -550,7 +571,7 @@ function EditAction() {
                   <div className="grid grid-cols-4 gap-4 mb-2">
                     {existingImages.map(img => (
                       <div key={img.id} className="relative group">
-                        <img src={`${baseUrl}${img.url}`} alt="Existente" className="h-24 w-24 object-cover rounded-lg shadow-sm" />
+                        <img src={`${img.url}`} alt="Existente" className="h-24 w-24 object-cover rounded-lg shadow-sm" />
                         <button type="button" onClick={() => handleDeleteImage(img.id)} className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700 transition-colors">✕</button>
                       </div>
                     ))}
@@ -580,37 +601,45 @@ function EditAction() {
               <span>🔒</span> Área privada de administración
             </h2>
             <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><span>🔐</span> Archivos privados</h3>
-                <p className="text-sm text-gray-400 mb-2">Solo visibles para administradores.</p>
-                <ul className="space-y-1">
-                  {documents.filter(d => !d.isPublic).map((doc) => (
-                    <li key={doc.id} className="flex items-center justify-between bg-gray-50 p-3 rounded text-base">
-                      <span>{doc.name} 🔒</span>
-                      <button type="button" onClick={() => handleDeleteDocument(doc.id)} className="text-red-600 text-sm">Eliminar</button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-col gap-2 mt-2">
-                  <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Nombre del archivo" id="docNamePrivateEditAction" className={`flex-1 ${inputClass}`} />
-                    <input type="file" id="docFilePrivateEditAction" className="flex-1 text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100 cursor-pointer" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => {
-                      const name = document.getElementById('docNamePrivateEditAction').value.trim();
-                      const file = document.getElementById('docFilePrivateEditAction').files[0];
-                      if (name && file) { addPrivateDocument(name, file); document.getElementById('docNamePrivateEditAction').value = ''; document.getElementById('docFilePrivateEditAction').value = ''; }
-                      else toast.warning('Completa nombre y archivo');
-                    }} className="bg-fuchsia-600 text-white px-5 py-2 rounded-lg hover:bg-fuchsia-700 transition-colors text-base">Añadir</button>
-                  </div>
-                </div>
-              </div>
+              <DocumentManager
+                entityType="action"
+                documents={documents}
+                onChange={setDocuments}
+                section="private"
+              />
 
               <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">Enlace a zona privada (opcional)</label>
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 mb-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                  <FaLock className="w-3.5 h-3.5 text-rose-500" />
+                  Enlace externo a documentos privados
+                </label>
                 <input type="url" name="privateLink" value={form.privateLink} onChange={handleChange} placeholder="https://..." className={inputClass} />
-                <p className="text-sm text-gray-400 mt-1">Este enlace solo será visible para administradores.</p>
+              </div>
+
+              {/* GRUPOS PRIVADOS */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                  <span>☁️</span> Grupos de chat privados
+                </h3>
+                <p className="text-sm text-gray-400 mb-2">Estos grupos solo serán visibles para administradores.</p>
+                <div className="space-y-2">
+                  {privateGroups.map((group, idx) => (
+                    <div key={idx} className="flex gap-2 mb-2 items-center">
+                      <select value={group.platform} onChange={(e) => updatePrivateGroup(idx, 'platform', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400">
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="signal">Signal</option>
+                      </select>
+                      <input type="url" placeholder="https://..." value={group.link} onChange={(e) => updatePrivateGroup(idx, 'link', e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400" />
+                      <button type="button" onClick={() => removePrivateGroup(idx)} className="text-red-600 hover:text-red-800 text-xl">✕</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addPrivateGroup} className="text-fuchsia-600 text-base hover:underline flex items-center gap-1">
+                    <span>+</span> Añadir grupo privado
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -620,13 +649,13 @@ function EditAction() {
           </button>
         </form>
 
-        <div className="lg:w-1/3">
+        <div className="lg:w-1/3 lg:self-start">
           <ActionPreview
             form={form}
-            featuredImage={featuredImagePreview || (currentFeaturedImage ? `${baseUrl}${currentFeaturedImage}` : null)}
-            images={[...(existingImages.map(img => `${baseUrl}${img.url}`)), ...newImagePreviews]}
+            featuredImage={featuredImagePreview || (currentFeaturedImage ? currentFeaturedImage : null)}
+            images={[...(existingImages.map(img => `${img.url}`)), ...newImagePreviews]}
             documents={documents}
-            groups={groups}
+            groups={[...publicGroups.map((g) => ({ ...g, isPublic: true })), ...privateGroups.map((g) => ({ ...g, isPublic: false }))]}
           />
         </div>
       </div>
