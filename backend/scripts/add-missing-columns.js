@@ -50,15 +50,6 @@ async function run() {
         "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
       );
     `);
-    await sequelize.query(`
-      DO $$ BEGIN
-        ALTER TABLE "BDSs" ADD CONSTRAINT "BDSs_status_check"
-          CHECK (status IN ('processing', 'published', 'error'));
-      EXCEPTION WHEN duplicate_object THEN null;
-      END $$;
-    `);
-    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_bdss_status" ON "BDSs"(status);`);
-
     // ─── 1. Actions ────────────────────────────────────────────
     await addColumn('Actions', 'imageUrl', 'VARCHAR(255)');
     await addColumn('Actions', 'galleryImages', "JSONB DEFAULT '[]'");
@@ -77,6 +68,16 @@ async function run() {
     await addColumn('BDSs', 'status', "VARCHAR(15) NOT NULL DEFAULT 'published'");
     await addColumn('BDSs', 'processingError', 'TEXT');
     await addColumn('BDSs', 'privateLink', 'VARCHAR(500)');
+
+    // Constraint + índice DESPUÉS de asegurar que "status" existe
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE "BDSs" ADD CONSTRAINT "BDSs_status_check"
+          CHECK (status IN ('processing', 'published', 'error'));
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_bdss_status" ON "BDSs"(status);`);
 
     // ─── 4. petitions ──────────────────────────────────────────
     await addColumn('petitions', 'email_template_id', 'INTEGER');

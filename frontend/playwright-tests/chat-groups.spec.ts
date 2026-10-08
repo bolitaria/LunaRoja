@@ -7,5 +7,6 @@ test('Crear un nuevo grupo de chat y verificar en edición', async ({ page }) =>
     name: 'Grupo API Playwright', platform: 'whatsapp', link: 'https://chat.whatsapp.com/invite', region: 'Global', description: 'Creado vía API', isPublic: true, isActive: true
   });
   await page.goto(`/admin/chatGroups/${grupo.id}/edit`);
+  await page.waitForLoadState('networkidle');
   await expect(page.locator('input[name="name"]').first()).toHaveValue('Grupo API Playwright', { timeout: 10000 });
 });
