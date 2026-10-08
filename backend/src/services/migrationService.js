@@ -3,7 +3,7 @@ const sequelize = require('../config/database');
 const path = require('path');
 const fs = require('fs');
 
-const MIGRATIONS_PATH = path.join(__dirname, 'migrations');
+const MIGRATIONS_PATH = path.join(__dirname, '..', 'migrations');
 
 const getMigrationFiles = () => {
   return fs
