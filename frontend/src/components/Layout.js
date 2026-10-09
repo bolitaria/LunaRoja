@@ -1,10 +1,11 @@
 // ============================================
 // IMPORTS
 // ============================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import Image from 'next/image';
+import { FaChevronRight, FaTimes } from 'react-icons/fa';
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -14,6 +15,10 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [logos, setLogos] = useState([]);
   const [loadingLogos, setLoadingLogos] = useState(true);
+  const [showAllLogos, setShowAllLogos] = useState(false);
+  const [logosOverflow, setLogosOverflow] = useState(false);
+  const logosContainerRef = useRef(null);
+  const logosContentRef = useRef(null);
 
   // Pop‑up se cierra automáticamente a los 10 segundos
   useEffect(() => {
@@ -38,6 +43,36 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
       .catch((err) => { console.error('Error cargando logos:', err); setLogos([]); })
       .finally(() => setLoadingLogos(false));
   }, []);
+
+  // Detectar si los logos desbordan el contenedor
+  useEffect(() => {
+    if (loadingLogos || logos.length === 0) { setLogosOverflow(false); return; }
+    const check = () => {
+      const c = logosContainerRef.current;
+      const k = logosContentRef.current;
+      if (!c || !k) return;
+      setLogosOverflow(k.offsetWidth > c.clientWidth + 1);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    if (logosContainerRef.current) ro.observe(logosContainerRef.current);
+    if (logosContentRef.current) ro.observe(logosContentRef.current);
+    window.addEventListener('resize', check);
+    return () => { ro.disconnect(); window.removeEventListener('resize', check); };
+  }, [loadingLogos, logos]);
+
+  // Popup: Esc + bloqueo del scroll del body
+  useEffect(() => {
+    if (!showAllLogos) return;
+    const onKey = (e) => { if (e.key === 'Escape') setShowAllLogos(false); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [showAllLogos]);
 
   // Botón "volver arriba"
   useEffect(() => {
@@ -181,48 +216,102 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
                 {/* Columna izquierda: logos de colectivos afines */}
                 <div
                   className="justify-self-start self-stretch flex items-start"
-                  style={{ maxWidth: 'calc(50% - 4rem)' }}   // más ancho para hasta 4 columnas
+                  style={{ maxWidth: 'calc(50% - 4rem)' }}
                   aria-label="Logos de colectivos afines"
                 >
-                  <div className="w-full px-1 py-4">
-                    {loadingLogos ? (
-                      <p className="text-gray-400 text-sm">Cargando logos…</p>
-                    ) : logos.length > 0 ? (
-                      <div
-                        className="grid gap-3"
-                        style={{
-                          gridTemplateRows: 'repeat(3, auto)',
-                          gridAutoFlow: 'column',
-                        }}
+                  <div className="w-full px-1 py-4 relative">
+                    {!loadingLogos && logos.length > 0 && (
+                      <>
+                        <div ref={logosContainerRef} className="overflow-hidden w-full">
+                          <div
+                            ref={logosContentRef}
+                            className="grid gap-3 w-max"
+                            style={{
+                              gridTemplateRows: 'repeat(3, auto)',
+                              gridAutoFlow: 'column',
+                            }}
+                          >
+                            {logos.map(logo => (
+                              <a
+                                key={logo.id}
+                                href={logo.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block transition-transform hover:scale-110"
+                                title={logo.nombre || ''}
+                              >
+                                <div className="relative h-16 w-16 sm:h-20 sm:w-20">
+                                  <Image
+                                    src={logo.url}
+                                    alt={logo.nombre || 'Logo'}
+                                    fill
+                                    className="object-contain"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                        {logosOverflow && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllLogos(true)}
+                            aria-label="Ver todos los colectivos afines"
+                            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-fuchsia-600 hover:bg-fuchsia-50 transition"
+                          >
+                            <FaChevronRight className="w-4 h-4" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Popup: todos los colectivos afines */}
+                {showAllLogos && (
+                  <div
+                    className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4"
+                    onClick={() => setShowAllLogos(false)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Todos los colectivos afines"
+                  >
+                    <div
+                      className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setShowAllLogos(false)}
+                        aria-label="Cerrar"
+                        className="absolute top-3 right-3 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition"
                       >
+                        <FaTimes className="w-4 h-4" />
+                      </button>
+                      <h3 className="text-xl font-bold text-gray-800 mb-5 pr-12">Colectivos afines</h3>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
                         {logos.map(logo => (
                           <a
                             key={logo.id}
                             href={logo.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block transition-transform hover:scale-110"
+                            className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 transition"
                             title={logo.nombre || ''}
                           >
-                            <div className="relative h-16 w-16 sm:h-20 sm:w-20">
-                              <Image
-                                src={logo.url}
-                                alt={logo.nombre || 'Logo'}
-                                fill
-                                className="object-contain"
-                                loading="lazy"
-                              />
+                            <div className="relative h-16 w-16">
+                              <Image src={logo.url} alt={logo.nombre || 'Logo'} fill className="object-contain" />
                             </div>
+                            {logo.nombre && (
+                              <span className="text-xs text-center text-gray-600 line-clamp-2">{logo.nombre}</span>
+                            )}
                           </a>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-gray-500 text-xs italic">
-                        Sin logos configurados todavía
-                      </p>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Columna central: logo */}
                 <div className="flex flex-col items-center">

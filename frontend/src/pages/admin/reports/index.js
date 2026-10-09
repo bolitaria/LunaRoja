@@ -34,7 +34,7 @@ function AdminReports() {
   const [dateTo, setDateTo] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [metrics, setMetrics] = useState({ total: 0, blogs: 0, reports: 0, withFile: 0 });
   const [selected, setSelected] = useState([]);
@@ -355,7 +355,7 @@ function AdminReports() {
         </div>
       ) : viewMode === 'grid' ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ml-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {reports.map(r => (
               <div key={r.id} onClick={() => router.push(`/admin/reports/${r.id}`)}
                 className={`relative bg-white rounded-2xl shadow-sm border cursor-pointer ${selected.includes(r.id) ? 'border-fuchsia-500 ring-2 ring-fuchsia-200' : 'border-gray-200'} hover:shadow-md hover:border-fuchsia-300 transition-shadow overflow-hidden flex flex-col`}>
@@ -388,11 +388,13 @@ function AdminReports() {
               </div>
             ))}
           </div>
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={s => { setItemsPerPage(s); setCurrentPage(1); }} />
+          <div className="mt-auto pt-6 pb-2">
+      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={s => { setItemsPerPage(s); setCurrentPage(1); }} />
+          </div>
         </>
       ) : (
         <>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ml-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gradient-to-r from-fuchsia-50 to-fuchsia-100/60 border-b-2 border-fuchsia-200">
               <tr>
