@@ -151,7 +151,7 @@ export default function Noticias() {
             </div>
 
             {filteredNews.length > 0 && (
-              <div className="mt-8 max-w-4xl mx-auto">
+              <div className="mt-10 mb-4 bg-white rounded-2xl shadow-sm border border-gray-200 px-6">
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}

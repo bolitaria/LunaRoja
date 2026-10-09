@@ -229,8 +229,8 @@ export default function AdminLayout({ children, title = 'Panel Admin' }) {
           </header>
 
           {/* Área de contenido */}
-          <div className="flex-1 overflow-y-auto hide-scrollbar pt-28 lg:pt-32 pb-0 flex flex-col">
-            <main className="px-4 lg:px-6 pt-4 lg:pt-6 pb-0 box-border flex-1 flex flex-col">
+          <div className="flex-1 overflow-y-auto hide-scrollbar pt-28 lg:pt-32 pb-0 flex flex-col min-h-0">
+            <main className="px-4 lg:px-6 pt-4 lg:pt-6 pb-0 box-border flex-1 flex flex-col min-h-0">
               {children}
             </main>
           </div>

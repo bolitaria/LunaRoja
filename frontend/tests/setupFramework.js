@@ -1,20 +1,28 @@
-import '@testing-library/jest-dom';
+// Polyfills para jsdom
+if (typeof global.ResizeObserver === 'undefined') {
+  global.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
 
-jest.mock('next/router', () => ({
-  useRouter: jest.fn().mockReturnValue({
-    route: '/',
-    pathname: '/',
-    query: {},
-    asPath: '/',
-    push: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn(),
-    back: jest.fn(),
-    events: {
-      on: jest.fn(),
-      off: jest.fn(),
-    },
-  }),
-}));
+if (typeof global.IntersectionObserver === 'undefined') {
+  global.IntersectionObserver = class IntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
 
-jest.mock('next/image', () => (props) => <img {...props} />);
+// matchMedia (algunos componentes lo usan)
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = () => ({
+    matches: false,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}

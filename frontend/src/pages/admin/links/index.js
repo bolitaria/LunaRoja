@@ -3,6 +3,7 @@ import AdminLayout from '../../../components/AdminLayout';
 import api from '../../../lib/axios';
 import Link from 'next/link';
 import { FaTh, FaList, FaSearch, FaFileExport } from 'react-icons/fa';
+import Pagination from '../../../components/Pagination';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import LinkCard from '../../../components/LinkCard';
@@ -21,6 +22,8 @@ const CATEGORY_LABELS = {
 export default function AdminLinksIndex() {
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Vista mosaico/lista (persistida)
   const [viewMode, setViewModeRaw] = useState(() => {
@@ -82,6 +85,14 @@ export default function AdminLinksIndex() {
   const inactiveCount = total - activeCount;
   const internationalCount = links.filter(l => l.category === 'internacional').length;
   const literaturaCount = links.filter(l => l.category === 'literatura' || l.category === 'bibliografia').length;
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedLinks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterCategory, filterRegion, filterActive, itemsPerPage]);
 
   const hasActiveFilters = searchTerm || filterCategory || filterRegion || filterActive;
 
@@ -275,12 +286,20 @@ export default function AdminLinksIndex() {
           <p className="text-sm">{hasActiveFilters ? 'Ajusta los filtros.' : 'Crea uno nuevo para empezar.'}</p>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(link => (
-            <LinkCard key={link.id} link={link} onDelete={handleDelete} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginatedLinks.map(link => (
+              <LinkCard key={link.id} link={link} onDelete={handleDelete} />
+            ))}
+          </div>
+          {filtered.length > 0 && (
+            <div className="mt-auto pt-6 pb-2">
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(s) => { setItemsPerPage(s); setCurrentPage(1); }} />
+            </div>
+          )}
+        </>
       ) : (
+        <>
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <table className="min-w-full">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
@@ -294,7 +313,7 @@ export default function AdminLinksIndex() {
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100">
-              {filtered.map(link => (
+              {paginatedLinks.map(link => (
                 <tr key={link.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{link.title}</td>
                   <td className="px-4 py-3">{CATEGORY_LABELS[link.category] || link.category}</td>
@@ -316,6 +335,12 @@ export default function AdminLinksIndex() {
             </tbody>
           </table>
         </div>
+        {filtered.length > 0 && (
+          <div className="border-t px-4 py-3 mt-auto">
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(s) => { setItemsPerPage(s); setCurrentPage(1); }} />
+          </div>
+        )}
+        </>
       )}
     </AdminLayout>
   );

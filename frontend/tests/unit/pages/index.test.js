@@ -21,7 +21,7 @@ describe('Home Page', () => {
   beforeEach(() => {
     api.get.mockImplementation((url) => {
       if (url === '/news') return Promise.resolve({ data: [] });
-      if (url === '/reportes') return Promise.resolve({ data: [] });
+      if (url === '/reports') return Promise.resolve({ data: [] });
       if (url === '/actions') return Promise.resolve({ data: [] });
       if (url === '/images') return Promise.resolve({ data: [] });
       return Promise.reject(new Error('not found'));
@@ -41,8 +41,9 @@ describe('Home Page', () => {
     api.get.mockImplementation((url) => {
       if (url === '/actions') return Promise.resolve({ data: [{ id: 1, title: 'Acción Test' }] });
       if (url === '/news') return Promise.resolve({ data: [] });
-      if (url === '/reportes') return Promise.resolve({ data: [] });
+      if (url === '/reports') return Promise.resolve({ data: [] });
       if (url === '/images') return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
     });
     render(<AuthProvider><Home /></AuthProvider>);
     await waitFor(() => {

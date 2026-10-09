@@ -530,7 +530,12 @@ function AdminBDS() {
               );
             })}
           </div>
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }} />
+
+          <div className="mt-auto pt-6 pb-2">
+
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }} />
+
+          </div>
         </>
       ) : (
         <>
