@@ -63,7 +63,7 @@ describe('Layout – Footer logos', () => {
     expect(lastLink).toHaveAttribute('href', 'https://example.com/10');
   });
 
-  it('shows "Cargando logos…" when API returns no logos', async () => {
+  it('renders nothing in the logos area when API returns no logos', async () => {
     global.fetch.mockImplementation((url) => {
       if (url === '/api/colectivosAfines/public') {
         return Promise.resolve({ json: () => Promise.resolve({ data: [] }) });
@@ -73,8 +73,15 @@ describe('Layout – Footer logos', () => {
 
     render(<Layout />);
 
+    // Esperar a que el fetch se resuelva
     await waitFor(() => {
-      expect(screen.getByText(/cargando logos/i)).toBeInTheDocument();
+      expect(global.fetch).toHaveBeenCalledWith('/api/colectivosAfines/public');
     });
+
+    // No debe aparecer ni el placeholder antiguo ni el texto de carga
+    expect(screen.queryByText(/cargando logos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sin logos/i)).not.toBeInTheDocument();
+    // Tampoco ningún logo
+    expect(screen.queryByAltText(/^Logo \d+$/)).not.toBeInTheDocument();
   });
 });

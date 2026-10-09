@@ -54,11 +54,17 @@ export default function Layout({ children, title = 'Voces Palestinas por la Just
       setLogosOverflow(k.offsetWidth > c.clientWidth + 1);
     };
     check();
-    const ro = new ResizeObserver(check);
-    if (logosContainerRef.current) ro.observe(logosContainerRef.current);
-    if (logosContentRef.current) ro.observe(logosContentRef.current);
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(check);
+      if (logosContainerRef.current) ro.observe(logosContainerRef.current);
+      if (logosContentRef.current) ro.observe(logosContentRef.current);
+    }
     window.addEventListener('resize', check);
-    return () => { ro.disconnect(); window.removeEventListener('resize', check); };
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', check);
+    };
   }, [loadingLogos, logos]);
 
   // Popup: Esc + bloqueo del scroll del body
