@@ -342,7 +342,7 @@ function AdminBDS() {
 
             <button
               onClick={toggleHasPrivateDoc}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none ${filterHasPrivateDoc ? 'bg-orange-100 text-orange-700 border border-orange-300' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none ${filterHasPrivateDoc ? 'bg-fuchsia-100 text-fuchsia-700 border border-orange-300' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
             >
               <FaLock className={`w-4 h-4 ${filterHasPrivateDoc ? 'text-orange-600' : 'text-gray-400'}`} />
               Con doc. privados
@@ -386,7 +386,7 @@ function AdminBDS() {
               </span>
             )}
             {filterHasPrivateDoc && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-fuchsia-100 text-fuchsia-700 text-xs">
                 Doc. privados
                 <button onClick={toggleHasPrivateDoc} className="text-orange-400 hover:text-orange-600"><FaTimesCircle className="w-3 h-3" /></button>
               </span>
@@ -416,10 +416,10 @@ function AdminBDS() {
       {/* Control de vista y métricas */}
       <div className="flex items-center justify-between mb-4 pl-6">
         <div className="flex items-center gap-2">
-          <button onClick={() => { setViewMode('grid'); setCurrentPage(1); }} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors focus:outline-none ${viewMode === 'grid' ? 'bg-orange-100 text-orange-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+          <button onClick={() => { setViewMode('grid'); setCurrentPage(1); }} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors focus:outline-none ${viewMode === 'grid' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
             <FaThLarge className="w-4 h-4" /> Mosaico
           </button>
-          <button onClick={() => { setViewMode('table'); setCurrentPage(1); }} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors focus:outline-none ${viewMode === 'table' ? 'bg-orange-100 text-orange-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+          <button onClick={() => { setViewMode('table'); setCurrentPage(1); }} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors focus:outline-none ${viewMode === 'table' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
             <FaList className="w-4 h-4" /> Tabla
           </button>
         </div>

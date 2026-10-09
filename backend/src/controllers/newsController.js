@@ -6,6 +6,7 @@ const Action = require('../models/Action');
 const { toInt, isValidId } = require('../utils/helpers');
 const { logAdminAction } = require('../services/auditService');
 const cacheMiddleware = require('../middlewares/cache');
+const { scrapeArticle } = require('../services/articleScraper');
 
 exports.getAllNews = async (req, res) => {
   try {
@@ -121,10 +122,20 @@ exports.getNewsById = async (req, res) => {
 
 exports.createNews = async (req, res) => {
   try {
-    const { title, description, youtubeUrl, thumbnail, publishedAt, isNews, campaignId, actionId } = req.body;
+    const {
+      title, description, thumbnail, publishedAt, isNews, campaignId, actionId,
+      newsType = 'youtube',
+      youtubeUrl, externalUrl, source, ogImage, ogDescription, publishedAtSource, scrapedAt,
+      content,
+    } = req.body;
 
     if (!title) return res.status(400).json({ message: 'Título requerido' });
-    if (!youtubeUrl) return res.status(400).json({ message: 'URL de YouTube requerida' });
+    if (newsType === 'youtube' && !youtubeUrl) {
+      return res.status(400).json({ message: 'URL de YouTube requerida para este tipo' });
+    }
+    if (newsType === 'article' && !externalUrl) {
+      return res.status(400).json({ message: 'URL externa requerida para artículos' });
+    }
 
     const parsedCampaignId = toInt(campaignId);
     const parsedActionId = toInt(actionId);
@@ -132,7 +143,15 @@ exports.createNews = async (req, res) => {
     const news = await News.create({
       title,
       description: description || '',
-      youtubeUrl,
+      newsType,
+      youtubeUrl: newsType === 'youtube' ? (youtubeUrl || null) : null,
+      externalUrl: newsType === 'article' ? (externalUrl || null) : null,
+      source: source || null,
+      ogImage: ogImage || null,
+      ogDescription: ogDescription || null,
+      publishedAtSource: publishedAtSource || null,
+      scrapedAt: scrapedAt || null,
+      content: newsType === 'internal' ? (content || '') : null,
       thumbnail: thumbnail || null,
       publishedAt: publishedAt || new Date(),
       isNews: isNews !== undefined ? isNews : false,
@@ -166,15 +185,36 @@ exports.updateNews = async (req, res) => {
     const news = await News.findByPk(id);
     if (!news) return res.status(404).json({ message: 'Noticia no encontrada' });
 
-    const { title, description, youtubeUrl, thumbnail, publishedAt, isNews, campaignId, actionId } = req.body;
+    const {
+      title, description, thumbnail, publishedAt, isNews, campaignId, actionId,
+      newsType,
+      youtubeUrl, externalUrl, source, ogImage, ogDescription, publishedAtSource, scrapedAt,
+      content,
+    } = req.body;
 
     const parsedCampaignId = campaignId !== undefined ? toInt(campaignId) : news.campaignId;
     const parsedActionId = actionId !== undefined ? toInt(actionId) : news.actionId;
 
+    const finalType = newsType !== undefined ? newsType : news.newsType;
+
     await news.update({
       title: title !== undefined ? title : news.title,
       description: description !== undefined ? description : news.description,
-      youtubeUrl: youtubeUrl !== undefined ? youtubeUrl : news.youtubeUrl,
+      newsType: finalType,
+      youtubeUrl: finalType === 'youtube'
+        ? (youtubeUrl !== undefined ? youtubeUrl : news.youtubeUrl)
+        : null,
+      externalUrl: finalType === 'article'
+        ? (externalUrl !== undefined ? externalUrl : news.externalUrl)
+        : null,
+      source: source !== undefined ? source : news.source,
+      ogImage: ogImage !== undefined ? ogImage : news.ogImage,
+      ogDescription: ogDescription !== undefined ? ogDescription : news.ogDescription,
+      publishedAtSource: publishedAtSource !== undefined ? publishedAtSource : news.publishedAtSource,
+      scrapedAt: scrapedAt !== undefined ? scrapedAt : news.scrapedAt,
+      content: finalType === 'internal'
+        ? (content !== undefined ? content : news.content)
+        : null,
       thumbnail: thumbnail !== undefined ? thumbnail : news.thumbnail,
       publishedAt: publishedAt !== undefined ? publishedAt : news.publishedAt,
       isNews: isNews !== undefined ? isNews : news.isNews,
@@ -224,5 +264,30 @@ exports.deleteNews = async (req, res) => {
   } catch (error) {
     console.error('Error en deleteNews:', error);
     res.status(500).json({ message: 'Error al eliminar noticia' });
+  }
+};
+
+/**
+ * POST /api/news/scrape
+ * Body: { url: string }
+ * Extrae metadatos OG de una URL (periódicos, blogs, YouTube...).
+ */
+exports.scrapeUrl = async (req, res) => {
+  try {
+    const { url } = req.body || {};
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ message: 'URL requerida' });
+    }
+    if (url.length > 2000) {
+      return res.status(400).json({ message: 'URL demasiado larga' });
+    }
+
+    const data = await scrapeArticle(url);
+    res.json(data);
+  } catch (error) {
+    console.error('scrapeUrl error:', error.message);
+    res.status(422).json({
+      message: error.message || 'No se pudo extraer la información de la URL',
+    });
   }
 };

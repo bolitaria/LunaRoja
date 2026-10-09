@@ -14,13 +14,54 @@ const Noticia = sequelize.define('Noticia', {
   description: {
     type: DataTypes.TEXT,
   },
+
+  // Tipo de noticia: youtube | article | internal
+  newsType: {
+    type: DataTypes.ENUM('youtube', 'article', 'internal'),
+    allowNull: false,
+    defaultValue: 'youtube',
+  },
+
+  // Solo para newsType='youtube'
   youtubeUrl: {
     type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      isUrl: true,
-    },
+    allowNull: true, // antes era false, ahora nullable
+    validate: { isUrl: true },
   },
+
+  // Solo para newsType='article'
+  externalUrl: {
+    type: DataTypes.STRING(1000),
+    allowNull: true,
+    validate: { isUrl: true },
+  },
+  source: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  ogImage: {
+    type: DataTypes.STRING(1000),
+    allowNull: true,
+  },
+  ogDescription: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  publishedAtSource: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  scrapedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+
+  // Solo para newsType='internal'
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+
   thumbnail: {
     type: DataTypes.STRING,
   },
@@ -35,21 +76,15 @@ const Noticia = sequelize.define('Noticia', {
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'Campaigns',
-      key: 'id',
-    },
+    references: { model: 'Campaigns', key: 'id' },
   },
   actionId: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'Actions',
-      key: 'id',
-    },
+    references: { model: 'Actions', key: 'id' },
   },
 }, {
-  tableName: 'News',  // IMPORTANTE: coincide con el nombre real de la tabla
+  tableName: 'News',
   timestamps: true,
 });
 

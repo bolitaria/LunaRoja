@@ -5,6 +5,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { unwrapList } from '../../../utils/apiHelpers';
 
 function AdminCalendar() {
   const router = useRouter();
@@ -19,7 +20,7 @@ function AdminCalendar() {
     const fetchData = async () => {
       try {
         const res = await api.get('/actions');
-        setActions(res.data || []);
+        setActions(unwrapList(res.data));
       } catch (error) {
         console.error('Error fetching actions:', error);
       } finally {

@@ -107,6 +107,10 @@ services:
     build: ./backend
     restart: always
     expose: ["5000"]
+    volumes:
+      - uploads_data:/app/uploads
+      - ./backend/src:/app/src
+      - ./backend/scripts:/app/scripts
     environment:
       NODE_ENV: production
       SKIP_EMAILS: "true"
@@ -140,8 +144,6 @@ services:
       postgres: { condition: service_healthy }
       pgbouncer: { condition: service_healthy }
       redis: { condition: service_healthy }
-    volumes:
-      - uploads_data:/app/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health/ready', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s

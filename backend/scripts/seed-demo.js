@@ -6,7 +6,7 @@
  */
 const bcrypt = require('bcryptjs');
 const {
-  User, Campaign, Action, BDS, News, Report, Petition,
+  User, Campaign, Action, BDS, News, Report, Petition, Link,
 } = require('../src/models');
 
 async function seed() {
@@ -112,6 +112,32 @@ async function seed() {
       console.log(`✅ Petición creada: ${petition.title}`);
     } else {
       console.log(`ℹ️  Peticiones ya existen`);
+    }
+
+    // ─── 8. Links de interés (con regiones) ───────────────────
+    if ((await Link.count()) === 0) {
+      const linksData = [
+        { title: 'BDS Málaga', url: 'https://bdsmalaga.example.com', description: 'Movimiento BDS en Málaga.', category: 'local' },
+        { title: 'BDS España', url: 'https://bdsespana.example.com', description: 'Coordinadora estatal BDS.', category: 'nacional' },
+        { title: 'BDS Francia', url: 'https://bdsfrance.example.com', description: 'Campaña francesa.', category: 'europeo' },
+        { title: 'BDS Irlanda', url: 'https://bdsireland.example.com', description: 'Campaña irlandesa.', category: 'europeo' },
+        { title: 'Jewish Voice for Peace', url: 'https://jvp.example.com', description: 'Organización antisionista de EEUU.', category: 'internacional', region: 'norteamerica' },
+        { title: 'IfNotNow', url: 'https://ifnotnow.example.com', description: 'Movimiento juvenil estadounidense.', category: 'internacional', region: 'norteamerica' },
+        { title: 'BDS Chile', url: 'https://bdschile.example.com', description: 'Campaña chilena.', category: 'internacional', region: 'america_latina' },
+        { title: 'BDS Colombia', url: 'https://bdscolombia.example.com', description: 'Campaña colombiana.', category: 'internacional', region: 'america_latina' },
+        { title: 'BDS South Africa', url: 'https://bdssa.example.com', description: 'Movimiento sudafricano por Palestina.', category: 'internacional', region: 'africa' },
+        { title: 'Argelia por Palestina', url: 'https://argelia-palestina.example.com', description: 'Solidaridad argelina.', category: 'internacional', region: 'africa' },
+        { title: 'Palestinian BDS National Committee', url: 'https://bdsmovement.net', description: 'Comité nacional del BDS palestino.', category: 'internacional', region: 'asia_occidental' },
+        { title: 'Samidoun', url: 'https://samidoun.example.com', description: 'Red de solidaridad con presos palestinos.', category: 'internacional', region: 'asia_occidental' },
+        { title: 'BDS Malasia', url: 'https://bdsmalaysia.example.com', description: 'Campaña malasia.', category: 'internacional', region: 'asia_meridional_oriental' },
+        { title: 'BDS Indonesia', url: 'https://bdsindonesia.example.com', description: 'Campaña indonesia.', category: 'internacional', region: 'asia_meridional_oriental' },
+        { title: 'BDS Australia', url: 'https://bdsaustralia.example.com', description: 'Campaña australiana.', category: 'internacional', region: 'oceania' },
+        { title: 'Los libros de Edward Said', url: 'https://edwardsaid.example.com', description: 'Obras clave sobre Palestina.', category: 'literatura' },
+      ];
+      await Link.bulkCreate(linksData.map(l => ({ ...l, created_by: admin.id, active: true })));
+      console.log(`✅ ${linksData.length} links de interés creados`);
+    } else {
+      console.log(`ℹ️  Links ya existen`);
     }
 
     console.log('\n🎉 Seeding completado.');

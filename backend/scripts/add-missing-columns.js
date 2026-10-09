@@ -231,6 +231,89 @@ async function run() {
     await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_audit_entity" ON "AdminAuditLogs"("entityType", "entityId");`);
     await sequelize.query(`CREATE INDEX IF NOT EXISTS "idx_audit_user" ON "AdminAuditLogs"("userId");`);
 
+    // ─── Links: añadir columna region ─────────────────────────
+    await sequelize.query(`ALTER TABLE links ADD COLUMN IF NOT EXISTS region VARCHAR(30);`);
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE links ADD CONSTRAINT links_region_check
+          CHECK (region IS NULL OR region IN (
+            'norteamerica','america_latina','africa',
+            'asia_occidental','asia_meridional_oriental','oceania'
+          ));
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+
+    // ─── Subscribers: publicId + unsubscribedAt ───────────────
+    await sequelize.query(`ALTER TABLE "Subscribers" ADD COLUMN IF NOT EXISTS "publicId" VARCHAR(20);`);
+    await sequelize.query(`ALTER TABLE "Subscribers" ADD COLUMN IF NOT EXISTS "unsubscribedAt" TIMESTAMPTZ;`);
+    await sequelize.query(`
+      UPDATE "Subscribers"
+      SET "publicId" = 'SR-' || LPAD(id::text, 5, '0')
+      WHERE "publicId" IS NULL;
+    `);
+    await sequelize.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'Subscribers_publicId_unique'
+        ) THEN
+          ALTER TABLE "Subscribers" ADD CONSTRAINT "Subscribers_publicId_unique" UNIQUE ("publicId");
+        END IF;
+      END $$;
+    `);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_subscribers_status ON "Subscribers"(status);`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_subscribers_subscribed_at ON "Subscribers"("subscribedAt");`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_subscribers_unsubscribed_at ON "Subscribers"("unsubscribedAt");`);
+
+    // ─── Donors: tabla nueva ───────────────────────────────────
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "Donors" (
+        id SERIAL PRIMARY KEY,
+        "publicId" VARCHAR(20),
+        "donorHash" VARCHAR(64) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+        currency VARCHAR(3) NOT NULL DEFAULT 'EUR',
+        status VARCHAR(20) NOT NULL DEFAULT 'completed',
+        "campaignId" INTEGER REFERENCES "Campaigns"(id) ON DELETE SET NULL,
+        "donatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE "Donors" ADD CONSTRAINT "Donors_status_check"
+          CHECK (status IN ('pending', 'completed', 'refunded'));
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_donors_status ON "Donors"(status);`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_donors_campaign ON "Donors"("campaignId");`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_donors_donated_at ON "Donors"("donatedAt");`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_donors_donor_hash ON "Donors"("donorHash");`);
+
+    // ─── News: newsType + campos article + internal ───────────
+    await sequelize.query(`
+      DO $$ BEGIN
+        CREATE TYPE "enum_News_newsType" AS ENUM('youtube', 'article', 'internal');
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "newsType" "enum_News_newsType" NOT NULL DEFAULT 'youtube';`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "externalUrl" VARCHAR(1000);`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "source" VARCHAR(100);`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "ogImage" VARCHAR(1000);`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "ogDescription" TEXT;`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "publishedAtSource" TIMESTAMPTZ;`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "scrapedAt" TIMESTAMPTZ;`);
+    await sequelize.query(`ALTER TABLE "News" ADD COLUMN IF NOT EXISTS "content" TEXT;`);
+
+    // Hacer youtubeUrl nullable (antes era NOT NULL)
+    await sequelize.query(`ALTER TABLE "News" ALTER COLUMN "youtubeUrl" DROP NOT NULL;`);
+
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_news_type ON "News"("newsType");`);
+    await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_news_external_url ON "News"("externalUrl");`);
+
     console.log('✅ Schema parcheado correctamente.');
   } catch (error) {
     console.error('❌ Error al parchear schema:', error.message);

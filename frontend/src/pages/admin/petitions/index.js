@@ -10,12 +10,12 @@ import { exportInfo } from '../../../utils/exportInfo';
 import { exportPetitionsToPDF } from '../../../utils/exportPetitionsPdf';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
-import ViewToggle from '../../../components/ViewToggle';
 import PetitionCard from '../../../components/PetitionCard';
 import {
   FaEye, FaEyeSlash, FaTrash, FaSearch, FaEdit, FaFileExport,
   FaFire, FaLock, FaUnlock, FaSlidersH, FaCalendarAlt,
-  FaChevronDown, FaChevronUp, FaTimesCircle, FaBullhorn
+  FaChevronDown, FaChevronUp, FaTimesCircle, FaBullhorn,
+  FaTh, FaList
 } from 'react-icons/fa';
 
 function AdminPetitions() {
@@ -512,8 +512,25 @@ function AdminPetitions() {
         </div>
       )}
 
-      {/* Control de métricas */}
-      <div className="flex items-center justify-end mb-4 pl-6">
+      {/* Control de vista y métricas */}
+      <div className="flex items-center justify-between mb-4 pl-6">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setViewMode('grid'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors focus:outline-none ${viewMode === 'grid' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+            title="Vista mosaico"
+          >
+            <FaTh className="w-4 h-4" /> Mosaico
+          </button>
+          <button
+            onClick={() => { setViewMode('table'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors focus:outline-none ${viewMode === 'table' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+            title="Vista tabla"
+          >
+            <FaList className="w-4 h-4" /> Tabla
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setFilterUrgency(false); setFilterType('all'); setCurrentPage(1); }}
@@ -579,11 +596,6 @@ function AdminPetitions() {
         </div>
       ) : (
         <>
-        {/* Toggle vista mosaico/lista */}
-        <div className="flex justify-end mb-3">
-          <ViewToggle viewMode={viewMode} onChange={setViewMode} accentColor="fuchsia" />
-        </div>
-
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {petitions.map(p => (

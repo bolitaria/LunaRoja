@@ -22,6 +22,7 @@ const SubscriberCampaign = require('./SubscriberCampaign');
 const SubscriberAction = require('./SubscriberAction');
 const AdminAuditLog = require('./AdminAuditLog');
 const Document = require('./Document');
+const Donor = require('./Donor');
 
 // ============================================================
 // ASOCIACIONES EXISTENTES
@@ -55,6 +56,10 @@ Action.hasMany(News, { foreignKey: 'actionId', as: 'news' });
 News.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
 
 SubscribersReminder.belongsTo(Subscriber, { foreignKey: 'subscriberId', as: 'subscriber' });
+
+// Donaciones
+Donor.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+Campaign.hasMany(Donor, { foreignKey: 'campaignId', as: 'donations' });
 Subscriber.hasMany(SubscribersReminder, { foreignKey: 'subscriberId', as: 'reminders' });
 
 SubscribersReminder.belongsTo(Action, { foreignKey: 'actionId', as: 'action' });
@@ -155,4 +160,5 @@ module.exports = {
   SubscriberAction,
   AdminAuditLog,
   Document,
+  Donor,
 };
