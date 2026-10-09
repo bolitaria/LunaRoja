@@ -1,9 +1,29 @@
-import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
-import { toast } from 'react-toastify';
+import {
+  FaArrowLeft, FaYoutube, FaNewspaper, FaPenFancy,
+  FaExternalLinkAlt, FaCalendarAlt, FaPlay
+} from 'react-icons/fa';
+
+const YOUTUBE_REGEX = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
+function getYouTubeId(url) {
+  if (!url) return null;
+  const m = url.match(YOUTUBE_REGEX);
+  return m ? m[1] : null;
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    return new Date(d).toLocaleDateString('es-ES', {
+      day: '2-digit', month: 'long', year: 'numeric',
+    });
+  } catch { return ''; }
+}
 
 export default function NoticiaDetalle() {
   const router = useRouter();
@@ -14,149 +34,182 @@ export default function NoticiaDetalle() {
 
   useEffect(() => {
     if (!id) return;
-    const fetchNoticia = async () => {
+    const fetch = async () => {
       try {
         const res = await api.get(`/news/${id}`);
         setNoticia(res.data);
       } catch (err) {
         console.error('Error fetching noticia:', err);
         setError('No se pudo cargar la noticia.');
-        toast.error('Error al cargar la noticia');
       } finally {
         setLoading(false);
       }
     };
-    fetchNoticia();
+    fetch();
   }, [id]);
-
-  const getYoutubeId = (url) => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
 
   if (loading) {
     return (
-      <Layout title="Cargando..." bgClass="bg-gradient-to-b from-cyan-50 to-white min-h-screen">
-        <div className="container mx-auto px-4 py-16 text-center text-gray-600">Cargando noticia...</div>
+      <Layout title="Cargando noticia...">
+        <div className="container mx-auto px-4 py-20 text-center text-gray-500">
+          Cargando noticia...
+        </div>
       </Layout>
     );
   }
 
   if (error || !noticia) {
     return (
-      <Layout title="Error" bgClass="bg-gradient-to-b from-cyan-50 to-white min-h-screen">
-        <div className="container mx-auto px-4 py-16 text-center">
-          <p className="text-red-600 mb-4">{error || 'Noticia no encontrada'}</p>
-          <Link href="/noticias" className="text-red-600 hover:underline">← Volver a Noticias</Link>
+      <Layout title="Noticia no encontrada">
+        <div className="container mx-auto px-4 py-20 text-center">
+          <p className="text-lg text-red-600 mb-4">{error || 'Noticia no encontrada'}</p>
+          <Link href="/noticias" className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-800">
+            <FaArrowLeft /> Volver a Noticias
+          </Link>
         </div>
       </Layout>
     );
   }
 
-  const formattedDate = new Date(noticia.publishedAt || noticia.createdAt).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const type = noticia.newsType || 'youtube';
+  const videoId = getYouTubeId(noticia.youtubeUrl);
+  const date = noticia.publishedAtSource || noticia.publishedAt;
+  const image = noticia.ogImage || noticia.thumbnail || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null);
 
-  const videoId = getYoutubeId(noticia.youtubeUrl);
-
-  return (
-    <Layout title={`${noticia.title} - Voces Palestinas por la Justicia`} bgClass="bg-gradient-to-b from-cyan-50 to-white min-h-screen">
-      <article className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="mb-6">
-          <Link href="/noticias" className="text-red-600 hover:underline flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Volver a Noticias
+  // ─── YOUTUBE ───
+  if (type === 'youtube' && videoId) {
+    return (
+      <Layout title={`${noticia.title} - Voces Palestinas`}>
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <Link href="/noticias" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+            <FaArrowLeft /> Volver a Noticias
           </Link>
-        </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 md:p-8">
-          <div className="mb-4">
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              📰 Noticia
-            </span>
-            {noticia.isNews && (
-              <span className="ml-2 text-xs text-gray-500">Noticia en General</span>
-            )}
-          </div>
-
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">{noticia.title}</h1>
-
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {formattedDate}
-            </span>
-            {noticia.author && (
-              <span className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {noticia.author}
-              </span>
-            )}
-          </div>
-
-          {noticia.description && (
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-2">Resumen</h2>
-              <p className="text-gray-600 leading-relaxed">{noticia.description}</p>
-            </div>
-          )}
-
-          {noticia.imageUrl && (
-            <div className="mb-6 rounded-lg overflow-hidden bg-gray-100">
-              <img
-                src={noticia.imageUrl}
-                alt={noticia.title}
-                className="w-full max-h-96 object-cover"
-                onError={(e) => e.target.style.display = 'none'}
-                loading="lazy"
-              />
-            </div>
-          )}
-
-          {noticia.content && (
-            <div className="prose prose-lg max-w-none text-gray-700 mb-6">
-              <div dangerouslySetInnerHTML={{ __html: noticia.content }} />
-            </div>
-          )}
-
-          {videoId ? (
-            <div className="aspect-video rounded-lg overflow-hidden shadow-sm border border-gray-200">
+          <article className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="relative w-full aspect-video bg-black">
               <iframe
-                width="100%"
-                height="100%"
                 src={`https://www.youtube.com/embed/${videoId}`}
                 title={noticia.title}
-                frameBorder="0"
+                className="w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                className="w-full h-full"
               />
             </div>
-          ) : noticia.youtubeUrl ? (
-            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg mb-6">
-              <p>No se pudo incrustar el video.</p>
+            <div className="p-6 md:p-8 space-y-4">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <FaYoutube className="w-3 h-3" /> Video YouTube
+              </span>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{noticia.title}</h1>
+              {date && (
+                <div className="text-sm text-gray-500 flex items-center gap-1">
+                  <FaCalendarAlt className="w-3 h-3" /> {formatDate(date)}
+                </div>
+              )}
+              {noticia.description && (
+                <p className="text-gray-700 leading-relaxed">{noticia.description}</p>
+              )}
               <a
                 href={noticia.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 underline mt-2 inline-block"
+                className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-800 font-medium"
               >
-                Ver en YouTube
+                <FaYoutube /> Ver en YouTube
               </a>
             </div>
-          ) : null}
+          </article>
         </div>
-      </article>
+      </Layout>
+    );
+  }
+
+  // ─── ARTICLE ───
+  if (type === 'article') {
+    return (
+      <Layout title={`${noticia.title} - Voces Palestinas`}>
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          <Link href="/noticias" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+            <FaArrowLeft /> Volver a Noticias
+          </Link>
+
+          <article className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {image && (
+              <div className="relative w-full aspect-video bg-gray-100">
+                <img src={image} alt={noticia.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="p-6 md:p-8 space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <FaNewspaper className="w-3 h-3" /> {noticia.source || 'Artículo externo'}
+                </span>
+                {date && (
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <FaCalendarAlt className="w-3 h-3" /> {formatDate(date)}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{noticia.title}</h1>
+              {noticia.description && (
+                <p className="text-gray-700 leading-relaxed text-lg">{noticia.description}</p>
+              )}
+              <div className="pt-4 border-t border-gray-100">
+                <p className="text-sm text-gray-500 mb-4">
+                  Este artículo está alojado en {noticia.source || 'un sitio externo'}. Haz clic para leerlo completo allí.
+                </p>
+                <a
+                  href={noticia.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-3 rounded-xl transition-colors"
+                >
+                  <FaExternalLinkAlt />
+                  Leer en {noticia.source || 'la fuente'}
+                </a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ─── INTERNAL ───
+  return (
+    <Layout title={`${noticia.title} - Voces Palestinas`}>
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
+        <Link href="/noticias" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+          <FaArrowLeft /> Volver a Noticias
+        </Link>
+
+        <article className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          {image && (
+            <div className="relative w-full aspect-video bg-gray-100">
+              <img src={image} alt={noticia.title} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="p-6 md:p-8 space-y-4">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-fuchsia-100 text-fuchsia-800">
+              <FaPenFancy className="w-3 h-3" /> Redacción propia
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{noticia.title}</h1>
+            {date && (
+              <div className="text-sm text-gray-500 flex items-center gap-1">
+                <FaCalendarAlt className="w-3 h-3" /> {formatDate(date)}
+              </div>
+            )}
+            {noticia.description && (
+              <p className="text-gray-600 italic text-lg">{noticia.description}</p>
+            )}
+            {noticia.content && (
+              <div
+                className="prose max-w-none text-gray-700 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: noticia.content }}
+              />
+            )}
+          </div>
+        </article>
+      </div>
     </Layout>
   );
 }

@@ -7,9 +7,8 @@ import Link from 'next/link';
 import { exportInfo } from '../../../utils/exportInfo';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
-import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye, FaEyeSlash, FaTh, FaList } from 'react-icons/fa';
 import { unwrapList } from '../../../utils/apiHelpers';
-import ViewToggle from '../../../components/ViewToggle';
 import AdminChatGroupCard from '../../../components/AdminChatGroupCard';
 
 function AdminChatGroups() {
@@ -149,72 +148,165 @@ function AdminChatGroups() {
         onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
       />
 
-      {/* Métricas con nuevo estilo */}
-      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-300 px-4 py-2.5 mb-6 flex flex-wrap items-center gap-4 text-sm">
-        <button onClick={() => { setFilterStatus(''); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Total</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{total}</span>
-        </button>
-        <button onClick={() => { setFilterStatus('active'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Activos</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{activeCount}</span>
-        </button>
-        <button onClick={() => { setFilterStatus('inactive'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Inactivos</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{inactiveCount}</span>
-        </button>
-        <button onClick={() => { setFilterVisibility('public'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Públicos</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{publicCount}</span>
-        </button>
-        <button onClick={() => { setFilterVisibility('private'); setCurrentPage(1); }} className="flex items-center gap-1.5 hover:text-fuchsia-700 transition-colors group">
-          <span className="text-xs text-gray-500 group-hover:text-fuchsia-600">Privados</span>
-          <span className="font-bold text-gray-800 group-hover:text-fuchsia-700">{privateCount}</span>
-        </button>
-
-        {/* Filtro por asociación */}
-        <select
-          value={filterAssociation}
-          onChange={(e) => { setFilterAssociation(e.target.value); setCurrentPage(1); }}
-          className="ml-auto border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-600"
-        >
-          <option value="">Todas las asociaciones</option>
-          <option value="campaign">Campaña</option>
-          <option value="bds">BDS</option>
-          <option value="action">Acción</option>
-          <option value="general">General (sin asociar)</option>
-        </select>
+      {/* BLOQUE 1: botón nuevo (fila propia, como Actions) */}
+      <div className="mb-5">
+        <Link href="/admin/chatGroups/new" className="inline-flex items-center gap-2 text-lg font-semibold border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-7 py-3.5 rounded-xl hover:bg-fuchsia-50 transition-colors shadow-md">
+          <span className="text-lg">💬</span> Nuevo Grupo
+        </Link>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      {/* BLOQUE 2: barra de filtros */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-300 p-3 mb-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-56">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar grupo..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-fuchsia-400 text-sm w-full"
+            />
+          </div>
+
+          <select
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-fuchsia-400"
+          >
+            <option value="">Todos los estados</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+
+          <select
+            value={filterVisibility}
+            onChange={(e) => { setFilterVisibility(e.target.value); setCurrentPage(1); }}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-fuchsia-400"
+          >
+            <option value="">Todas las visibilidades</option>
+            <option value="public">Públicos</option>
+            <option value="private">Privados</option>
+          </select>
+
+          <select
+            value={filterAssociation}
+            onChange={(e) => { setFilterAssociation(e.target.value); setCurrentPage(1); }}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-fuchsia-400"
+          >
+            <option value="">Todas las asociaciones</option>
+            <option value="campaign">Campaña</option>
+            <option value="bds">BDS</option>
+            <option value="action">Acción</option>
+            <option value="general">General (sin asociar)</option>
+          </select>
+
+          <div className="relative ml-auto flex items-center gap-2">
+            <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
+              <option value="csv">CSV</option>
+              <option value="xlsx">Excel</option>
+              <option value="txt">Texto</option>
+            </select>
+            <button onClick={exportAll} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
+              <FaFileExport className="w-4 h-4" /> Exportar
+            </button>
+          </div>
+        </div>
+
+        {/* Chips de filtros activos */}
+        {(searchTerm || filterStatus || filterVisibility || filterAssociation) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {searchTerm && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                Búsqueda: {searchTerm}
+                <button onClick={() => setSearchTerm('')} className="text-gray-400 hover:text-red-600">✕</button>
+              </span>
+            )}
+            {filterStatus && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                Estado: {filterStatus === 'active' ? 'Activos' : 'Inactivos'}
+                <button onClick={() => setFilterStatus('')} className="text-gray-400 hover:text-red-600">✕</button>
+              </span>
+            )}
+            {filterVisibility && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                Visibilidad: {filterVisibility === 'public' ? 'Públicos' : 'Privados'}
+                <button onClick={() => setFilterVisibility('')} className="text-gray-400 hover:text-red-600">✕</button>
+              </span>
+            )}
+            {filterAssociation && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                Asociación: {filterAssociation}
+                <button onClick={() => setFilterAssociation('')} className="text-gray-400 hover:text-red-600">✕</button>
+              </span>
+            )}
+            <button
+              onClick={() => { setSearchTerm(''); setFilterStatus(''); setFilterVisibility(''); setFilterAssociation(''); setCurrentPage(1); }}
+              className="text-xs font-medium text-red-600 hover:text-red-800 underline ml-2"
+            >
+              Limpiar todo
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* BLOQUE 3: barra de control de vista + métricas */}
+      <div className="flex items-center justify-between mb-4 pl-6">
         <div className="flex items-center gap-2">
-          <Link href="/admin/chatGroups/new" className="inline-flex items-center gap-1.5 text-sm font-medium border-2 border-fuchsia-300 text-fuchsia-700 bg-white px-4 py-2 rounded-lg hover:bg-fuchsia-50 transition-colors shadow-sm">
-            Nuevo Grupo
-          </Link>
+          <button
+            onClick={() => { setViewMode('grid'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors focus:outline-none ${viewMode === 'grid' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+          >
+            <FaTh className="w-4 h-4" /> Mosaico
+          </button>
+          <button
+            onClick={() => { setViewMode('table'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors focus:outline-none ${viewMode === 'table' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+          >
+            <FaList className="w-4 h-4" /> Tabla
+          </button>
           {selected.length > 0 && (
-            <button onClick={handleDeleteSelected} className="inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+            <button onClick={handleDeleteSelected} className="ml-2 inline-flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
               <FaTrash /> Eliminar ({selected.length})
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar grupo…"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-fuchsia-400 text-sm w-48"
-            />
-          </div>
-          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
-            <option value="csv">CSV</option>
-            <option value="xlsx">Excel</option>
-            <option value="txt">Texto</option>
-          </select>
-          <button onClick={exportAll} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors" title="Exportar">
-            <FaFileExport className="w-4 h-4" />
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => { setFilterStatus(''); setFilterVisibility(''); setCurrentPage(1); }}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border bg-white shadow-sm border-gray-200 hover:border-gray-300"
+          >
+            <span className="text-sm text-gray-500">Total</span>
+            <span className="text-sm font-bold text-gray-800">{total}</span>
+          </button>
+          <button
+            onClick={() => { setFilterStatus('active'); setCurrentPage(1); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border bg-white shadow-sm transition-all ${filterStatus === 'active' ? 'border-green-400 ring-2 ring-green-200' : 'border-gray-200 hover:border-gray-300'}`}
+          >
+            <span className="text-sm text-green-600">Activos</span>
+            <span className="text-sm font-bold text-green-700">{activeCount}</span>
+          </button>
+          <button
+            onClick={() => { setFilterStatus('inactive'); setCurrentPage(1); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border bg-white shadow-sm transition-all ${filterStatus === 'inactive' ? 'border-gray-400 ring-2 ring-gray-200' : 'border-gray-200 hover:border-gray-300'}`}
+          >
+            <span className="text-sm text-gray-500">Inactivos</span>
+            <span className="text-sm font-bold text-gray-700">{inactiveCount}</span>
+          </button>
+          <button
+            onClick={() => { setFilterVisibility('public'); setCurrentPage(1); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border bg-white shadow-sm transition-all ${filterVisibility === 'public' ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'}`}
+          >
+            <span className="text-sm text-blue-600">Públicos</span>
+            <span className="text-sm font-bold text-blue-700">{publicCount}</span>
+          </button>
+          <button
+            onClick={() => { setFilterVisibility('private'); setCurrentPage(1); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border bg-white shadow-sm transition-all ${filterVisibility === 'private' ? 'border-gray-400 ring-2 ring-gray-200' : 'border-gray-200 hover:border-gray-300'}`}
+          >
+            <span className="text-sm text-gray-600">Privados</span>
+            <span className="text-sm font-bold text-gray-700">{privateCount}</span>
           </button>
         </div>
       </div>
@@ -228,10 +320,6 @@ function AdminChatGroups() {
         </div>
       ) : (
         <>
-        <div className="flex justify-end mb-3">
-          <ViewToggle viewMode={viewMode} onChange={setViewMode} accentColor="fuchsia" />
-        </div>
-
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginated.map(group => (

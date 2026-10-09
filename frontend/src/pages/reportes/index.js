@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import ReportCard from '../../components/ReportCard';
+import Pagination from '../../components/Pagination';
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
@@ -9,13 +10,15 @@ export default function Reports() {
   const [activeFilter, setActiveFilter] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await api.get('/reports');
+        const res = await api.get('/reports', { params: { limit: 200 } });
         const payload = res.data;
-        // El backend devuelve { data, total, page, limit, metrics }
-        // (o un array directo en versiones antiguas)
         setReports(Array.isArray(payload) ? payload : (payload.data || []));
       } catch (error) { console.error('Error fetching reports:', error); }
       finally { setLoading(false); }
@@ -25,9 +28,20 @@ export default function Reports() {
 
   const handleFilter = (filter) => setActiveFilter(activeFilter === filter ? null : filter);
 
-  const filteredReports = reports
-    .filter(r => !activeFilter || r.type === activeFilter)
-    .filter(r => !searchTerm || r.title?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredReports = useMemo(() => {
+    return reports
+      .filter(r => !activeFilter || r.type === activeFilter)
+      .filter(r => !searchTerm || r.title?.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [reports, activeFilter, searchTerm]);
+
+  // Resetear página al cambiar filtros
+  useEffect(() => { setCurrentPage(1); }, [activeFilter, searchTerm, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(start, start + itemsPerPage);
+  }, [filteredReports, currentPage, itemsPerPage]);
 
   const filterBtnClass = (filter) =>
     `px-4 py-2 rounded-full text-sm font-medium transition border ${
@@ -43,8 +57,8 @@ export default function Reports() {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
           <div className="flex gap-3">
-            <button onClick={() => handleFilter('blog')} className={filterBtnClass('blog')}>📝Entradas del Blog</button>
-            <button onClick={() => handleFilter('report')} className={filterBtnClass('report')}>📄 Reportes Peticiones Externases</button>
+            <button onClick={() => handleFilter('blog')} className={filterBtnClass('blog')}>📝 Entradas del Blog</button>
+            <button onClick={() => handleFilter('report')} className={filterBtnClass('report')}>📄 Reportes Peticiones Externas</button>
           </div>
           <div className="relative w-full sm:w-64">
             <input
@@ -63,9 +77,23 @@ export default function Reports() {
         ) : filteredReports.length === 0 ? (
           <p className="text-center py-20 text-gray-600">No hay {activeFilter === 'blog' ? 'blogs' : activeFilter === 'report' ? 'reportes' : 'entradas'} disponibles.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredReports.map(report => (<ReportCard key={report.id} report={report} />))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {paginatedReports.map(report => (<ReportCard key={report.id} report={report} />))}
+            </div>
+
+            {filteredReports.length > 0 && (
+              <div className="mt-8 max-w-4xl mx-auto">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  itemsPerPage={itemsPerPage}
+                  onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </Layout>

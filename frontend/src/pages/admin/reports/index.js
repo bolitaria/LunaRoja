@@ -290,11 +290,11 @@ function AdminReports() {
       <div className="flex items-center justify-between mb-4 pl-6">
         <div className="flex items-center gap-2">
           <button onClick={() => { setViewMode('grid'); setCurrentPage(1); }}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg ${viewMode === 'grid' ? 'bg-orange-100 text-orange-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${viewMode === 'grid' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
             <FaTh className="w-4 h-4" /> Mosaico
           </button>
           <button onClick={() => { setViewMode('table'); setCurrentPage(1); }}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg ${viewMode === 'table' ? 'bg-orange-100 text-orange-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${viewMode === 'table' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
             <FaList className="w-4 h-4" /> Tabla
           </button>
         </div>
