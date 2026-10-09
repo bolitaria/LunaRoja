@@ -11,9 +11,10 @@ The platform supports the publication and coordination of campaigns, actions, ne
 - Content management for campaigns, actions, news, reports, documents, and petitions
 - Administrative workflows for publishing, moderation, and user oversight
 - Subscriber registration, preference management, and communication handling
+- Petition signing with support for both official and internal petitions
 - File upload support for media and documents
 - Protected API routes with authentication and role-based access control
-- Background processing for reminders and notifications through Redis and BullMQ
+- Background processing for emails, reminders, and notifications through Redis and BullMQ
 - Explicit database migration management for controlled deployments
 - Filtered and paginated public and admin listings
 - End-to-end coverage of admin content flows with Playwright
@@ -35,6 +36,7 @@ The platform supports the publication and coordination of campaigns, actions, ne
 - JWT-based authentication and authorization
 - Multer for upload handling
 - Nodemailer and Handlebars for email delivery
+- BullMQ and Redis for background jobs
 - Middleware-based request handling for security, auth, validation, and uploads
 
 ### Platform and operations
@@ -109,9 +111,87 @@ cd backend
 node scripts/seed-demo.js
 ```
 
-### Background processing
+### Demo credentials
 
-Redis and BullMQ are used for asynchronous workflows such as welcome emails and reminder-related tasks. The queueing layer is initialized during backend startup and can be extended for additional background jobs.
+The seed creates a default superadmin for local development:
+
+- Username: `admin`
+- Password: `admin123`
+
+Change the password immediately in any non-local environment.
+
+## Email delivery
+
+Transactional and campaign emails are sent through Nodemailer with Handlebars templates. Email templates are stored in the database and manageable from the admin console, so content editors can update copy without redeploying the app.
+
+### Template rendering
+
+- Templates use Handlebars syntax with variables injected at send time (user name, campaign name, action link, unsubscribe URL, etc.).
+- A default template is designated for petitions (`/api/email-templates/default-petition`) and used automatically when a petition is signed.
+- Template content is editable per locale or per campaign, depending on the template scope.
+
+### Delivery pipeline
+
+Sending is asynchronous and goes through a queue so that user requests are never blocked by SMTP latency:
+
+1. The API enqueues a job with the target recipients and template.
+2. The queue worker (`worker` service in `docker-compose.yml`) picks up the job.
+3. Emails are rendered, sent, and the result is recorded.
+4. Failed deliveries are retried according to the queue policy and can be inspected from the admin console.
+
+### Quotas and rate limiting
+
+- `email_quota` tracks the sending allowance per period to stay within provider limits.
+- `email_queue` stores pending and completed jobs so nothing is lost if the worker restarts.
+- Delivery status is observable from the admin area for auditing and troubleshooting.
+
+## Background processing
+
+Redis and BullMQ power the asynchronous layer. It is initialized at backend startup and shared with the worker service.
+
+Typical jobs:
+
+- Welcome email for new subscribers
+- Campaign and action notifications to targeted segments
+- Reminders for upcoming actions (SubscribersReminders)
+- Petition follow-ups for signers who opted in
+- Retries for previously failed deliveries
+
+The queue is designed to be extended with new job types without changing the API surface.
+
+## Subscribers
+
+Subscribers are the platform's contactable audience. The system supports:
+
+- Registration from public forms with double opt-in style verification
+- Preference management (which types of communications the subscriber wants)
+- Segment filtering by campaign, action, BDS, or general interest
+- Unsubscribe flow with a public endpoint
+- Reminder scheduling linked to specific actions
+- Delivery history and quota tracking per subscriber
+
+Admin users can browse subscribers, filter them by campaign or action, and export lists.
+
+## Petitions and signatures
+
+Petitions allow visitors to add their voice to a cause. Two models coexist:
+
+- **Official petitions** — link to an external signing platform. The user is redirected to the official site to sign, and the platform tracks the petition as a reference.
+- **Internal petitions** — signed directly on LunaRoja. The user fills a configurable form, and the signature is stored and validated on the backend.
+
+### Internal signature flow
+
+1. The public petition page fetches the petition and its signature fields.
+2. A CSRF token is requested before the form is submitted.
+3. On submit, the backend validates the fields, checks for duplicates using a hash of identifying values (`signature_hashes`), and stores the signature.
+4. A confirmation email is sent using the default petition template, unless the user opted out.
+5. Petitions can be closed or have signing limits enforced per business rules.
+
+### Anti-abuse
+
+- CSRF protection on every signature endpoint.
+- Duplicate detection through `signature_hashes` to prevent repeat signatures from the same person.
+- Rate limiting on the public endpoint.
 
 ## Public site
 
@@ -226,6 +306,9 @@ TEST_ADMIN_PASS=admin123
 - `docker-compose.yml` — service orchestration and local dependencies
 - `backend/src/app.js` — backend entry point and startup flow
 - `backend/src/routes` — API structure and feature modules
+- `backend/src/services/queueService.js` — BullMQ queue initialization and job helpers
+- `backend/src/services/emailService.js` — Nodemailer + Handlebars rendering
+- `backend/src/services/documentService.js` — file and document lifecycle
 - `backend/scripts/seed-demo.js` — demo data seeding
 - `frontend/src` — UI pages, components, and shared application state
 - `frontend/tests/unit` — Jest unit tests
