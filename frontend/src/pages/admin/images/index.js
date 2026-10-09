@@ -3,9 +3,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { exportInfo } from '../../../utils/exportInfo';
-import { FaFileExport, FaSearch, FaTrash, FaImage, FaTimes, FaBolt, FaBullhorn, FaPenFancy, FaHandshake } from 'react-icons/fa';
+import { FaSearch, FaTrash, FaImage, FaTimes, FaBolt, FaBullhorn, FaPenFancy, FaHandshake } from 'react-icons/fa';
 import ConfirmModal from '../../../components/ConfirmModal';
+import { downloadImage, downloadImagesAsZip } from '../../../utils/imageDownload';
+import { FaDownload } from 'react-icons/fa';
 
 const typeLabels = {
   action: 'Acción',
@@ -45,9 +46,11 @@ export default function AdminImages() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selected, setSelected] = useState([]);
+
+  // Formato de descarga (jpg | png)
+  const [downloadFormat, setDownloadFormat] = useState('jpg');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [exportFormat, setExportFormat] = useState('csv');
 
   // Filtros
   const [filterType, setFilterType] = useState('all');
@@ -122,16 +125,40 @@ export default function AdminImages() {
     }
   };
 
-  const exportCollection = () => {
-    const headers = ['id', 'url', 'relatedTitle', 'relatedType', 'createdAt'];
-    const data = images.map(img => ({
-      id: img.id,
-      url: img.url,
-      relatedTitle: img.relatedTitle || '',
-      relatedType: typeLabels[img.relatedType] || img.relatedType,
-      createdAt: new Date(img.createdAt).toLocaleString(),
-    }));
-    exportInfo(data, headers, 'coleccion_imagenes', exportFormat);
+  const downloadOne = async (img) => {
+    const t = toast.loading('Descargando imagen...');
+    try {
+      const base = (img.relatedTitle || `imagen_${img.id}`).slice(0, 60);
+      await downloadImage(img.url, base, downloadFormat);
+      toast.update(t, { render: '✅ Imagen descargada', type: 'success', isLoading: false, autoClose: 2500 });
+    } catch (err) {
+      console.error(err);
+      toast.update(t, { render: '❌ Error al descargar', type: 'error', isLoading: false, autoClose: 3500 });
+    }
+  };
+
+  const downloadSelected = async () => {
+    const items = selected.length > 0
+      ? images.filter(i => selected.includes(i.id))
+      : images;
+
+    if (items.length === 0) {
+      toast.warning('No hay imágenes');
+      return;
+    }
+
+    const t = toast.loading(`Descargando ${items.length} imágenes como ZIP...`);
+    try {
+      await downloadImagesAsZip(
+        items.map(i => ({ url: i.url, filename: (i.relatedTitle || `img_${i.id}`).slice(0, 60) })),
+        'galeria',
+        downloadFormat
+      );
+      toast.update(t, { render: '✅ ZIP descargado', type: 'success', isLoading: false, autoClose: 3000 });
+    } catch (err) {
+      console.error(err);
+      toast.update(t, { render: '❌ Error al generar ZIP', type: 'error', isLoading: false, autoClose: 4000 });
+    }
   };
 
   const clearFilters = () => {
@@ -273,17 +300,21 @@ export default function AdminImages() {
                 <FaTrash /> Eliminar ({selected.length})
               </button>
             )}
-            <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs">
-              <option value="csv">CSV</option>
-              <option value="xlsx">Excel</option>
-              <option value="txt">Texto</option>
+            <select
+              value={downloadFormat}
+              onChange={(e) => setDownloadFormat(e.target.value)}
+              className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white"
+              title="Formato de descarga"
+            >
+              <option value="jpg">JPG</option>
+              <option value="png">PNG</option>
             </select>
             <button
-              onClick={exportCollection}
-              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-              title="Exportar colección filtrada"
+              onClick={downloadSelected}
+              className="inline-flex items-center gap-1 text-xs text-fuchsia-700 hover:text-fuchsia-900 transition-colors font-medium"
+              title="Descargar seleccionadas como ZIP"
             >
-              <FaFileExport className="w-4 h-4" /> Exportar colección
+              <FaDownload className="w-4 h-4" /> Descargar {selected.length > 0 ? `(${selected.length})` : 'todas'}
             </button>
           </div>
         </div>
@@ -334,7 +365,16 @@ export default function AdminImages() {
                     </div>
                     <div className="p-2 text-xs">
                       <p className="font-medium text-gray-700 truncate">{img.relatedTitle || 'Sin título'}</p>
-                      <p className="text-gray-500">{new Date(img.createdAt).toLocaleDateString()}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-gray-500">{new Date(img.createdAt).toLocaleDateString()}</p>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); downloadOne(img); }}
+                          className="p-1 text-gray-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded transition-colors"
+                          title={`Descargar como ${downloadFormat.toUpperCase()}`}
+                        >
+                          <FaDownload className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

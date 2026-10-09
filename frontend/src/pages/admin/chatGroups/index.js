@@ -9,6 +9,8 @@ import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
 import { FaEdit, FaTrash, FaFileExport, FaSearch, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { unwrapList } from '../../../utils/apiHelpers';
+import ViewToggle from '../../../components/ViewToggle';
+import AdminChatGroupCard from '../../../components/AdminChatGroupCard';
 
 function AdminChatGroups() {
   const [groups, setGroups] = useState([]);
@@ -16,6 +18,16 @@ function AdminChatGroups() {
   const [bds, setBDS] = useState([]);
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Vista mosaico/lista (persistida)
+  const [viewMode, setViewModeRaw] = useState(() => {
+    if (typeof window === 'undefined') return 'table';
+    return localStorage.getItem('admin.chatGroups.viewMode') || 'table';
+  });
+  const setViewMode = (mode) => {
+    setViewModeRaw(mode);
+    if (typeof window !== 'undefined') localStorage.setItem('admin.chatGroups.viewMode', mode);
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');        // active / inactive
@@ -215,6 +227,18 @@ function AdminChatGroups() {
           <p className="text-sm">Crea un nuevo grupo.</p>
         </div>
       ) : (
+        <>
+        <div className="flex justify-end mb-3">
+          <ViewToggle viewMode={viewMode} onChange={setViewMode} accentColor="fuchsia" />
+        </div>
+
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginated.map(group => (
+              <AdminChatGroupCard key={group.id} group={group} associationLabel={getAssociationLabel(group)} />
+            ))}
+          </div>
+        ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-purple-100 text-sm">
             <thead className="bg-fuchsia-50 text-fuchsia-800 uppercase tracking-wider text-xs font-semibold">
@@ -262,6 +286,8 @@ function AdminChatGroups() {
           </table>
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
+        )}
+        </>
       )}
     </AdminLayout>
   );
