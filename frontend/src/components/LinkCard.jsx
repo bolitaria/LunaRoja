@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { FaEdit, FaTrash, FaExternalLinkAlt, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaExternalLinkAlt, FaCheck, FaTimes, FaGlobe } from 'react-icons/fa';
+import { LINK_REGION_LABELS } from '../utils/linkRegions';
 
 const CATEGORY_STYLES = {
   local: 'bg-green-100 text-green-800',
@@ -22,8 +23,16 @@ export default function LinkCard({ link, onDelete }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
       <div className="p-4 flex-1 flex flex-col">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${catStyle}`}>{catLabel}</span>
+        <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${catStyle}`}>{catLabel}</span>
+            {link.category === 'internacional' && link.region && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
+                <FaGlobe className="w-3 h-3" />
+                {LINK_REGION_LABELS[link.region] || link.region}
+              </span>
+            )}
+          </div>
           <span className={`inline-flex items-center gap-1 text-xs font-medium ${link.active ? 'text-green-600' : 'text-gray-400'}`}>
             {link.active ? <FaCheck className="w-3 h-3" /> : <FaTimes className="w-3 h-3" />}
             {link.active ? 'Activo' : 'Inactivo'}

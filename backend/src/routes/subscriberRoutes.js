@@ -33,4 +33,10 @@ router.get('/unfollow-action', async (req, res) => {
 router.get('/', authMiddleware, isSuperAdmin, subscriberController.getAllSubscribers);
 router.delete('/:id', authMiddleware, isSuperAdmin, subscriberController.deleteSubscriber);
 
+// ── Métricas agregadas (solo superadmin) ───────────────────────
+router.get('/metrics', authMiddleware, isSuperAdmin, subscriberController.getMetrics);
+router.get('/by-campaign', authMiddleware, isSuperAdmin, subscriberController.getByCampaign);
+router.get('/by-action', authMiddleware, isSuperAdmin, subscriberController.getByAction);
+router.get('/activity', authMiddleware, isSuperAdmin, subscriberController.getActivity);
+
 module.exports = router;

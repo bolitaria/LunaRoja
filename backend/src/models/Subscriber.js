@@ -13,6 +13,12 @@ const Subscriber = sequelize.define('Subscriber', {
     unique: true,
     validate: { isEmail: true },
   },
+  // Identificador público sin exponer email. Ej: 'SR-00234'
+  publicId: {
+    type: DataTypes.STRING(20),
+    unique: true,
+    allowNull: true, // se autogenera en afterCreate
+  },
   status: {
     type: DataTypes.ENUM('active', 'unsubscribed'),
     defaultValue: 'active',
@@ -24,6 +30,10 @@ const Subscriber = sequelize.define('Subscriber', {
   subscribedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
+  },
+  unsubscribedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -38,6 +48,14 @@ const Subscriber = sequelize.define('Subscriber', {
 }, {
   tableName: 'Subscribers',
   timestamps: true,
+  hooks: {
+    afterCreate: async (subscriber) => {
+      if (!subscriber.publicId) {
+        const padded = String(subscriber.id).padStart(5, '0');
+        await subscriber.update({ publicId: `SR-${padded}` }, { hooks: false });
+      }
+    },
+  },
 });
 
 module.exports = Subscriber;

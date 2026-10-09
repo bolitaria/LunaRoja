@@ -5,10 +5,12 @@ import { useRouter } from 'next/router';
 import AdminLayout from '../../../../components/AdminLayout';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Link from 'next/link';
 import NewsPreview from '../../../../components/NewsPreview';
 import { unwrapList } from '../../../../utils/apiHelpers';
-import { FaArrowLeft, FaYoutube } from 'react-icons/fa';
+import { FaArrowLeft, FaYoutube, FaNewspaper, FaPenFancy, FaMagic } from 'react-icons/fa';
+
+const YOUTUBE_REGEX = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+const isYouTubeUrl = (url) => YOUTUBE_REGEX.test(url || '');
 
 export default function EditNews() {
   const router = useRouter();
@@ -16,16 +18,24 @@ export default function EditNews() {
   const [campaigns, setCampaigns] = useState([]);
   const [actions, setActions] = useState([]);
   const [form, setForm] = useState({
+    newsType: 'youtube',
     title: '',
     description: '',
     youtubeUrl: '',
+    externalUrl: '',
+    source: '',
+    ogImage: '',
+    ogDescription: '',
+    publishedAtSource: '',
+    scrapedAt: '',
+    content: '',
     thumbnail: '',
     publishedAt: '',
     isNews: true,
     campaignId: '',
     actionId: '',
   });
-  const [thumbnailPreview, setThumbnailPreview] = useState('');
+  const [scraping, setScraping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -41,16 +51,25 @@ export default function EditNews() {
         ]);
         const n = newsRes.data;
         setForm({
+          newsType: n.newsType || 'youtube',
           title: n.title || '',
           description: n.description || '',
           youtubeUrl: n.youtubeUrl || '',
+          externalUrl: n.externalUrl || '',
+          source: n.source || '',
+          ogImage: n.ogImage || '',
+          ogDescription: n.ogDescription || '',
+          publishedAtSource: n.publishedAtSource
+            ? new Date(n.publishedAtSource).toISOString().slice(0, 16)
+            : '',
+          scrapedAt: n.scrapedAt || '',
+          content: n.content || '',
           thumbnail: n.thumbnail || '',
           publishedAt: n.publishedAt ? new Date(n.publishedAt).toISOString().slice(0, 16) : '',
           isNews: n.isNews !== undefined ? n.isNews : true,
           campaignId: n.campaignId || '',
           actionId: n.actionId || '',
         });
-        setThumbnailPreview(n.thumbnail || '');
         setCampaigns(unwrapList(campRes.data));
         setActions(unwrapList(actRes.data));
       } catch (error) {
@@ -68,23 +87,73 @@ export default function EditNews() {
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleThumbnailChange = (e) => {
+  const handleTypeChange = (newType) => {
+    setForm(prev => ({ ...prev, newsType: newType }));
+  };
+
+  const handleUrlChange = (e) => {
     const url = e.target.value;
-    setForm(prev => ({ ...prev, thumbnail: url }));
-    setThumbnailPreview(url);
+    if (isYouTubeUrl(url)) {
+      setForm(prev => ({ ...prev, newsType: 'youtube', youtubeUrl: url, externalUrl: '' }));
+    } else {
+      setForm(prev => ({ ...prev, externalUrl: url, youtubeUrl: '' }));
+    }
+  };
+
+  const handleScrape = async () => {
+    const url = form.externalUrl.trim();
+    if (!url) { toast.warning('Pega una URL primero'); return; }
+    setScraping(true);
+    try {
+      const res = await api.post('/news/scrape', { url });
+      const data = res.data || {};
+      setForm(prev => ({
+        ...prev,
+        title: data.title || prev.title,
+        description: data.description || prev.description,
+        ogImage: data.image || prev.ogImage,
+        source: data.source || prev.source,
+        publishedAtSource: data.publishedAt
+          ? new Date(data.publishedAt).toISOString().slice(0, 16)
+          : prev.publishedAtSource,
+        scrapedAt: new Date().toISOString(),
+        publishedAt: data.publishedAt
+          ? new Date(data.publishedAt).toISOString().slice(0, 16)
+          : prev.publishedAt,
+      }));
+      toast.success('Datos extraídos');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'No se pudieron extraer los datos');
+    } finally {
+      setScraping(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) { toast.warning('El título es obligatorio'); return; }
-    if (!form.youtubeUrl.trim()) { toast.warning('La URL de YouTube es obligatoria'); return; }
+    if (form.newsType === 'youtube' && !form.youtubeUrl.trim()) {
+      toast.warning('La URL de YouTube es obligatoria'); return;
+    }
+    if (form.newsType === 'article' && !form.externalUrl.trim()) {
+      toast.warning('La URL del artículo es obligatoria'); return;
+    }
 
     setLoading(true);
     try {
       const payload = {
+        newsType: form.newsType,
         title: form.title,
         description: form.description || '',
-        youtubeUrl: form.youtubeUrl,
+        youtubeUrl: form.newsType === 'youtube' ? form.youtubeUrl : null,
+        externalUrl: form.newsType === 'article' ? form.externalUrl : null,
+        source: form.source || null,
+        ogImage: form.ogImage || null,
+        ogDescription: form.ogDescription || null,
+        publishedAtSource: form.publishedAtSource || null,
+        scrapedAt: form.scrapedAt || null,
+        content: form.newsType === 'internal' ? form.content : null,
         thumbnail: form.thumbnail || null,
         publishedAt: form.publishedAt || new Date(),
         isNews: form.isNews,
@@ -103,8 +172,6 @@ export default function EditNews() {
   };
 
   const inputClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-fuchsia-200 focus:border-fuchsia-400 transition-colors";
-  const selectClass = inputClass;
-
   const campaignName = campaigns.find(c => String(c.id) === String(form.campaignId))?.name;
   const actionName = actions.find(a => String(a.id) === String(form.actionId))?.title;
 
@@ -125,6 +192,59 @@ export default function EditNews() {
 
       <div className="flex flex-col lg:flex-row gap-8">
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm lg:w-2/3 lg:self-start space-y-6">
+
+          {/* Selector de tipo */}
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-3">Tipo de noticia</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button type="button" onClick={() => handleTypeChange('youtube')}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${form.newsType === 'youtube' ? 'border-red-500 bg-red-50 text-red-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}>
+                <FaYoutube className="w-5 h-5" /> YouTube
+              </button>
+              <button type="button" onClick={() => handleTypeChange('article')}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${form.newsType === 'article' ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}>
+                <FaNewspaper className="w-5 h-5" /> Artículo
+              </button>
+              <button type="button" onClick={() => handleTypeChange('internal')}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${form.newsType === 'internal' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}>
+                <FaPenFancy className="w-5 h-5" /> Redacción
+              </button>
+            </div>
+          </div>
+
+          {form.newsType === 'youtube' && (
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-1">URL de YouTube *</label>
+              <input type="url" value={form.youtubeUrl} onChange={handleUrlChange} required placeholder="https://youtube.com/watch?v=..." className={inputClass} />
+            </div>
+          )}
+
+          {form.newsType === 'article' && (
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-1">URL del artículo *</label>
+              <div className="flex gap-2">
+                <input type="url" value={form.externalUrl} onChange={handleUrlChange} required placeholder="https://elpais.com/..." className={inputClass} />
+                <button type="button" onClick={handleScrape} disabled={scraping || !form.externalUrl}
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap font-medium transition-colors">
+                  <FaMagic className="w-4 h-4" />
+                  {scraping ? 'Extrayendo...' : 'Extraer'}
+                </button>
+              </div>
+              {form.scrapedAt && (
+                <p className="text-xs text-green-700 mt-1">
+                  ✅ Extraído el {new Date(form.scrapedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+
+          {form.newsType === 'article' && (
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-1">Fuente (periódico)</label>
+              <input type="text" name="source" value={form.source} onChange={handleChange} placeholder="El País, Al Jazeera, BBC..." className={inputClass} />
+            </div>
+          )}
+
           <div>
             <label className="block text-base font-medium text-gray-700 mb-1">Título *</label>
             <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputClass} />
@@ -135,19 +255,21 @@ export default function EditNews() {
             <textarea name="description" value={form.description} onChange={handleChange} rows="4" className={inputClass} />
           </div>
 
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">
-              URL de YouTube * <FaYoutube className="inline text-red-500 ml-1" />
-            </label>
-            <input type="url" name="youtubeUrl" value={form.youtubeUrl} onChange={handleChange} required
-              placeholder="https://youtube.com/watch?v=..." className={inputClass} />
-          </div>
+          {form.newsType === 'internal' && (
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-1">Contenido (HTML o texto)</label>
+              <textarea name="content" value={form.content} onChange={handleChange} rows="8" placeholder="<p>Escribe aquí el contenido...</p>" className={inputClass + ' font-mono text-sm'} />
+            </div>
+          )}
 
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-1">URL de miniatura</label>
-            <input type="url" name="thumbnail" value={form.thumbnail} onChange={handleThumbnailChange}
-              placeholder="https://... o /uploads/..." className={inputClass} />
-          </div>
+          {form.newsType === 'article' && (
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-1">Imagen destacada (URL)</label>
+              <input type="url" name="ogImage" value={form.ogImage} onChange={handleChange} placeholder="https://..." className={inputClass} />
+            </div>
+          )}
+
+          
 
           <div>
             <label className="block text-base font-medium text-gray-700 mb-1">Fecha de publicación</label>
@@ -163,14 +285,14 @@ export default function EditNews() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-base font-medium text-gray-700 mb-1">Campaña</label>
-              <select name="campaignId" value={form.campaignId} onChange={handleChange} className={selectClass}>
+              <select name="campaignId" value={form.campaignId} onChange={handleChange} className={inputClass}>
                 <option value="">-- Sin campaña --</option>
                 {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-base font-medium text-gray-700 mb-1">Acción</label>
-              <select name="actionId" value={form.actionId} onChange={handleChange} className={selectClass}>
+              <select name="actionId" value={form.actionId} onChange={handleChange} className={inputClass}>
                 <option value="">-- Sin acción --</option>
                 {actions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
               </select>
@@ -183,11 +305,8 @@ export default function EditNews() {
           </button>
         </form>
 
-        <div className="lg:w-1/3 lg:self-start">
-          <NewsPreview
-            form={{ ...form, campaignName, actionName }}
-            featuredImage={thumbnailPreview}
-          />
+        <div className="lg:w-1/3 lg:self-start lg:sticky lg:top-4">
+          <NewsPreview form={{ ...form, campaignName, actionName }} />
         </div>
       </div>
     </AdminLayout>

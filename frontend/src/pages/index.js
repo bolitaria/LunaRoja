@@ -21,7 +21,7 @@ export default function Home() {
       try {
         const [newsRes, reportsRes, actionsRes, galleryRes] = await Promise.allSettled([
           api.get('/news'),
-          api.get('/reportes'),
+          api.get('/reports'),
           api.get('/actions'),
           api.get('/images'),
         ]);

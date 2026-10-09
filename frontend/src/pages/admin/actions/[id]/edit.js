@@ -115,7 +115,7 @@ function EditAction() {
         }
         setCurrentFeaturedImage(action.featuredImage || null);
         if (action.featuredImage) setFeaturedImagePreview(`${action.featuredImage}`);
-        setExistingImages(action.images || []);
+        setExistingImages(Array.isArray(action.galleryImages) ? action.galleryImages : []);
         if (action.documents) {
           setDocuments(action.documents.map(doc => ({
             id: doc.id,
@@ -128,8 +128,8 @@ function EditAction() {
             isNew: false,
           })));
         }
-        setCampaigns(campaignsRes.data || []);
-        setBdsList(bdsRes.data || []);
+        setCampaigns(unwrapList(campaignsRes.data));
+        setBdsList(unwrapList(bdsRes.data));
       } catch (error) {
         console.error('Error al cargar datos:', error);
         if (error.code === 'ERR_NETWORK') toast.error('No se pudo conectar con el servidor.');

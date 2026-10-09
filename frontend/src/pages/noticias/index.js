@@ -1,44 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../../lib/axios';
 import Layout from '../../components/Layout';
 import NewsCard from '../../components/NewsCard';
+import Pagination from '../../components/Pagination';
 import { unwrapList } from '../../utils/apiHelpers';
+import { FaYoutube, FaNewspaper, FaPenFancy, FaThLarge } from 'react-icons/fa';
+
+const TYPE_FILTERS = [
+  { key: 'all', label: 'Todas', Icon: FaThLarge },
+  { key: 'youtube', label: 'Vídeos', Icon: FaYoutube },
+  { key: 'article', label: 'Artículos', Icon: FaNewspaper },
+  { key: 'internal', label: 'Redacción', Icon: FaPenFancy },
+];
 
 export default function Noticias() {
   const [news, setNews] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState('all');
   const [filterCampaign, setFilterCampaign] = useState('all');
   const [showNewsOnly, setShowNewsOnly] = useState(false);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [newsRes, campaignsRes, actionsRes] = await Promise.all([
-          api.get('/news'), api.get('/campaigns', { params: { limit: 1000 } }), api.get('/actions')
+          api.get('/news', { params: { limit: 200 } }),
+          api.get('/campaigns', { params: { limit: 1000 } }),
+          api.get('/actions', { params: { limit: 1000 } }),
         ]);
         setNews(unwrapList(newsRes.data));
         setCampaigns(unwrapList(campaignsRes.data));
         setActions(unwrapList(actionsRes.data));
-      } catch (error) { console.error('Error fetching data:', error); }
-      finally { setLoading(false); }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, []);
 
-  const hasCampaign = (noticia) => noticia.campaignId != null && noticia.campaignId !== '';
-  const hasAction = (noticia) => noticia.actionId != null && noticia.actionId !== '';
+  const hasCampaign = (n) => n.campaignId != null && n.campaignId !== '';
+  const hasAction = (n) => n.actionId != null && n.actionId !== '';
 
-  const filteredNews = news.filter(noticia => {
-    if (showNewsOnly) {
-      const isNews = noticia.isNews === true;
-      const isGeneral = !hasCampaign(noticia) && !hasAction(noticia);
-      if (!(isNews || isGeneral)) return false;
-    }
-    if (filterCampaign !== 'all' && noticia.campaignId !== parseInt(filterCampaign)) return false;
-    return true;
-  });
+  const counts = useMemo(() => {
+    return news.reduce((acc, n) => {
+      const t = n.newsType || 'youtube';
+      acc[t] = (acc[t] || 0) + 1;
+      acc.all = (acc.all || 0) + 1;
+      return acc;
+    }, { all: 0, youtube: 0, article: 0, internal: 0 });
+  }, [news]);
+
+  const filteredNews = useMemo(() => {
+    return news.filter((n) => {
+      if (filterType !== 'all' && (n.newsType || 'youtube') !== filterType) return false;
+      if (showNewsOnly) {
+        const isNews = n.isNews === true;
+        const isGeneral = !hasCampaign(n) && !hasAction(n);
+        if (!(isNews || isGeneral)) return false;
+      }
+      if (filterCampaign !== 'all' && n.campaignId !== parseInt(filterCampaign)) return false;
+      return true;
+    });
+  }, [news, filterType, filterCampaign, showNewsOnly]);
+
+  // Resetear página al cambiar filtros
+  useEffect(() => { setCurrentPage(1); }, [filterType, filterCampaign, showNewsOnly, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
+  const paginatedNews = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredNews.slice(start, start + itemsPerPage);
+  }, [filteredNews, currentPage, itemsPerPage]);
 
   const campaignMap = campaigns.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
   const actionMap = actions.reduce((acc, a) => ({ ...acc, [a.id]: a }), {});
@@ -48,6 +88,29 @@ export default function Noticias() {
       <div className="container mx-auto px-4 py-8 pb-16">
         <h1 className="text-4xl font-bold mb-10 text-center text-gray-700">Noticias</h1>
 
+        {/* Chips de tipo */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {TYPE_FILTERS.map(({ key, label, Icon }) => {
+            const count = counts[key] || 0;
+            if (key !== 'all' && count === 0) return null;
+            return (
+              <button
+                key={key}
+                onClick={() => setFilterType(key)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  filterType === key
+                    ? 'bg-[#0EA5E9] text-white shadow-md'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-sky-50'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filtros secundarios */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
           <button
             onClick={() => setShowNewsOnly(!showNewsOnly)}
@@ -75,9 +138,30 @@ export default function Noticias() {
         ) : filteredNews.length === 0 ? (
           <p className="text-center py-20 text-gray-600">No hay noticias que coincidan con los filtros.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredNews.map(noticia => (<NewsCard key={noticia.id} noticia={noticia} campaign={campaignMap[noticia.campaignId]} action={actionMap[noticia.actionId]} />))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {paginatedNews.map(noticia => (
+                <NewsCard
+                  key={noticia.id}
+                  noticia={noticia}
+                  campaign={campaignMap[noticia.campaignId]}
+                  action={actionMap[noticia.actionId]}
+                />
+              ))}
+            </div>
+
+            {filteredNews.length > 0 && (
+              <div className="mt-10 mb-4 bg-white rounded-2xl shadow-sm border border-gray-200 px-6">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  itemsPerPage={itemsPerPage}
+                  onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </Layout>

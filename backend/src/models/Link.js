@@ -17,6 +17,22 @@ Link.init({
     allowNull: false,
     defaultValue: 'local',
   },
+  // Sub-región, solo aplica cuando category === 'internacional'
+  region: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    validate: {
+      isIn: [[
+        null,
+        'norteamerica',
+        'america_latina',
+        'africa',
+        'asia_occidental',
+        'asia_meridional_oriental',
+        'oceania',
+      ]],
+    },
+  },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
   created_by: { type: DataTypes.INTEGER, allowNull: false },
 }, {

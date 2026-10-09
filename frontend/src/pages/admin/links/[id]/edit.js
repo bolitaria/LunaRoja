@@ -5,6 +5,7 @@ import api from '../../../../lib/axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaEye, FaTimes } from 'react-icons/fa';
+import { LINK_REGIONS } from '../../../../utils/linkRegions';
 
 export default function EditLink() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function EditLink() {
           url: link.url || '',
           description: link.description || '',
           category: link.category || 'local',
+          region: link.region || '',
           active: link.active,
         });
       })
@@ -39,8 +41,13 @@ export default function EditLink() {
   }, [id]);
 
   const handleChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+    const { name, type, checked, value } = e.target;
+    const v = type === 'checkbox' ? checked : value;
+    setForm(prev => ({
+      ...prev,
+      [name]: v,
+      ...(name === 'category' && v !== 'internacional' && { region: '' }),
+    }));
   };
 
   const handleSubmit = async (e) => {
