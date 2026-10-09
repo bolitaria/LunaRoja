@@ -7,8 +7,11 @@ import 'react-toastify/dist/ReactToastify.css';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { exportInfo } from '../../../utils/exportInfo';
+import { exportPetitionsToPDF } from '../../../utils/exportPetitionsPdf';
 import Pagination from '../../../components/Pagination';
 import ConfirmModal from '../../../components/ConfirmModal';
+import ViewToggle from '../../../components/ViewToggle';
+import PetitionCard from '../../../components/PetitionCard';
 import {
   FaEye, FaEyeSlash, FaTrash, FaSearch, FaEdit, FaFileExport,
   FaFire, FaLock, FaUnlock, FaSlidersH, FaCalendarAlt,
@@ -19,6 +22,18 @@ function AdminPetitions() {
   const [petitions, setPetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Vista mosaico/lista (persistida en localStorage)
+  const [viewMode, setViewModeRaw] = useState(() => {
+    if (typeof window === 'undefined') return 'table';
+    return localStorage.getItem('admin.petitions.viewMode') || 'table';
+  });
+  const setViewMode = (mode) => {
+    setViewModeRaw(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin.petitions.viewMode', mode);
+    }
+  };
   const { user } = useAuth();
 
   // Filtros principales
@@ -201,6 +216,38 @@ function AdminPetitions() {
     setShowExportOptions(false);
   };
 
+  const exportDataPDF = async () => {
+    const source = selected.length > 0
+      ? petitions.filter(p => selected.includes(p.id))
+      : petitions;
+
+    if (source.length === 0) {
+      toast.warning('No hay peticiones para exportar');
+      return;
+    }
+
+    setShowExportOptions(false);
+    const t = toast.loading(`Generando PDF (${source.length} peticiones)...`);
+
+    try {
+      await exportPetitionsToPDF(source, `peticiones_${Date.now()}.pdf`);
+      toast.update(t, {
+        render: '✅ PDF generado',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000,
+      });
+    } catch (err) {
+      console.error(err);
+      toast.update(t, {
+        render: '❌ Error al generar PDF',
+        type: 'error',
+        isLoading: false,
+        autoClose: 4000,
+      });
+    }
+  };
+
   const handleRowClick = (e, petitionId) => {
     if (e.target.closest('button') || e.target.closest('a')) return;
     const isCtrl = e.ctrlKey || e.metaKey;
@@ -302,6 +349,7 @@ function AdminPetitions() {
                 <button onClick={() => exportData('csv')} className="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">CSV</button>
                 <button onClick={() => exportData('xlsx')} className="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Excel</button>
                 <button onClick={() => exportData('txt')} className="block w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Texto</button>
+                <button onClick={exportDataPDF} className="block w-full text-left px-3 py-1.5 text-sm text-fuchsia-700 font-medium hover:bg-fuchsia-50 border-t border-gray-100">📄 PDF (vista pública)</button>
               </div>
             )}
           </div>
@@ -531,6 +579,22 @@ function AdminPetitions() {
         </div>
       ) : (
         <>
+        {/* Toggle vista mosaico/lista */}
+        <div className="flex justify-end mb-3">
+          <ViewToggle viewMode={viewMode} onChange={setViewMode} accentColor="fuchsia" />
+        </div>
+
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {petitions.map(p => (
+              <PetitionCard
+                key={p.id}
+                petition={p}
+                onToggleHidden={toggleHidden}
+              />
+            ))}
+          </div>
+        ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider text-xs font-semibold">
@@ -593,6 +657,7 @@ function AdminPetitions() {
             </tbody>
           </table>
         </div>
+        )}
         <div className="border-t border-gray-200 px-4 py-3 mt-auto">
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }} />
         </div>
