@@ -309,7 +309,8 @@ const startServer = async () => {
     await ensureColectivosAfinesTable();
     await ensureAdminAuditTable();
 
-    require('./jobs/reminderJob');
+    const { startReminderJob } = require('./jobs/reminderJob');
+    if (process.env.NODE_ENV !== 'test') startReminderJob();
     if (process.env.SKIP_EMAILS !== 'true' && process.env.NODE_ENV !== 'test') {
       require('./jobs/emailQueueJob');
     } else {

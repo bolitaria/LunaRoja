@@ -1,9 +1,7 @@
 name: Load Tests
 
 on:
-  schedule:
-    - cron: '0 3 * * 6'  # Sábados 3 AM UTC
-  workflow_dispatch:
+  workflow_dispatch:  # manual only: requires STAGING_URL and admin secrets
 
 jobs:
   load-test:
