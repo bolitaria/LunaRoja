@@ -1,5 +1,8 @@
 # LunaRoja
 
+[![CI/CD](https://github.com/bolitaria/LunaRoja/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/bolitaria/LunaRoja/actions/workflows/ci-cd.yml)
+[![Semgrep](https://github.com/bolitaria/LunaRoja/actions/workflows/semgrep.yml/badge.svg)](https://github.com/bolitaria/LunaRoja/actions/workflows/semgrep.yml)
+
 LunaRoja is a full-stack platform for civic engagement, advocacy, and community mobilization. It combines a public-facing experience, an administrative console, and a backend API for content management, user workflows, subscribers, petitions, uploads, reminders, and communications.
 
 ## Product scope
