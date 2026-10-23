@@ -280,6 +280,7 @@ jobs:
           start: npm start
           wait-on: 'http://localhost:3000'
         env:
+          NODE_ENV: production  # next start requires production, not test
           INTERNAL_API_URL: http://localhost:5000
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_admin_username: admin
