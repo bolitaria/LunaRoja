@@ -5,5 +5,18 @@
   "rules": {
     "@next/next/no-img-element": "off",
     "@next/next/no-page-custom-font": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.js",
+        "**/*.test.jsx",
+        "tests/**/*.js",
+        "tests/**/*.jsx"
+      ],
+      "rules": {
+        "react/display-name": "off"
+      }
+    }
+  ]
 }
